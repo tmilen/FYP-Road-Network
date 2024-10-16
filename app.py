@@ -1,11 +1,12 @@
 from flask import Flask, render_template
-from database import get_top_congested_roads
-from map import create_bottleneck_map
+from scripts.database import get_top_congested_roads
+from scripts.map import create_bottleneck_map
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
+    
     # Fetch the top 10 congested roads
     roads = get_top_congested_roads()
     

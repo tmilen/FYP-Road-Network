@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <?xml version="1.0" encoding="UTF-8"?>
 <town>
     <map width="1000" height="800">
@@ -82,4 +83,90 @@
             </g>
         </svg>
     </map>
+=======
+<?xml version="1.0" encoding="UTF-8"?>
+<town>
+    <map width="1000" height="800">
+        <!-- Define road network structure -->
+        <routes>
+            <route id="main-horizontal" type="horizontal" y="400">
+                <start x="50" />
+                <end x="950" />
+                <intersections>
+                    <point x="150" />
+                    <point x="500" />
+                    <point x="850" />
+                </intersections>
+            </route>
+            <route id="center-vertical" type="vertical" x="500">
+                <start y="50" />
+                <end y="750" />
+                <intersections>
+                    <point y="400" />
+                </intersections>
+            </route>
+            <route id="left-vertical" type="vertical" x="150">
+                <start y="50" />
+                <end y="400" />
+                <intersections>
+                    <point y="400" />
+                </intersections>
+            </route>
+            <route id="right-vertical" type="vertical" x="850">
+                <start y="400" />
+                <end y="750" />
+                <intersections>
+                    <point y="400" />
+                </intersections>
+            </route>
+        </routes>
+
+        <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="800" viewBox="0 0 1000 800">
+            <rect width="1000" height="800" fill="#f8f9fa"/>
+            <!-- Define markers for intersections -->
+            <defs>
+                <marker id="intersection" viewBox="-5 -5 10 10" markerWidth="10" markerHeight="10">
+                    <circle r="4" fill="#333333"/>
+                </marker>
+            </defs>
+
+            <g id="roads" fill="none" stroke="#333333">
+                <!-- Main horizontal road -->
+                <path id="main-horizontal-road" 
+                      d="M50,400 L950,400" 
+                      stroke-width="40" 
+                      stroke-linecap="round"
+                      data-route="main-horizontal"/>
+
+                <!-- Center vertical road -->
+                <path id="center-vertical-road" 
+                      d="M500,50 L500,750" 
+                      stroke-width="40" 
+                      stroke-linecap="round"
+                      data-route="center-vertical"/>
+
+                <!-- Left vertical road -->
+                <path id="left-vertical-road" 
+                      d="M150,400 L150,50" 
+                      stroke-width="40" 
+                      stroke-linecap="round"
+                      data-route="left-vertical"/>
+
+                <!-- Right vertical road -->
+                <path id="right-vertical-road" 
+                      d="M850,400 L850,750" 
+                      stroke-width="40" 
+                      stroke-linecap="round"
+                      data-route="right-vertical"/>
+
+                <!-- Intersection points -->
+                <g id="intersections" fill="#333333">
+                    <circle cx="150" cy="400" r="5" data-intersection="left"/>
+                    <circle cx="500" cy="400" r="5" data-intersection="center"/>
+                    <circle cx="850" cy="400" r="5" data-intersection="right"/>
+                </g>
+            </g>
+        </svg>
+    </map>
+>>>>>>> master
 </town>

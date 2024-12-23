@@ -1,0 +1,531 @@
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: lightgray;
+  margin: 0;
+  padding: 0;
+}
+
+.title {
+  font-size: 3rem;
+  font-weight: 600;
+  text-align: center;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+  color: hsl(0, 0%, 29%);
+}
+
+.usermanagementContainer {
+  display: flex;
+  flex-direction: column; /* Stack items vertically */
+  justify-content: center;
+  align-items: center;
+  gap: 50px;
+  margin-top: 50px;
+}
+
+.usermanagementBox {
+  background-color: hsl(0, 0%, 29%);
+  padding: 20px;
+  border: 1px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.createUserBox {
+  width: 300px;
+}
+
+.createUserButton, .clearButton, .createProfileButton {
+  width: 100px;
+  padding: 8px 16px; /* Match the padding with the search and clear buttons */
+  background-color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  margin-top: 10px;
+  margin-bottom: 10px; /* Add gap below the button */
+  height: 38px; /* Ensure the height matches the search and clear buttons */
+  box-sizing: border-box;
+  font-weight: normal; /* Ensure the font is not bold */
+  display: flex;
+  align-items: center;
+  justify-content: center; /* Center the text */
+}
+
+.createUserButton, .createProfileButton {
+  background-color: #28a745; /* Bootstrap success color */
+  color: white;
+}
+
+.createUserButton:hover, .createProfileButton:hover {
+  background-color: #218838; /* Darker shade for hover */
+}
+
+.clearButton {
+  background-color: #ffc107; /* Bootstrap warning color */
+  color: black;
+  border: 1px solid #ffc107; 
+}
+
+.clearButton:hover {
+  background-color: #e0a800; /* Darker shade for hover */
+}
+
+.searchButton, .clearButton {
+  padding: 8px 16px;
+  font-size: 1rem;
+  background-color: hsl(188, 34%, 47%); /* Bootstrap info color */
+  color: white;
+  border: none; 
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  height: 38px; 
+  box-sizing: border-box;
+  font-weight: normal; /* Ensure the font is not bold */
+}
+
+.searchButton:hover, .clearButton:hover {
+  background-color: #138496; /* Darker shade for hover */
+}
+
+.buttonGroup {
+  display: flex;
+  justify-content: center; /* Center the buttons */
+  gap: 10px; /* Space between buttons */
+  align-items: center; /* Align items vertically */
+}
+
+.allUsersBox, .allProfilesBox {
+  width: 100%;
+  max-width: 1200px;
+}
+
+.usermanagementBox h2 {
+  color: white;
+  margin-bottom: 15px;
+}
+
+.inputGroup {
+  margin-bottom: 10px;
+  text-align: left;
+}
+
+.inputWrapper {
+  display: flex;
+  align-items: center;
+  background-color: white;
+  border-radius: 5px;
+}
+
+.inputGroup label {
+  color: white;
+  font-weight: bold;
+}
+
+.inputGroup input,
+.inputGroup select {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+  outline: none;
+  font-size: 1rem;
+}
+
+.userTable {
+  width: 100%;
+  margin-top: 20px;
+  background-color: #fff;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.userTable th, .userTable td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+  vertical-align: middle; /* Ensure vertical alignment */
+  text-align: center; /* Center align the content */
+}
+
+.userTable th {
+  background-color: hsl(0, 0%, 29%);
+  color: white;
+}
+
+.userTable tr:hover {
+  background-color: #f1f1f1;
+}
+
+.userTable input[type="text"],
+.userTable input[type="email"],
+.userTable input[type="date"],
+.userTable select {
+  width: 100%; /* Full width of the cell */
+  box-sizing: border-box;
+  padding: 5px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  background-color: #f9f9f9;
+}
+
+.userTable td {
+  vertical-align: middle;
+  width: auto; 
+  text-align: center; /* Center align the content */
+}
+
+.sortButton {
+  background: none;
+  border: none;
+  border-radius: 5px;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.sortButton:hover {
+  color: #dadada;
+}
+
+.customCalendar {
+  width: 100%;
+  border: 1px solid hsl(0, 0%, 29%);
+  border-radius: 5px;
+  padding: 10px;
+  background-color: lightgray;
+  color: hsl(0, 0%, 29%);
+}
+
+.customCalendar .react-calendar__tile--active {
+  background-color: hsl(0, 0%, 29%);
+  color: white;
+}
+
+.customCalendar .react-calendar__tile:hover {
+  background-color: #ddd;
+}
+
+.customCalendar .react-calendar__tile--now {
+  background-color: #ffdd57;
+}
+
+.userSection,
+.profileSection {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 50px;
+  width: 100%;
+}
+
+
+.searchInput::placeholder {
+  color: hsl(0, 0%, 70%);
+}
+
+.searchInput:focus {
+  border-color: hsl(0, 0%, 29%);
+  background-color: #fff;
+}
+
+.deleteButton {
+  background-color: #d9534f;
+  color: white;
+  border: none;
+  padding: 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deleteButton:hover {
+  background-color: #c9302c;
+}
+
+.profileOptions{
+  color: hsl(0, 0%, 29%) !important;
+}
+
+.featureToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 0;
+  width: 100%;
+}
+
+.permissionsList {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+}
+
+.permissionItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  padding-right: 10px;
+}
+
+.permissionsLabel {
+  color: hsl(0, 0%, 29%) !important;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  padding-left: 5px;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #B0B0B0; /* Neutral gray for "off" state */
+  transition: .4s;
+  border-radius: 20px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #5A6268; /* Neutral gray when "on" */
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #5A6268; /* Slight shadow for focus */
+}
+
+input:checked + .slider:before {
+  transform: translateX(18px);
+}
+
+
+.searchContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.searchButton {
+  padding: 8px 16px;
+  font-size: 1rem;
+  background-color: #17a2b8; /* Bootstrap info color */
+  color: white;
+  border: 1px solid #17a2b8; 
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  height: 38px; 
+  box-sizing: border-box;
+  font-weight: normal; /* Ensure the font is not bold */
+}
+
+.searchButton:hover {
+  background-color: #138496; /* Darker shade for hover */
+}
+
+.searchContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.searchInput {
+  padding: 8px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  outline: none;
+  height: 38px; 
+  width: 100%;
+  max-width: 250px;
+  box-sizing: border-box;
+}
+
+.searchButton {
+  padding: 8px 16px;
+  font-size: 1rem;
+  background-color: hsl(0, 0%, 100%);
+  color: rgb(0, 0, 0);
+  border: 1px solid #ccc; 
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  height: 38px; 
+  box-sizing: border-box;
+}
+
+.searchButton:hover {
+  background-color: hsl(0, 0%, 69%);
+}
+
+.buttonGroup {
+  display: flex;
+  justify-content: center; /* Center the buttons */
+  gap: 10px; /* Space between buttons */
+  align-items: center; /* Align items vertically */
+}
+
+.saveButton, .editButton, .cancelButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1.2rem;
+}
+
+.saveButton {
+  background-color: #8bd1b5; /* Neutral gray */
+  color: white;
+}
+
+.saveButton:hover {
+  background-color: #78b89c; /* Slightly darker gray for hover */
+}
+
+.editButton {
+  background-color: #8bd1b5; /* Neutral gray */
+  color: white;
+}
+
+.editButton:hover {
+  background-color: #78b89c; /* Slightly darker gray for hover */
+}
+
+.cancelButton {
+  background-color: #f18468; /* Neutral gray */
+  color: white;
+}
+
+.cancelButton:hover {
+  background-color: #d9715a; /* Slightly darker gray for hover */
+}
+
+.textBubble {
+  display: none;
+}
+
+.closeButton {
+  display: none;
+}
+
+.createUserMessage,
+.createProfileMessage,
+.successMessage,
+.errorMessage,
+.userSearchMessage,
+.allUsersMessage,
+.userErrorMessage {
+  text-align: center;
+  width: 100%;
+  max-width: 250px; /* Same as search input box */
+  box-sizing: border-box;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+}
+
+.successMessage {
+  color: green;
+  background-color: #dff0d8; /* Light green background */
+  border: 1px solid #d6e9c6; /* Border color */
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  text-align: center;
+  width: 100%;
+  max-width: 250px; /* Same as search input box */
+  box-sizing: border-box;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.errorMessage {
+  color: #d9534f; /* Bootstrap's danger color */
+  background-color: #f8d7da; /* Light red background */
+  border: 1px solid #f5c6cb; /* Border color */
+}
+
+.createUserMessage {
+  color: #3c763d; /* Bootstrap's success color */
+  background-color: #dff0d8; /* Light green background */
+  border: 1px solid #d6e9c6; /* Border color */
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  text-align: center;
+  width: 100%;
+  max-width: 250px; /* Same as search input box */
+  box-sizing: border-box;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.errorMessage {
+  color: #d9534f; /* Bootstrap's danger color */
+  background-color: #f8d7da; /* Light red background */
+  border: 1px solid #f5c6cb; /* Border color */
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  text-align: center;
+  width: 100%;
+  max-width: 250px; /* Same as search input box */
+  box-sizing: border-box;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.matchHeightButton {
+    height: 100%;
+}
+
+
+
+
+
+

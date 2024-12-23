@@ -1,0 +1,109 @@
+.navbar {
+  background-color: hsl(0, 0%, 29%);
+  border-radius: 25px;
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 70%;
+  margin: 20px auto;
+  position: relative;
+  transition: all 0.3s ease-in-out;
+  z-index: 1000;
+  height: 70px; 
+}
+
+.navbar.sticky {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  margin: 0;
+  padding: 15px 20px;
+  border-radius: 0;
+  z-index: 1000;
+  background-color: #1c1c1c;
+  height: 70px; 
+}
+
+.navbarList {
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+.navbarItem {
+  padding: 0; 
+}
+
+.navbarItem a, .dropdownButton {
+  color: white;
+  text-decoration: none;
+  font-size: 1rem;
+  padding: 10px 15px;
+  transition: all 0.3s ease-in-out; 
+  line-height: 40px; 
+  border-radius: 10px; 
+  display: block; 
+}
+
+.navbarItem a:hover, .dropdownButton:hover {
+  color: #ddd; 
+}
+
+.dropdownButton {
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 10px 15px;
+  width: auto;
+  height: 100%;
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  background-color: hsl(0, 0%, 29%);
+  padding: 10px;
+  border-radius: 10px;
+  z-index: 1000;
+  width: 250px;
+}
+
+.dropdownMenu a, .dropdownMenu button {
+  display: block;
+  width: 100%;
+  padding: 10px 15px;
+  color: white;
+  text-align: left;
+  border: none;
+  background: none;
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.dropdownMenu a:hover, .dropdownMenu button:hover {
+  background-color: #333;
+  border-radius: 10px;
+  transition: background-color 0.3s ease-in-out;
+}
+
+.signOut {
+  font-family: 'Poppins', sans-serif;
+  color: white;
+  cursor: pointer;
+  padding: 10px 15px;
+}
+
+.welcomeMessage {
+  color: #ccc;
+  padding: 10px;
+  display: block;
+  font-size: 1rem;
+  line-height: 40px; 
+}

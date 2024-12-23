@@ -1,0 +1,9 @@
+1. open command prompt in  vscode, change directory to fypvenv/scripts, run activate
+2. cd to fyp-code, run settings.bat or run flask run
+3. open powershell, cd to flowx, run npm start
+
+
+TO RUN TESTS
+1. cd to tests 
+2. run python "FILENAME".py
+3. Pass = success, Fail = fail

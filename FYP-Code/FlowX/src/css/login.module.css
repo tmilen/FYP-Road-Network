@@ -1,0 +1,128 @@
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: lightgray;
+  margin: 0;
+  padding: 0;
+}
+
+.loginContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 70vh;
+  gap: 50px;
+  margin-top: 0; 
+}
+
+.loginTitle {
+  font-size: 3rem;
+  font-weight: 600;
+  text-align: center;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+  color: hsl(0, 0%, 29%); 
+}
+
+.loginBox {
+  background-color: hsl(0, 0%, 29%);
+  padding: 30px;
+  border: 1px solid #fff;
+  border-radius: 10px;
+  width: 350px;
+  text-align: center;
+}
+
+.loginBox h2 {
+  color: #fff;
+  margin-bottom: 15px;
+}
+
+.inputGroup {
+  margin-bottom: 15px; 
+  text-align: left;
+}
+
+.inputWrapper {
+  display: flex;
+  align-items: center;
+  background-color: white;
+  border-radius: 5px;
+  padding: 5px;
+}
+
+.inputGroup label {
+  color: #fff;
+  font-weight: bold;
+  margin-bottom: 5px;
+  display: block;
+}
+
+.inputIcon {
+  margin: 0 10px;
+  color: hsl(0, 0%, 29%);
+  font-size: 1.5rem;
+}
+
+.inputGroup input {
+  width: 100%;
+  padding: 10px;
+  margin: 0;
+  border: none;
+  border-radius: 5px;
+  outline: none;
+  font-size: 1rem;
+  background-color: transparent;
+}
+
+.signInButton {
+  width: 100%;
+  padding: 10px;
+  background-color: #1c1c1c;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  font-weight: bold;
+  color: white;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background-color 0.3s ease;
+}
+
+.signInButton:hover {
+  background-color: hsl(0, 0%, 45%);
+}
+
+p a {
+  color: #fff;
+  text-decoration: none;
+}
+
+p a:hover {
+  text-decoration: underline;
+}
+
+.imageBox {
+  width: 350px;
+  height: 350px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.imageBox img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.errorMessage {
+  color: #d9534f; /* Bootstrap's danger color */
+  background-color: #f8d7da; /* Light red background */
+  border: 1px solid #f5c6cb; /* Border color */
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  text-align: center;
+}

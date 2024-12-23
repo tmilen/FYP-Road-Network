@@ -1,0 +1,163 @@
+.accountManagementContainer {
+    display: flex;
+    justify-content: center; /* Center horizontally */
+    align-items: flex-start;
+    margin-top: 50px;
+    gap: 50px;
+    flex-direction: row; /* Align items horizontally */
+}
+
+.accountBox {
+    background-color: hsl(0, 0%, 29%);
+    padding: 20px;
+    border: 1px solid white;
+    border-radius: 10px;
+    width: 300px; 
+    text-align: left;
+    color: white;
+    margin-top: 0; /* Ensure no margin at the top */
+    flex-shrink: 0; /* Prevent shrinking */
+}
+
+.changePasswordButton {
+    margin-top: 20px;
+    padding: 10px;
+    background-color: #fff;
+    color: hsl(0, 0%, 29%);
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.passwordFormContainer {
+    position: relative; 
+    margin-top: 0; /* Remove top margin */
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    width: 280px;
+    color: black;
+    text-align: left;
+    flex-shrink: 0; /* Prevent shrinking */
+}
+
+.passwordFormHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.closePasswordForm {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    font-weight: bold;
+    cursor: pointer;
+    position: absolute;
+    top: 35px;
+    right: 10px;
+    display: flex; 
+    align-items: center;
+    justify-content: center;
+    padding: 0; 
+    margin: 0; 
+    width: auto;
+    height: auto;
+}
+
+.closePasswordForm:hover {
+    background-color: rgba(0, 0, 0, 0.1); 
+    border-radius: 50%; 
+}
+
+.inputGroup {
+    margin-bottom: 15px;
+}
+
+.inputGroup label {
+    font-weight: bold;
+    margin-bottom: 5px;
+    display: block;
+    color: black;
+}
+
+.inputGroup input {
+    width: 100%; 
+    max-width: 250px; 
+    padding: 6px; 
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 0.85rem;
+}
+
+.buttonGroup {
+    display: flex;
+    justify-content: center; /* Center the buttons */
+    gap: 10px; /* Space between buttons */
+    margin-top: 20px;
+}
+
+.changePasswordSubmit, .clearButton {
+    padding: 10px;
+    background-color: hsl(0, 0%, 29%);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.clearButton {
+    background-color: #6c757d; /* Neutral gray color */
+}
+
+.clearButton:hover {
+    background-color: #5a6268; /* Slightly darker gray for hover */
+}
+
+.message {
+    margin-top: 20px;
+    font-weight: bold;
+    color: red;
+}
+
+.title {
+    font-size: 3rem;
+    font-weight: 600;
+    text-align: center;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+    color: hsl(0, 0%, 29%);
+}
+
+.errorMessage {
+    color: #d9534f; /* Bootstrap's danger color */
+    background-color: #f8d7da; /* Light red background */
+    border: 1px solid #f5c6cb; /* Border color */
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    text-align: center;
+    width: 100%;
+    max-width: 250px; /* Same as search input box */
+    box-sizing: border-box;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.successMessage {
+    color: #3c763d; /* Bootstrap's success color */
+    background-color: #dff0d8; /* Light green background */
+    border: 1px solid #d6e9c6; /* Border color */
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    text-align: center;
+    width: 100%;
+    max-width: 250px; /* Same as search input box */
+    box-sizing: border-box;
+    margin-left: auto;
+    margin-right: auto;
+}
+

@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traffic K Bottleneck</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .map-container {
+            position: relative;
+            overflow: hidden;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            min-height: 600px;
+        }
+        .map-container svg {
+            width: 100%;
+            height: 100%;
+        }
+        .node-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .node {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background-color: red;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            pointer-events: auto;
+            z-index: 10;
+        }
+        .node:hover {
+            background-color: darkred;
+            box-shadow: 0 0 0 3px rgba(255, 0, 0, 0.3);
+        }
+        .node.selected {
+            background-color: green;
+            box-shadow: 0 0 0 3px rgba(0, 255, 0, 0.3);
+        }
+        .node-label {
+            position: absolute;
+            background-color: white;
+            padding: 2px 4px;
+            border-radius: 2px;
+            font-size: 12px;
+            transform: translate(8px, -50%);
+            white-space: nowrap;
+            pointer-events: none;
+            border: 1px solid #ccc;
+            z-index: 11;
+        }
+        .link {
+            position: absolute;
+            height: 2px;
+            background-color: blue;
+            transform-origin: 0 0;
+            pointer-events: none;
+            z-index: 9;
+        }
+        .link-label {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 2px 4px;
+            border-radius: 2px;
+            font-size: 10px;
+            transform: translate(-50%, -50%);
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 12;
+            border: 1px solid #ccc;
+        }
+        .loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .map-container {
+        cursor: default;
+    }
+    .map-container.placement-mode {
+        cursor: crosshair;
+    }
+    .node {
+        cursor: pointer;
+    }
+    .node-label {
+        cursor: default;
+    }
+    .car {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        background-color: #FF0000;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 100;
+        pointer-events: none;
+    }
+
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8">Traffic K Bottleneck</h1>
+        
+        <!-- File Upload Section -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-xl font-semibold mb-4">Upload Files</h2>
+            <form id="uploadForm" class="space-y-4">
+                <div class="space-y-2">
+                    <label class="block">XML File:</label>
+                    <input type="file" name="xml" accept=".xml" class="w-full p-2 border rounded">
+                    <p class="text-sm text-gray-500">Upload XML file containing town layout and node information</p>
+                </div>
+                <div class="flex space-x-4">
+                    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        Upload
+                    </button>
+                    <button type="button" id="clearButton" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                        Clear All
+                    </button>
+                </div>
+            </form>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-xl font-semibold mb-4">Node Management</h2>
+            <div class="flex space-x-4 mb-4">
+                <button id="toggleNodePlacement" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    Enable Node Placement
+                </button>
+                <span id="placementStatus" class="text-gray-500 hidden mt-2">
+                    Click anywhere on the map to place a node
+                </span>
+            </div>
+            
+            <!-- Node naming form (hidden by default) -->
+            <div id="nodeForm" class="hidden fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 
+                                      bg-white p-6 rounded-lg shadow-lg border z-50">
+                <h3 class="text-lg font-semibold mb-4">New Node Details</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Node Name</label>
+                        <input type="text" id="nodeName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button id="cancelNode" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                            Cancel
+                        </button>
+                        <button id="saveNode" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                            Save Node
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Map Section -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-xl font-semibold mb-4">Town Map</h2>
+            <div id="mapContainer" class="map-container">
+                <div id="svgContainer"></div>
+                <div id="nodeOverlay" class="node-overlay"></div>
+                <div class="flex items-center justify-center h-full text-gray-500" id="mapPlaceholder">
+                    No map loaded. Please upload an XML file first.
+                </div>
+            </div>
+            <div class="mt-4 text-sm text-gray-600">
+                <p>Instructions:</p>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>Click on a node to select it</li>
+                    <li>Click on another node to create a link</li>
+                    <li>Use Ctrl + Mouse Wheel to zoom</li>
+                    <li>Click and drag to pan the map</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Link Nodes Section -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-xl font-semibold mb-4">Link Nodes</h2>
+            <form id="linkForm" class="space-y-4">
+                <div class="flex space-x-4">
+                    <select id="node1" class="flex-1 p-2 border rounded">
+                        <option value="">Select first node</option>
+                    </select>
+                    <select id="node2" class="flex-1 p-2 border rounded">
+                        <option value="">Select second node</option>
+                    </select>
+                </div>
+                <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                    Link Nodes
+                </button>
+            </form>
+        </div>
+
+        <!-- Links Table -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Node Links</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full table-auto">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="px-4 py-2 text-left">Node 1</th>
+                            <th class="px-4 py-2 text-left">Node 2</th>
+                            <th class="px-4 py-2 text-right">Distance</th>
+                            <th class="px-4 py-2 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="linksTable">
+                        <tr>
+                            <td colspan="4" class="px-4 py-2 text-center text-gray-500">
+                                No links created yet
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+        <h2 class="text-xl font-semibold mb-4">Traffic Simulation</h2>
+        <form id="simulationForm" class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block">Number of Vehicles</label>
+                    <input type="number" id="vehicles" class="w-full p-2 border rounded" min="1" value="100">
+                </div>
+                <div>
+                    <label class="block">Speed (km/h)</label>
+                    <input type="number" id="speed" class="w-full p-2 border rounded" min="1" value="50">
+                </div>
+                <div>
+                    <label class="block">Start Node</label>
+                    <select id="startNode" class="w-full p-2 border rounded">
+                        <option value="">Select start node</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block">End Node</label>
+                    <select id="endNode" class="w-full p-2 border rounded">
+                        <option value="">Select end node</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                Run Simulation
+            </button>
+        </form>
+        <div id="simulationResults" class="mt-4 hidden">
+            <h3 class="font-semibold mb-2">Simulation Results</h3>
+            <div class="space-y-2">
+                <div class="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded">
+                    <div>
+                        <p class="text-sm text-gray-600">Total Distance:</p>
+                        <p class="font-semibold" id="totalDistance"></p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Time per Vehicle:</p>
+                        <p class="font-semibold" id="timePerVehicle"></p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Vehicles per Hour:</p>
+                        <p class="font-semibold" id="vehiclesPerHour"></p>
+                    </div>
+                </div>
+                <div id="congestionPoints" class="mt-4">
+                    <h4 class="font-semibold mb-2">Congestion Points</h4>
+                    <div id="congestionList" class="space-y-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let simulationResults = null;
+        let nodes = [];
+        let selectedNode = null;
+        let isPlacementMode = false;
+        let tempNodePosition = null;
+        let nextNodeId = 1;
+
+        const styles = `
+            .congestion-indicator {
+                z-index: 20;
+                box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            }
+
+            .path-line {
+                z-index: 15;
+                box-shadow: 0 0 5px rgba(0,255,0,0.5);
+            }`;
+
+            const style = document.createElement('style');
+style.textContent = `
+    .link {
+        position: absolute;
+        height: 3px;
+        background-color: #0066cc;
+        transform-origin: 0 0;
+        pointer-events: none;
+        z-index: 9;
+    }
+    
+    .link-label {
+        position: absolute;
+        background-color: rgba(255, 255, 255, 0.9);
+        padding: 2px 4px;
+        border-radius: 2px;
+        font-size: 10px;
+        transform: translate(-50%, -50%);
+        white-space: nowrap;
+        pointer-events: none;
+        z-index: 12;
+        border: 1px solid #ccc;
+    }
+`;
+document.head.appendChild(style);
+        
+        // Modified updateMap function to handle SVG
+        function updateMap(mapData, nodesData) {
+            const svgContainer = document.getElementById('svgContainer');
+            const nodeOverlay = document.getElementById('nodeOverlay');
+            const mapPlaceholder = document.getElementById('mapPlaceholder');
+            
+            // Hide placeholder
+            mapPlaceholder.style.display = 'none';
+            
+            // Set SVG content
+            svgContainer.innerHTML = mapData.svg;
+            nodeOverlay.innerHTML = '';
+            
+            // Add nodes as overlays
+            nodesData.forEach(node => {
+                const nodeElement = document.createElement('div');
+                nodeElement.className = 'node';
+                nodeElement.style.left = `${node.x}px`;
+                nodeElement.style.top = `${node.y}px`;
+                nodeElement.setAttribute('data-node-id', node.id);
+                
+                const label = document.createElement('div');
+                label.className = 'node-label';
+                label.textContent = node.name;
+                
+                nodeElement.appendChild(label);
+                nodeOverlay.appendChild(nodeElement);
+
+                nodeElement.addEventListener('click', () => {
+                    if (selectedNode && selectedNode !== node.id) {
+                        createLink(selectedNode, node.id);
+                        clearNodeSelection();
+                    } else {
+                        toggleNodeSelection(node.id);
+                    }
+                });
+            });
+        }
+
+        // Node selection and linking functions
+        function toggleNodeSelection(nodeId) {
+            const nodes = document.querySelectorAll('.node');
+            nodes.forEach(node => {
+                if (node.getAttribute('data-node-id') === nodeId) {
+                    node.classList.toggle('selected');
+                    selectedNode = node.classList.contains('selected') ? nodeId : null;
+                } else {
+                    node.classList.remove('selected');
+                }
+            });
+        }
+
+        function clearNodeSelection() {
+            const nodes = document.querySelectorAll('.node');
+            nodes.forEach(node => node.classList.remove('selected'));
+            selectedNode = null;
+        }
+
+        // Update node selects in the form
+        function updateNodeSelects() {
+            const selects = ['node1', 'node2'];
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                select.innerHTML = '<option value="">Select node</option>';
+                nodes.forEach(node => {
+                    const option = document.createElement('option');
+                    option.value = node.id;
+                    option.textContent = node.name;
+                    select.appendChild(option);
+                });
+            });
+        }
+
+        // Link drawing and management
+// Simplified link drawing function
+function drawLink(node1, node2, distance) {
+    const nodeOverlay = document.getElementById('nodeOverlay');
+    
+    // Create link element
+    const link = document.createElement('div');
+    link.className = 'link';
+    
+    // Calculate position and length
+    const x1 = parseFloat(node1.x);
+    const y1 = parseFloat(node1.y);
+    const x2 = parseFloat(node2.x);
+    const y2 = parseFloat(node2.y);
+    
+    // Calculate distance and angle
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    
+    // Position link
+    link.style.left = `${x1}px`;
+    link.style.top = `${y1}px`;
+    link.style.width = `${length}px`;
+    link.style.transform = `rotate(${angle}deg)`;
+    
+    // Add distance label
+    const label = document.createElement('div');
+    label.className = 'link-label';
+    label.textContent = `${distance} km`;
+    
+    // Position label at midpoint
+    const midX = x1 + dx / 2;
+    const midY = y1 + dy / 2;
+    label.style.left = `${midX}px`;
+    label.style.top = `${midY}px`;
+    
+    // Add elements to overlay
+    nodeOverlay.appendChild(link);
+    nodeOverlay.appendChild(label);
+}
+
+// Simplified link drawing function
+function drawLink(node1, node2, distance) {
+    const nodeOverlay = document.getElementById('nodeOverlay');
+    
+    // Create link element
+    const link = document.createElement('div');
+    link.className = 'link';
+    
+    // Calculate position and length
+    const x1 = parseFloat(node1.x);
+    const y1 = parseFloat(node1.y);
+    const x2 = parseFloat(node2.x);
+    const y2 = parseFloat(node2.y);
+    
+    // Calculate distance and angle
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    
+    // Position link
+    link.style.left = `${x1}px`;
+    link.style.top = `${y1}px`;
+    link.style.width = `${length}px`;
+    link.style.transform = `rotate(${angle}deg)`;
+    
+    // Add distance label
+    const label = document.createElement('div');
+    label.className = 'link-label';
+    label.textContent = `${distance} km`;
+    
+    // Position label at midpoint
+    const midX = x1 + dx / 2;
+    const midY = y1 + dy / 2;
+    label.style.left = `${midX}px`;
+    label.style.top = `${midY}px`;
+    
+    // Add elements to overlay
+    nodeOverlay.appendChild(link);
+    nodeOverlay.appendChild(label);
+}
+
+
+
+function generatePathData(start, end) {
+    const ROADS = {
+        horizontal: 400,
+        verticals: [150, 500, 850]
+    };
+
+    // Check if points are on the same road first
+    if (Math.abs(start.y - ROADS.horizontal) < 5 && Math.abs(end.y - ROADS.horizontal) < 5) {
+        // Direct horizontal path
+        return `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
+    }
+
+    // Check if points are on same vertical
+    const sameVertical = ROADS.verticals.find(v => 
+        Math.abs(start.x - v) < 5 && Math.abs(end.x - v) < 5
+    );
+    if (sameVertical) {
+        // Direct vertical path
+        return `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
+    }
+
+    // Normal path routing through road network
+    let pathData = `M ${start.x} ${start.y}`;
+    
+    // Get nearest vertical roads
+    const startVert = ROADS.verticals.reduce((nearest, current) => 
+        Math.abs(current - start.x) < Math.abs(nearest - start.x) ? current : nearest
+    );
+    
+    const endVert = ROADS.verticals.reduce((nearest, current) => 
+        Math.abs(current - end.x) < Math.abs(nearest - end.x) ? current : nearest
+    );
+
+    // Move to horizontal road if needed
+    if (Math.abs(start.y - ROADS.horizontal) > 5) {
+        pathData += ` L ${start.x} ${ROADS.horizontal}`;
+    }
+    
+    // Move to nearest vertical if needed
+    if (Math.abs(start.x - startVert) > 5) {
+        pathData += ` L ${startVert} ${ROADS.horizontal}`;
+    }
+    
+    // Move along horizontal road to end's vertical
+    pathData += ` L ${endVert} ${ROADS.horizontal}`;
+    
+    // Move to end point
+    if (Math.abs(end.y - ROADS.horizontal) > 5) {
+        pathData += ` L ${endVert} ${end.y}`;
+    }
+    pathData += ` L ${end.x} ${end.y}`;
+
+    return pathData;
+}
+
+
+function getMidpoint(start, end) {
+    const ROADS = {
+        horizontal: 400,
+        verticals: [150, 500, 850]
+    };
+    
+    // Find the vertical roads being used
+    const startVert = ROADS.verticals.reduce((nearest, current) => 
+        Math.abs(current - start.x) < Math.abs(nearest - start.x) ? current : nearest
+    );
+    
+    const endVert = ROADS.verticals.reduce((nearest, current) => 
+        Math.abs(current - end.x) < Math.abs(nearest - end.x) ? current : nearest
+    );
+    
+    // Put label in middle of horizontal segment
+    return {
+        x: (startVert + endVert) / 2,
+        y: ROADS.horizontal
+    };
+}
+
+async function refreshLinks() {
+    try {
+        const response = await fetch('/links');
+        const links = await response.json();
+        
+        // Update links table
+        const tbody = document.getElementById('linksTable');
+        tbody.innerHTML = links.length === 0 ? 
+            '<tr><td colspan="4" class="px-4 py-2 text-center text-gray-500">No links created yet</td></tr>' : 
+            links.map(link => `
+                <tr>
+                    <td class="border px-4 py-2">${link.node1_name}</td>
+                    <td class="border px-4 py-2">${link.node2_name}</td>
+                    <td class="border px-4 py-2 text-right">${link.distance} km</td>
+                    <td class="border px-4 py-2 text-center">
+                        <button onclick="deleteLink('${link.node1}', '${link.node2}')"
+                                class="bg-red-500 text-white px-2 py-1 rounded text-sm hover:bg-red-600">
+                            Delete
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        
+        // Redraw links on map
+        const linkElements = document.querySelectorAll('.link, .link-label');
+        linkElements.forEach(element => element.remove());
+        
+        links.forEach(link => {
+            const node1 = nodes.find(n => n.id === link.node1);
+            const node2 = nodes.find(n => n.id === link.node2);
+            if (node1 && node2) {
+                drawLink(node1, node2, link.distance);
+            }
+        });
+
+        // Add this line to update simulation selects
+        updateSimulationNodeSelects();
+        
+    } catch (error) {
+        console.error('Error refreshing links:', error);
+        handleError(error, 'refreshing links');
+    }
+}
+
+        async function createLink(node1Id, node2Id) {
+            try {
+                const response = await fetch('/links', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ node1: node1Id, node2: node2Id })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    refreshLinks();
+                } else {
+                    alert(data.error || 'Failed to create link');
+                }
+            } catch (error) {
+                handleError(error, 'creating link');
+            }
+        }
+
+        async function deleteLink(node1Id, node2Id) {
+            if (!confirm('Are you sure you want to delete this link?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/links/${node1Id}/${node2Id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    refreshLinks();
+                } else {
+                    alert('Failed to delete link');
+                }
+            } catch (error) {
+                handleError(error, 'deleting link');
+            }
+        }
+
+        // SVG zoom and pan functionality
+        let scale = 1;
+        let translateX = 0;
+        let translateY = 0;
+        let isDragging = false;
+        let startX, startY;
+
+        const mapContainer = document.getElementById('mapContainer');
+        const svgContainer = document.getElementById('svgContainer');
+        const nodeOverlay = document.getElementById('nodeOverlay');
+
+        function createCarElement() {
+            const car = document.createElement('div');
+            car.className = 'car';
+            car.style.cssText = `
+                position: absolute;
+                width: 8px;
+                height: 8px;
+                background-color: #FF0000;
+                border-radius: 50%;
+                transform: translate(-50%, -50%);
+                transition: all 0.5s linear;
+                z-index: 20;
+            `;
+            return car;
+        }
+
+        function animateTraffic(path, vehicles, speed) {
+    const nodeOverlay = document.getElementById('nodeOverlay');
+    const carInterval = (3600 / vehicles) * 1000; // Convert vehicles per hour to milliseconds between cars
+    let carCount = 0;
+    
+    const start = path[0];
+    const end = path[1];
+    const distance = Math.sqrt(
+        Math.pow(end.x - start.x, 2) + 
+        Math.pow(end.y - start.y, 2)
+    );
+    
+    // Calculate travel time based on speed and distance
+    const travelTime = (distance / (speed * 100)) * 3600 * 1000; // Convert to milliseconds
+    
+    // Create car element
+    function spawnCar() {
+        if (carCount >= vehicles) {
+            clearInterval(intervalId);
+            return;
+        }
+        
+        const car = document.createElement('div');
+        car.className = 'car';
+        car.style.cssText = `
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background-color: #FF0000;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: all ${travelTime}ms linear;
+            z-index: 20;
+            left: ${start.x}px;
+            top: ${start.y}px;
+        `;
+        
+        nodeOverlay.appendChild(car);
+        
+        // Start animation after a small delay
+        requestAnimationFrame(() => {
+            car.style.left = `${end.x}px`;
+            car.style.top = `${end.y}px`;
+        });
+        
+        // Remove car after animation completes
+        setTimeout(() => {
+            car.remove();
+        }, travelTime + 100);
+        
+        carCount++;
+    }
+    
+    // Spawn first car immediately
+    spawnCar();
+    
+    // Spawn remaining cars at intervals
+    const intervalId = setInterval(spawnCar, carInterval);
+}
+function calculatePathLength(path) {
+    let length = 0;
+    for (let i = 0; i < path.length - 1; i++) {
+        const dx = path[i + 1].x - path[i].x;
+        const dy = path[i + 1].y - path[i].y;
+        length += Math.sqrt(dx * dx + dy * dy);
+    }
+    return length / 100; // Convert to kilometers
+}
+
+async function animateCarAlongPath(car, path, totalTime) {
+    const segments = path.length - 1;
+    const timePerSegment = totalTime / segments;
+    
+    car.style.left = `${path[0].x}px`;
+    car.style.top = `${path[0].y}px`;
+    
+    for (let i = 1; i < path.length; i++) {
+        await new Promise(resolve => {
+            setTimeout(() => {
+                car.style.left = `${path[i].x}px`;
+                car.style.top = `${path[i].y}px`;
+                resolve();
+            }, timePerSegment);
+        });
+    }
+}
+
+        function updateTransform() {
+            const transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+            svgContainer.style.transform = transform;
+            nodeOverlay.style.transform = transform;
+        }
+
+        mapContainer.addEventListener('wheel', (e) => {
+            if (e.ctrlKey) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                scale *= delta;
+                scale = Math.min(Math.max(0.5, scale), 3);
+                updateTransform();
+            }
+        });
+
+        mapContainer.addEventListener('mousedown', (e) => {
+            if (e.target === mapContainer || e.target.tagName === 'svg') {
+                isDragging = true;
+                startX = e.clientX - translateX;
+                startY = e.clientY - translateY;
+                mapContainer.style.cursor = 'grabbing';
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                translateX = e.clientX - startX;
+                translateY = e.clientY - startY;
+                updateTransform();
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            mapContainer.style.cursor = 'default';
+        });
+
+        function showLoading() {
+            const loading = document.createElement('div');
+            loading.className = 'loading';
+            loading.innerHTML = '<div class="text-xl font-semibold">Loading...</div>';
+            mapContainer.appendChild(loading);
+        }
+
+        function hideLoading() {
+            const loading = mapContainer.querySelector('.loading');
+            if (loading) {
+                loading.remove();
+            }
+        }
+
+        // File upload handling
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    
+    try {
+        showLoading();
+        const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (response.ok) {
+            nodes = data.nodes;
+            updateMap(data.map, data.nodes);
+            updateNodeSelects();
+            updateSimulationNodeSelects(); // Add this line
+            refreshLinks();
+            // Reset transform
+            scale = 1;
+            translateX = 0;
+            translateY = 0;
+            updateTransform();
+            alert('File uploaded successfully!');
+        } else {
+            alert(data.error || 'Upload failed');
+        }
+    } catch (error) {
+        handleError(error, 'uploading file');
+    } finally {
+        hideLoading();
+    }
+});
+
+        // Link form handling
+        document.getElementById('linkForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const node1 = document.getElementById('node1').value;
+            const node2 = document.getElementById('node2').value;
+
+            if (!node1 || !node2) {
+                alert('Please select both nodes');
+                return;
+            }
+
+            if (node1 === node2) {
+                alert('Please select different nodes');
+                return;
+            }
+
+            await createLink(node1, node2);
+            document.getElementById('node1').value = '';
+            document.getElementById('node2').value = '';
+        });
+
+        // Clear button handling
+        document.getElementById('clearButton').addEventListener('click', async () => {
+            if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
+                try {
+                    showLoading();
+                    const response = await fetch('/clear', { method: 'POST' });
+                    
+                    if (response.ok) {
+                        document.getElementById('svgContainer').innerHTML = '';
+                        document.getElementById('nodeOverlay').innerHTML = '';
+                        document.getElementById('mapPlaceholder').style.display = 'flex';
+                        nodes = [];
+                        updateNodeSelects();
+                        document.getElementById('linksTable').innerHTML = `
+                            <tr><td colspan="4" class="px-4 py-2 text-center text-gray-500">No links created yet</td></tr>
+                        `;
+                        // Reset transform
+                        scale = 1;
+                        translateX = 0;
+                        translateY = 0;
+                        updateTransform();
+                        alert('All data cleared successfully');
+                    } else {
+                        alert('Failed to clear data');
+                    }
+                } catch (error) {
+                    handleError(error, 'clearing data');
+                } finally {
+                    hideLoading();
+                }
+            }
+        });
+
+        function updateSimulationNodeSelects() {
+    const selects = ['startNode', 'endNode'];
+    selects.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        select.innerHTML = '<option value="">Select node</option>';
+        nodes.forEach(node => {
+            const option = document.createElement('option');
+            option.value = node.id;
+            option.textContent = node.name;
+            select.appendChild(option);
+        });
+    });
+    
+}
+
+// Function to visualize congestion on the map
+function visualizeCongestion(results) {
+    // Remove previous congestion visualization
+    const existingCongestion = document.querySelectorAll('.congestion-indicator');
+    existingCongestion.forEach(el => el.remove());
+
+    // Add congestion indicators
+    const nodeOverlay = document.getElementById('nodeOverlay');
+    
+    Object.entries(results.congestion).forEach(([nodeId, data]) => {
+        const node = nodes.find(n => n.id === nodeId);
+        if (node) {
+            const indicator = document.createElement('div');
+            indicator.className = 'congestion-indicator';
+            indicator.style.position = 'absolute';
+            indicator.style.left = `${node.x}px`;
+            indicator.style.top = `${node.y}px`;
+            indicator.style.width = '20px';
+            indicator.style.height = '20px';
+            indicator.style.borderRadius = '50%';
+            indicator.style.transform = 'translate(-50%, -50%)';
+            
+            // Color based on congestion level
+            const red = Math.floor(255 * data.level);
+            const green = Math.floor(255 * (1 - data.level));
+            indicator.style.backgroundColor = `rgba(${red}, ${green}, 0, 0.6)`;
+            
+            // Add tooltip
+            indicator.title = `Congestion: ${Math.round(data.level * 100)}%`;
+            
+            nodeOverlay.appendChild(indicator);
+        }
+    });
+
+    // Highlight path
+    results.path.forEach((nodeId, index) => {
+        if (index < results.path.length - 1) {
+            const currentNode = nodes.find(n => n.id === nodeId);
+            const nextNode = nodes.find(n => n.id === results.path[index + 1]);
+            
+            if (currentNode && nextNode) {
+                const pathLine = document.createElement('div');
+                pathLine.className = 'congestion-indicator path-line';
+                pathLine.style.position = 'absolute';
+                pathLine.style.height = '4px';
+                pathLine.style.backgroundColor = 'rgba(0, 255, 0, 0.5)';
+                pathLine.style.transformOrigin = '0 0';
+                
+                const dx = nextNode.x - currentNode.x;
+                const dy = nextNode.y - currentNode.y;
+                const length = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                
+                pathLine.style.width = `${length}px`;
+                pathLine.style.left = `${currentNode.x}px`;
+                pathLine.style.top = `${currentNode.y}px`;
+                pathLine.style.transform = `rotate(${angle}deg)`;
+                
+                nodeOverlay.appendChild(pathLine);
+            }
+        }
+    });
+}
+
+function visualizePath(path) {
+    const existingPaths = document.querySelectorAll('.path-line');
+    existingPaths.forEach(el => el.remove());
+    
+    const nodeOverlay = document.getElementById('nodeOverlay');
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.style.position = 'absolute';
+    svg.style.top = '0';
+    svg.style.left = '0';
+    svg.style.width = '100%';
+    svg.style.height = '100%';
+    svg.style.pointerEvents = 'none';
+    svg.style.zIndex = '15';
+    
+    // Create path element
+    const pathElement = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    
+    // Check if direct path is possible
+    if (path.length === 2) {
+        // Direct path
+        let pathData = generatePathData(path[0], path[1]);
+        pathElement.setAttribute('d', pathData);
+    } else {
+        // Regular path with multiple points
+        let pathData = `M ${path[0].x} ${path[0].y}`;
+        for (let i = 1; i < path.length; i++) {
+            pathData += ` L ${path[i].x} ${path[i].y}`;
+        }
+        pathElement.setAttribute('d', pathData);
+    }
+    
+    pathElement.setAttribute('stroke', 'rgba(0, 255, 0, 0.5)');
+    pathElement.setAttribute('stroke-width', '4');
+    pathElement.setAttribute('fill', 'none');
+    pathElement.classList.add('path-line');
+    
+    svg.appendChild(pathElement);
+    nodeOverlay.appendChild(svg);
+}
+
+// Update simulation visualization
+function visualizeCongestion(results) {
+    // Remove previous visualization
+    const existingCongestion = document.querySelectorAll('.congestion-indicator, .path-line');
+    existingCongestion.forEach(el => el.remove());
+    
+    // Visualize path
+    visualizePath(results.path);
+    
+    // Add congestion indicators
+    const nodeOverlay = document.getElementById('nodeOverlay');
+    
+    Object.entries(results.congestion).forEach(([nodeId, data]) => {
+        const node = nodes.find(n => n.id === nodeId);
+        if (node) {
+            const indicator = document.createElement('div');
+            indicator.className = 'congestion-indicator';
+            indicator.style.position = 'absolute';
+            indicator.style.left = `${node.x}px`;
+            indicator.style.top = `${node.y}px`;
+            indicator.style.width = '20px';
+            indicator.style.height = '20px';
+            indicator.style.borderRadius = '50%';
+            indicator.style.transform = 'translate(-50%, -50%)';
+            
+            // Color based on congestion level
+            const red = Math.floor(255 * data.level);
+            const green = Math.floor(255 * (1 - data.level));
+            indicator.style.backgroundColor = `rgba(${red}, ${green}, 0, 0.6)`;
+            
+            // Add tooltip
+            indicator.title = `Congestion: ${Math.round(data.level * 100)}%`;
+            
+            nodeOverlay.appendChild(indicator);
+        }
+    });
+}
+
+// Function to update simulation results display
+function updateSimulationResults(results) {
+    const resultsDiv = document.getElementById('simulationResults');
+    resultsDiv.classList.remove('hidden');
+    
+    // Update metrics
+    document.getElementById('totalDistance').textContent = 
+        `${results.total_distance.toFixed(2)} km`;
+    document.getElementById('timePerVehicle').textContent = 
+        `${results.time_per_vehicle.toFixed(2)} minutes`;
+    document.getElementById('vehiclesPerHour').textContent = 
+        `${Math.round(results.vehicles_per_hour)} vehicles/hour`;
+    
+    // Update congestion list
+    const congestionList = document.getElementById('congestionList');
+    congestionList.innerHTML = '';
+    
+    Object.entries(results.congestion)
+        .sort((a, b) => b[1].level - a[1].level)
+        .forEach(([nodeId, data]) => {
+            const div = document.createElement('div');
+            div.className = 'p-2 border rounded';
+            const level = Math.round(data.level * 100);
+            div.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span class="font-semibold">${data.name}</span>
+                    <span class="px-2 py-1 rounded text-white text-sm" 
+                          style="background-color: ${level > 66 ? '#ef4444' : level > 33 ? '#f59e0b' : '#22c55e'}">
+                        ${level}% Congested
+                    </span>
+                </div>
+                <div class="text-sm text-gray-600">
+                    ${Math.round(data.vehicles_per_hour)} vehicles/hour | 
+                    ${data.connecting_roads} connecting roads
+                </div>
+            `;
+            congestionList.appendChild(div);
+        });
+}
+
+// Add event listener for simulation form
+document.getElementById('simulationForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const data = {
+        vehicles: parseInt(document.getElementById('vehicles').value),
+        speed: parseFloat(document.getElementById('speed').value),
+        start_node: document.getElementById('startNode').value,
+        end_node: document.getElementById('endNode').value
+    };
+    
+    if (!data.start_node || !data.end_node) {
+        alert('Please select both start and end nodes');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/simulate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const results = await response.json();
+        
+        if (response.ok) {
+            // Clear any existing animations
+            const existingCars = document.querySelectorAll('.car');
+            existingCars.forEach(car => car.remove());
+            
+            // Start the traffic animation along the existing link
+            const startNode = nodes.find(n => n.id === data.start_node);
+            const endNode = nodes.find(n => n.id === data.end_node);
+            
+            if (startNode && endNode) {
+                animateTraffic([startNode, endNode], data.vehicles, data.speed);
+            }
+            
+            // Update the results display
+            updateSimulationResults(results);
+        } else {
+            alert(results.error || 'Simulation failed');
+        }
+    } catch (error) {
+        console.error('Error running simulation:', error);
+        alert('Error running simulation');
+    }
+});
+
+document.getElementById('toggleNodePlacement').addEventListener('click', function() {
+    isPlacementMode = !isPlacementMode;
+    this.textContent = isPlacementMode ? 'Disable Node Placement' : 'Enable Node Placement';
+    this.classList.toggle('bg-blue-500');
+    this.classList.toggle('bg-red-500');
+    document.getElementById('placementStatus').classList.toggle('hidden');
+    document.getElementById('mapContainer').classList.toggle('placement-mode');
+});
+
+// Map click handler for node placement
+document.getElementById('mapContainer').addEventListener('click', function(e) {
+    if (!isPlacementMode) return;
+    
+    // Get click coordinates relative to the map
+    const rect = this.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Store position temporarily
+    tempNodePosition = { x, y };
+    
+    // Show the node naming form
+    document.getElementById('nodeForm').classList.remove('hidden');
+    document.getElementById('nodeName').focus();
+});
+
+// Node form handlers
+document.getElementById('saveNode').addEventListener('click', saveNode);
+document.getElementById('cancelNode').addEventListener('click', cancelNodePlacement);
+document.getElementById('nodeForm').addEventListener('keyup', function(e) {
+    if (e.key === 'Enter') saveNode();
+    if (e.key === 'Escape') cancelNodePlacement();
+});
+
+function saveNode() {
+    const name = document.getElementById('nodeName').value.trim();
+    if (!name) {
+        alert('Please enter a name for the node');
+        return;
+    }
+    
+    if (!tempNodePosition) {
+        console.error('No temporary node position found');
+        return;
+    }
+    
+    // Create new node
+    const newNode = {
+        id: String(nextNodeId++),
+        name: name,
+        x: tempNodePosition.x,
+        y: tempNodePosition.y,
+        // Optional: Add default lat/lon if needed
+        lat: null,
+        lon: null
+    };
+    
+    // Save to database
+    fetch('/nodes', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newNode)
+    })
+    .then(response => response.json())
+    .then(data => {
+        nodes.push(newNode);
+        updateNodeDisplay();
+        updateNodeSelects();
+    })
+    .catch(error => {
+        console.error('Error saving node:', error);
+        alert('Failed to save node');
+    });
+    
+    // Clean up
+    cancelNodePlacement();
+}
+
+function cancelNodePlacement() {
+    document.getElementById('nodeForm').classList.add('hidden');
+    document.getElementById('nodeName').value = '';
+    tempNodePosition = null;
+}
+
+function updateNodeDisplay() {
+    const nodeOverlay = document.getElementById('nodeOverlay');
+    nodeOverlay.innerHTML = '';
+    
+    nodes.forEach(node => {
+        const nodeElement = document.createElement('div');
+        nodeElement.className = 'node';
+        nodeElement.style.left = `${node.x}px`;
+        nodeElement.style.top = `${node.y}px`;
+        nodeElement.setAttribute('data-node-id', node.id);
+        
+        const label = document.createElement('div');
+        label.className = 'node-label';
+        label.textContent = node.name;
+        
+        nodeElement.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            if (confirm(`Delete node "${node.name}"?`)) {
+                deleteNode(node.id);
+            }
+        });
+        
+        nodeElement.appendChild(label);
+        nodeOverlay.appendChild(nodeElement);
+    });
+
+    // Add this line to update simulation selects
+    updateSimulationNodeSelects();
+}
+
+function deleteNode(nodeId) {
+    fetch(`/nodes/${nodeId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        nodes = nodes.filter(n => n.id !== nodeId);
+        updateNodeDisplay();
+        updateNodeSelects();
+    })
+    .catch(error => {
+        console.error('Error deleting node:', error);
+        alert('Failed to delete node');
+    });
+}
+
+        // Error handling
+        function handleError(error, context) {
+            console.error(`Error ${context}:`, error);
+            alert(`An error occurred while ${context}. Please try again.`);
+            hideLoading();
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                showLoading();
+                const response = await fetch('/nodes');
+                const data = await response.json();
+                
+                if (response.ok && data.nodes.length > 0) {
+                    nodes = data.nodes;
+                    updateMap(data.map, data.nodes);
+                    updateNodeSelects();
+                    refreshLinks();
+                }
+            } catch (error) {
+                console.error('Error loading initial data:', error);
+            } finally {
+                hideLoading();
+            }
+        });
+
+        // Reset zoom and position
+        function resetView() {
+            scale = 1;
+            translateX = 0;
+            translateY = 0;
+            updateTransform();
+        }
+
+        // Add keyboard shortcuts
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Escape') {
+                clearNodeSelection();
+            } else if (e.code === 'KeyR' && e.ctrlKey) {
+                e.preventDefault();
+                resetView();
+            }
+        });
+
+        // Add touch support for mobile devices
+        let touchStartX, touchStartY;
+        let lastTouchDistance = 0;
+
+        mapContainer.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                const touch = e.touches[0];
+                touchStartX = touch.clientX - translateX;
+                touchStartY = touch.clientY - translateY;
+            } else if (e.touches.length === 2) {
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                lastTouchDistance = Math.hypot(
+                    touch2.clientX - touch1.clientX,
+                    touch2.clientY - touch1.clientY
+                );
+            }
+        });
+
+        mapContainer.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (e.touches.length === 1) {
+                const touch = e.touches[0];
+                translateX = touch.clientX - touchStartX;
+                translateY = touch.clientY - touchStartY;
+                updateTransform();
+            } else if (e.touches.length === 2) {
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                const currentDistance = Math.hypot(
+                    touch2.clientX - touch1.clientX,
+                    touch2.clientY - touch1.clientY
+                );
+                
+                if (lastTouchDistance) {
+                    scale *= currentDistance / lastTouchDistance;
+                    scale = Math.min(Math.max(0.5, scale), 3);
+                    updateTransform();
+                }
+                
+                lastTouchDistance = currentDistance;
+            }
+        });
+
+        mapContainer.addEventListener('touchend', () => {
+            lastTouchDistance = 0;
+        });
+    </script>
+</body>
+</html>

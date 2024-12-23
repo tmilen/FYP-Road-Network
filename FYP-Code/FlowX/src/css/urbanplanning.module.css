@@ -1,0 +1,16 @@
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: lightgray;
+    margin: 0;
+    padding: 0;
+}
+
+.title {
+font-size: 3rem;
+font-weight: 600;
+text-align: center;
+margin: 0;
+position: relative;
+z-index: 1;
+color: hsl(0, 0%, 29%);
+}

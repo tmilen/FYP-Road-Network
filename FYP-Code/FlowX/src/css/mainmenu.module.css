@@ -1,0 +1,219 @@
+body, html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.mainMenu {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  min-height: 500vh;
+  padding-top: 20px;
+  position: relative;
+  overflow: visible;
+}
+
+.backgroundGif {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  background-image: url('../img/traffic.gif');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: -1;
+  opacity: 1;
+}
+
+.mainMenuTitle {
+  font-size: 3rem;
+  font-weight: 600;
+  text-align: center;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+  color: white;
+}
+
+.content {
+  position: absolute;
+  top: 100vh; 
+  left: 0;
+  width: 100%;
+  height: 65vh; 
+  z-index: 1;
+  padding: 20px;
+  background-color: rgb(0, 91, 172); 
+  overflow: auto; 
+}
+
+.topSection {
+  padding: 40px; 
+  max-width: 1200px; 
+  margin: 0 auto; 
+  color: white; 
+  background-color: rgba(0, 0, 0, 0); 
+  text-align: center; 
+}
+
+.aboutUsSection {
+  
+  display: flex;
+  align-items: center;
+  padding: 40px; 
+  max-width: 1200px; 
+  margin: 0 auto; 
+  color: white;
+}
+
+.aboutText {
+  flex: 1; 
+  position: relative; 
+  z-index: 1; 
+  margin-right: -50px; 
+}
+
+.aboutText h2 {
+  font-size: 2.5rem; 
+  margin-bottom: 20px;
+}
+
+.aboutText p {
+  font-size: 1.2rem; 
+  line-height: 1.6; 
+  margin-bottom: 15px; 
+}
+
+.aboutImage {
+  flex: 1; 
+  display: flex;
+  justify-content: center; 
+  align-items: center; 
+}
+
+.aboutImage img {
+  max-width: 100%; 
+  height: auto; 
+  border-radius: 10px; 
+  margin-left: 100px;
+  margin-top: 100px; 
+}
+
+.scrollSection {
+  height: 100vh; 
+  background-color: blue; 
+  z-index: 0; 
+}
+
+.servicesSection {
+  padding: 40px;
+  max-width: 1200px; 
+  margin: 0 auto; 
+  color: white; 
+  position: relative; 
+  z-index: 1; 
+  margin-top: 1700px;
+  
+}
+
+.servicesSection h2 {
+  font-size: 2.5rem; 
+  margin-bottom: 20px; 
+}
+
+.servicesContent {
+  display: flex;
+  justify-content: space-around; 
+  flex-wrap: wrap; 
+}
+
+.service {
+  flex: 1; 
+  margin: 10px; 
+  padding: 20px; 
+  background-color: rgba(255, 255, 255, 0.1); 
+  border-radius: 10px; 
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); 
+  transition: transform 0.3s; 
+}
+
+.service:hover {
+  transform: scale(1.05); 
+}
+
+.service h3 {
+  font-size: 1.8rem; 
+  margin-bottom: 10px; 
+}
+
+.service p {
+  font-size: 1rem; 
+  line-height: 1.4; 
+}
+
+.contactUsSection {
+  top: 50vh;
+  background-color: white; 
+  padding: 40px; 
+  width: 50%; 
+  position: relative;
+  z-index: 1; 
+  left: 0; 
+  right: 0; 
+  margin: 0; 
+}
+
+
+.contactUsSection h2 {
+  font-size: 2.5rem; 
+  margin-bottom: 20px; 
+}
+
+.contactForm {
+  display: flex;
+  flex-direction: column; 
+}
+
+.contactForm label {
+  margin-top: 10px;
+}
+
+.contactForm input,
+.contactForm textarea {
+  margin-top: 5px; 
+  padding: 10px; 
+  border: 1px solid #ccc; 
+  height: 150px; 
+  border-radius: 5px; 
+}
+
+.contactForm button {
+  margin-top: 15px; 
+  padding: 10px; 
+  background-color: blue; 
+  color: white;
+  border: none; 
+  border-radius: 5px; 
+  cursor: pointer; 
+}
+
+.contactForm button:hover {
+  background-color: darkblue; 
+}
+
+
+.fadeIn {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.fadeIn.visible {
+  opacity: 1;
+  transform: translateY(0);
+}

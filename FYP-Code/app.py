@@ -1,10 +1,13 @@
 from flask import Flask, request, session, jsonify, make_response
 from pymongo import MongoClient
+import gridfs
 from flask_cors import CORS
 import bcrypt
 from bson import ObjectId
 import os
 from dotenv import load_dotenv
+from werkzeug.utils import secure_filename
+from xml.etree import ElementTree as ET
 
 load_dotenv()
 def create_app(db_client=None):
@@ -17,6 +20,9 @@ def create_app(db_client=None):
     users_collection = db['users']
     profiles_collection = db['profiles']
     user_permissions_collection = db['user_permissions']
+
+    # Create a GridFS instance for file storage
+    fs = gridfs.GridFS(client['TSUN-TESTING'], collection='maps-upload')
 
     # Function to create default profiles if they don't exist
     def create_profiles():
@@ -441,6 +447,123 @@ def create_app(db_client=None):
         }, {"_id": 0}))  
         return jsonify(profiles)
         
+    def validate_map_xml(xml_content):
+        try:
+            # Parse XML content
+            root = ET.fromstring(xml_content)
+            
+            # Check basic structure
+            if root.tag != 'town':
+                return False, "Root element must be 'town'"
+
+            map_elem = root.find('map')
+            if map_elem is None:
+                return False, "Missing 'map' element"
+
+            # Check for required attributes
+            if 'width' not in map_elem.attrib or 'height' not in map_elem.attrib:
+                return False, "Map must have width and height attributes"
+
+            # Check for routes section
+            routes = map_elem.find('routes')
+            if routes is None:
+                return False, "Missing 'routes' section"
+
+            # Check for SVG element
+            svg = map_elem.find('svg')
+            if svg is None:
+                return False, "Missing SVG element"
+
+            # Validate route elements
+            for route in routes.findall('route'):
+                if 'id' not in route.attrib or 'type' not in route.attrib:
+                    return False, "Each route must have id and type attributes"
+                if route.find('start') is None or route.find('end') is None:
+                    return False, "Each route must have start and end points"
+
+            return True, "Valid map format"
+
+        except ET.ParseError as e:
+            return False, f"Invalid XML format: {str(e)}"
+        except Exception as e:
+            return False, f"Validation error: {str(e)}"
+
+    @app.route('/api/upload', methods=['POST'])
+    def upload_file():
+        if 'username' not in session:
+            return jsonify({'message': 'Unauthorized'}), 403
+
+        if 'file' not in request.files:
+            return jsonify({'message': 'No file part'}), 400
+
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'message': 'No selected file'}), 400
+
+        # Verify file is XML
+        if not file.filename.endswith('.xml'):
+            return jsonify({'message': 'Only XML files are allowed'}), 400
+
+        try:
+            # Read file content
+            file_content = file.read()
+            
+            # Validate XML structure
+            is_valid, message = validate_map_xml(file_content)
+            if not is_valid:
+                return jsonify({'message': f'Invalid map format: {message}'}), 400
+
+            # Store in GridFS with metadata
+            filename = secure_filename(file.filename)
+            file_id = fs.put(
+                file_content,
+                filename=filename,
+                content_type='text/xml',
+                username=session['username']
+            )
+            return jsonify({
+                'message': 'Map file uploaded successfully',
+                'file_id': str(file_id)
+            }), 201
+
+        except Exception as e:
+            print(f"Error uploading file: {e}")
+            return jsonify({'message': f'Error uploading file: {str(e)}'}), 500
+
+    @app.route('/api/files/<file_id>', methods=['GET'])
+    def get_uploaded_file(file_id):
+        try:
+            file = fs.get(ObjectId(file_id))
+            file_data = file.read()
+            return jsonify({
+                'file_id': file_id,
+                'data': file_data.decode('utf-8'),
+                'filename': file.filename
+            }), 200
+        except Exception as e:
+            print(f"Error fetching file: {e}")
+            return jsonify({'message': 'Error fetching file'}), 500
+
+    @app.route('/api/maps', methods=['GET'])
+    def get_maps_list():
+        try:
+            # Use the files collection directly to get metadata
+            files_collection = client['TSUN-TESTING']['maps-upload.files']
+            files = files_collection.find()
+            
+            maps_list = [{
+                '_id': str(file['_id']),
+                'filename': file['filename'],
+                'uploadDate': file['uploadDate'].isoformat(),
+                'username': file.get('username', 'unknown')
+            } for file in files]
+            
+            print("Debug: Found maps:", maps_list)  # Debug print
+            return jsonify(maps_list)
+        except Exception as e:
+            print(f"Error fetching maps list: {e}")
+            return jsonify({'message': 'Error fetching maps list'}), 500
+
     return app
 
 

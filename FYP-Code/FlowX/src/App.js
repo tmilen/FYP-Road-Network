@@ -7,6 +7,9 @@ import AccountManagement from './frontend/accountmanagement';
 import TrafficManagement from './frontend/trafficmanagement';
 import DataHealth from './frontend/datahealth';
 import UrbanPlanning from './frontend/urbanplanning';
+import UploadMap from './frontend/uploadmap';
+import TrafficData from './frontend/trafficdata';
+import LiveMap  from './frontend/LiveMap';
 import './css/global.css'
 
 function App() {
@@ -20,6 +23,9 @@ function App() {
         <Route path="/traffic-management" element={<TrafficManagement />} />
         <Route path="/data-health" element={<DataHealth />} />
         <Route path="/urban-planning" element={<UrbanPlanning />} />
+        <Route path="/upload-map" element={<UploadMap />} />
+        <Route path="/traffic-data" element={<TrafficData />} />
+        <Route path="/live-map" element={<LiveMap />} />
       </Routes>
     </Router>
   );

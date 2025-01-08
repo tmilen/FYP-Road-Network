@@ -1,118 +1,188 @@
+.pageContainer {
+    min-height: 100vh;
+    background-color: #f5f5f5;
+}
+
 .accountManagementContainer {
     display: flex;
-    justify-content: center; /* Center horizontally */
+    justify-content: center;
     align-items: flex-start;
-    margin-top: 50px;
-    gap: 50px;
-    flex-direction: row; /* Align items horizontally */
+    margin-top: 2rem;
+    gap: 2rem;
+    padding: 0 1rem;
+    max-width: 1200px;
+    margin: 2rem auto;
 }
 
 .accountBox {
-    background-color: hsl(0, 0%, 29%);
-    padding: 20px;
-    border: 1px solid white;
-    border-radius: 10px;
-    width: 300px; 
-    text-align: left;
+    background: white;
+    border-radius: 16px;
+    padding: 2rem;
+    width: 400px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.profileHeader {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.avatarCircle {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #757575, #424242);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: white;
-    margin-top: 0; /* Ensure no margin at the top */
-    flex-shrink: 0; /* Prevent shrinking */
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0 auto 1rem;
+}
+
+.roleTag {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    background: #f5f5f5;
+    color: #424242;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-top: 0.5rem;
+    border: 1px solid #e0e0e0;
+}
+
+.infoGrid {
+    display: grid;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.infoItem {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: #fafafa;
+    border-radius: 12px;
+    border: 1px solid #f0f0f0;
+}
+
+.infoIcon {
+    color: #757575;
+    font-size: 1.25rem;
+}
+
+.infoItem label {
+    font-size: 0.75rem;
+    color: #666;
+    margin-bottom: 0.25rem;
+    display: block;
+}
+
+.infoItem p {
+    margin: 0;
+    color: #2c3e50;
+    font-weight: 500;
 }
 
 .changePasswordButton {
-    margin-top: 20px;
-    padding: 10px;
-    background-color: #fff;
-    color: hsl(0, 0%, 29%);
+    width: 100%;
+    padding: 1rem;
+    background: #616161;
+    color: white;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px;
+    font-weight: 500;
     cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.changePasswordButton:hover {
+    background: #424242;
+    transform: translateY(-1px);
 }
 
 .passwordFormContainer {
-    position: relative; 
-    margin-top: 0; /* Remove top margin */
-    background-color: #fff;
-    padding: 20px;
-    border-radius: 10px;
-    width: 280px;
-    color: black;
-    text-align: left;
-    flex-shrink: 0; /* Prevent shrinking */
+    background: white;
+    border-radius: 16px;
+    padding: 2rem;
+    width: 400px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.passwordFormHeader {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-}
-
-.closePasswordForm {
-    background: none;
-    border: none;
-    font-size: 2rem;
-    font-weight: bold;
-    cursor: pointer;
-    position: absolute;
-    top: 35px;
-    right: 10px;
-    display: flex; 
-    align-items: center;
-    justify-content: center;
-    padding: 0; 
-    margin: 0; 
-    width: auto;
-    height: auto;
-}
-
-.closePasswordForm:hover {
-    background-color: rgba(0, 0, 0, 0.1); 
-    border-radius: 50%; 
+.passwordForm {
+    display: grid;
+    gap: 1.5rem;
 }
 
 .inputGroup {
-    margin-bottom: 15px;
-}
-
-.inputGroup label {
-    font-weight: bold;
-    margin-bottom: 5px;
-    display: block;
-    color: black;
+    display: grid;
+    gap: 0.5rem;
 }
 
 .inputGroup input {
-    width: 100%; 
-    max-width: 250px; 
-    padding: 6px; 
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    font-size: 0.85rem;
+    padding: 0.75rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.inputGroup input:focus {
+    border-color: #757575;
+    outline: none;
+    box-shadow: 0 0 0 1px #757575;
 }
 
 .buttonGroup {
-    display: flex;
-    justify-content: center; /* Center the buttons */
-    gap: 10px; /* Space between buttons */
-    margin-top: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1rem;
 }
 
-.changePasswordSubmit, .clearButton {
-    padding: 10px;
-    background-color: hsl(0, 0%, 29%);
-    color: white;
+.buttonGroup button {
+    padding: 0.75rem;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px;
+    font-weight: 500;
     cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.changePasswordSubmit {
+    background: #616161;
+    color: white;
+}
+
+.changePasswordSubmit:hover {
+    background: #424242;
 }
 
 .clearButton {
-    background-color: #6c757d; /* Neutral gray color */
+    background: #e0e0e0;
+    color: #424242;
 }
 
 .clearButton:hover {
-    background-color: #5a6268; /* Slightly darker gray for hover */
+    background: #bdbdbd;
+}
+
+/* ...existing animations and responsive styles... */
+
+@media (max-width: 768px) {
+    .accountManagementContainer {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .accountBox,
+    .passwordFormContainer {
+        width: 100%;
+        max-width: 400px;
+    }
 }
 
 .message {
@@ -159,5 +229,43 @@
     box-sizing: border-box;
     margin-left: auto;
     margin-right: auto;
+}
+
+.closePasswordForm {
+    background: none;
+    border: none;
+    font-size: 1.75rem;
+    cursor: pointer;
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    color: #757575;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.closePasswordForm:hover {
+    color: #424242;
+    transform: translateY(-50%) scale(1.1);
+}
+
+.passwordFormHeader {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.passwordFormHeader h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #424242;
 }
 

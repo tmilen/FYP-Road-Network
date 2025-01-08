@@ -1,6 +1,7 @@
 import React from 'react';
 import Navbar from './navbar';
-import { IoIosClose } from "react-icons/io";
+import { IoIosCloseCircleOutline } from "react-icons/io";  // Updated import
+import { FaUser, FaEnvelope, FaCalendar, FaUserTag } from 'react-icons/fa';
 import useAccountManagementController from '../components/accountmanagement'; 
 import styles from '../css/accountmanagement.module.css'; 
 
@@ -14,8 +15,8 @@ const AccountManagement = () => {
         setShowPasswordForm,
         handlePasswordChange,
         handlePasswordSubmit,
-        setPasswords, // Ensure setPasswords is destructured
-        setMessage, // Ensure setMessage is destructured
+        setPasswords,
+        setMessage,
     } = useAccountManagementController(); 
 
     const handleClear = () => {
@@ -35,20 +36,55 @@ const AccountManagement = () => {
     };
 
     return (
-        <div>
+        <div className={styles.pageContainer}>
             <h1 className={styles.title}>FlowX</h1>
             <Navbar sticky={false} />
 
             <div className={styles.accountManagementContainer}>
                 <div className={styles.accountBox}>
-                    <h2>Account Details</h2>
-                    <p><strong>Username:</strong> {userData.username}</p>
-                    <p><strong>First Name:</strong> {userData.first_name}</p>
-                    <p><strong>Last Name:</strong> {userData.last_name}</p>
-                    <p><strong>Email:</strong> {userData.email}</p>
-                    <p><strong>Date of Birth:</strong> {userData.date_of_birth}</p>
-                    <p><strong>Role:</strong> {formatRole(userData.role)}</p>
-                    <button onClick={() => setShowPasswordForm(!showPasswordForm)} className={styles.changePasswordButton}>
+                    <div className={styles.profileHeader}>
+                        <div className={styles.avatarCircle}>
+                            {userData.first_name?.[0]}{userData.last_name?.[0]}
+                        </div>
+                        <h2>{userData.first_name} {userData.last_name}</h2>
+                        <span className={styles.roleTag}>{formatRole(userData.role)}</span>
+                    </div>
+                    
+                    <div className={styles.infoGrid}>
+                        <div className={styles.infoItem}>
+                            <FaUser className={styles.infoIcon} />
+                            <div>
+                                <label>Username</label>
+                                <p>{userData.username}</p>
+                            </div>
+                        </div>
+                        <div className={styles.infoItem}>
+                            <FaEnvelope className={styles.infoIcon} />
+                            <div>
+                                <label>Email</label>
+                                <p>{userData.email}</p>
+                            </div>
+                        </div>
+                        <div className={styles.infoItem}>
+                            <FaCalendar className={styles.infoIcon} />
+                            <div>
+                                <label>Date of Birth</label>
+                                <p>{userData.date_of_birth}</p>
+                            </div>
+                        </div>
+                        <div className={styles.infoItem}>
+                            <FaUserTag className={styles.infoIcon} />
+                            <div>
+                                <label>Role</label>
+                                <p>{formatRole(userData.role)}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button 
+                        onClick={() => setShowPasswordForm(!showPasswordForm)} 
+                        className={styles.changePasswordButton}
+                    >
                         Change Password
                     </button>
                 </div>
@@ -58,10 +94,10 @@ const AccountManagement = () => {
                         <div className={styles.passwordFormHeader}>
                             <h3>Change Password</h3>
                             <button onClick={() => setShowPasswordForm(false)} className={styles.closePasswordForm}>
-                                <IoIosClose />
+                                <IoIosCloseCircleOutline />  {/* Updated icon component */}
                             </button>
                         </div>
-                        <form onSubmit={handlePasswordSubmit}>
+                        <form onSubmit={handlePasswordSubmit} className={styles.passwordForm}>
                             <div className={styles.inputGroup}>
                                 <label>Current Password</label>
                                 <input
@@ -93,8 +129,12 @@ const AccountManagement = () => {
                                 />
                             </div>
                             <div className={styles.buttonGroup}>
-                                <button type="submit" className={styles.changePasswordSubmit}>Submit</button>
-                                <button type="button" onClick={handleClear} className={styles.clearButton}>Clear</button>
+                                <button type="submit" className={styles.changePasswordSubmit}>
+                                    Update Password
+                                </button>
+                                <button type="button" onClick={handleClear} className={styles.clearButton}>
+                                    Clear
+                                </button>
                             </div>
                             {message && (
                                 <p className={success ? styles.successMessage : styles.errorMessage}>

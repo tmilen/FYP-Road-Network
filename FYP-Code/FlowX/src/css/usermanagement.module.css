@@ -5,31 +5,134 @@ body {
   padding: 0;
 }
 
+.pageContainer {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
 .title {
-  font-size: 3rem;
+  font-size: 2.5rem;
   font-weight: 600;
   text-align: center;
   margin: 0;
-  position: relative;
-  z-index: 1;
-  color: hsl(0, 0%, 29%);
+  padding: 1rem 0;
+  color: #2c3e50;
 }
 
 .usermanagementContainer {
-  display: flex;
-  flex-direction: column; /* Stack items vertically */
-  justify-content: center;
-  align-items: center;
-  gap: 50px;
-  margin-top: 50px;
+  padding: 2rem;
+  max-width: 1800px;
+  margin: 0 auto;
+}
+
+.contentPanel {
+  width: 100%;
+}
+
+.viewContent {
+  display: grid;
+  grid-template-columns: 400px 1fr; /* Increased from 350px to 400px */
+  gap: 2rem;
+}
+
+.viewToggle {
+  margin-bottom: 2rem;
+  background: #f8f9fa;
+  padding: 0.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.toggleButton {
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: transparent;
+  color: #666;
+}
+
+.toggleButton.active {
+  background: white;
+  color: #2c3e50;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-weight: 500;
+}
+
+.toggleButton:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+@media (max-width: 1200px) {
+  .viewContent {
+    grid-template-columns: 1fr;
+  }
 }
 
 .usermanagementBox {
-  background-color: hsl(0, 0%, 29%);
-  padding: 20px;
-  border: 1px;
-  border-radius: 10px;
-  text-align: center;
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  height: fit-content;
+  margin-bottom: 2rem; /* Add spacing between boxes */
+  max-height: 800px; /* Increased height to fit all fields */
+  overflow-y: auto; /* Add scroll if content exceeds height */
+}
+
+.contentPanel .usermanagementBox {
+  height: 600px;
+  display: flex;
+  flex-direction: column;
+  margin-top: 0;
+}
+
+.contentPanel .userTable {
+  display: block; /* Change to block display */
+  overflow-y: auto;
+  max-height: 450px; /* Height for approximately 10 rows */
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+/* Ensure the table header stays fixed */
+.userTable thead {
+  position: sticky;
+  top: 0;
+  background: #f8f9fa;
+  z-index: 1;
+}
+
+/* Add some padding to the bottom of the table container to prevent cut-off */
+.userTable tbody {
+  padding-bottom: 1rem;
+}
+
+/* Style the scrollbar */
+.userTable::-webkit-scrollbar {
+  width: 8px;
+}
+
+.userTable::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.userTable::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.userTable::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.controlPanel > .usermanagementBox:last-child,
+.contentPanel > .usermanagementBox:last-child {
+  margin-bottom: 0; /* Remove margin from last box in each panel */
 }
 
 .createUserBox {
@@ -55,22 +158,23 @@ body {
 }
 
 .createUserButton, .createProfileButton {
-  background-color: #28a745; /* Bootstrap success color */
+  background-color: #3498db;
   color: white;
 }
 
 .createUserButton:hover, .createProfileButton:hover {
-  background-color: #218838; /* Darker shade for hover */
+  transform: translateY(-1px);
+  filter: brightness(1.1);
 }
 
 .clearButton {
-  background-color: #ffc107; /* Bootstrap warning color */
-  color: black;
-  border: 1px solid #ffc107; 
+  background-color: #e74c3c;
+  color: white;
 }
 
 .clearButton:hover {
-  background-color: #e0a800; /* Darker shade for hover */
+  transform: translateY(-1px);
+  filter: brightness(1.1);
 }
 
 .searchButton, .clearButton {
@@ -94,8 +198,10 @@ body {
 .buttonGroup {
   display: flex;
   justify-content: center; /* Center the buttons */
-  gap: 10px; /* Space between buttons */
+  gap: 0.5rem; /* Space between buttons */
   align-items: center; /* Align items vertically */
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
 .allUsersBox, .allProfilesBox {
@@ -104,12 +210,15 @@ body {
 }
 
 .usermanagementBox h2 {
-  color: white;
-  margin-bottom: 15px;
+  font-size: 1.5rem;
+  color: #2c3e50;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid #ecf0f1;
+  padding-bottom: 0.5rem;
 }
 
 .inputGroup {
-  margin-bottom: 10px;
+  margin-bottom: 0.75rem;
   text-align: left;
 }
 
@@ -121,25 +230,30 @@ body {
 }
 
 .inputGroup label {
-  color: white;
-  font-weight: bold;
+  display: block;
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
 }
 
 .inputGroup input,
 .inputGroup select {
   width: 100%;
-  padding: 10px;
-  border: none;
-  border-radius: 5px;
-  outline: none;
-  font-size: 1rem;
+  padding: 6px 8px; /* Slightly reduced padding */
+  border: 2px solid #ecf0f1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #2c3e50;
+  height: 32px; /* Explicit height */
 }
 
 .userTable {
   width: 100%;
-  margin-top: 20px;
+  margin-top: 1rem;
   background-color: #fff;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 8px;
   table-layout: auto;
 }
 
@@ -152,8 +266,16 @@ body {
 }
 
 .userTable th {
-  background-color: hsl(0, 0%, 29%);
-  color: white;
+  background-color: #f8f9fa;
+  color: #2c3e50;
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 2px solid #ecf0f1;
+}
+
+.userTable td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #ecf0f1;
 }
 
 .userTable tr:hover {
@@ -199,9 +321,11 @@ body {
   width: 100%;
   border: 1px solid hsl(0, 0%, 29%);
   border-radius: 5px;
-  padding: 10px;
+  padding: 8px;
   background-color: lightgray;
   color: hsl(0, 0%, 29%);
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
 }
 
 .customCalendar .react-calendar__tile--active {
@@ -225,7 +349,6 @@ body {
   gap: 50px;
   width: 100%;
 }
-
 
 .searchInput::placeholder {
   color: hsl(0, 0%, 70%);
@@ -267,24 +390,31 @@ body {
 
 .permissionsList {
   list-style-type: none;
-  padding: 0;
-  margin: 0;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
   width: 100%;
+  border: 2px solid #ecf0f1;
+  border-radius: 8px;
+  background-color: #fafafa;
 }
 
 .permissionItem {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 5px 10px;
-  padding-right: 10px;
+  padding: 0.5rem;
+  border-bottom: 1px solid #ecf0f1;
+}
+
+.permissionItem:last-child {
+  border-bottom: none;
 }
 
 .permissionsLabel {
-  color: hsl(0, 0%, 29%) !important;
+  color: #2c3e50 !important;
   white-space: nowrap;
   font-size: 0.9rem;
-  padding-left: 5px;
+  font-weight: 500;
 }
 
 .switch {
@@ -336,18 +466,68 @@ input:checked + .slider:before {
   transform: translateX(18px);
 }
 
-
 .searchContainer {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 15px;
+  flex-wrap: wrap; /* Allow items to wrap */
+  width: 100%;
+  position: relative;
+}
+
+/* Style for messages in the search container */
+.searchContainer + div {
+  display: inline-block;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+/* Adjust message styles for search results */
+.userSearchMessage,
+.profileSearchMessage,
+.allUsersMessage,
+.allProfilesMessage,
+.userErrorMessage,
+.profileErrorMessage {
+  display: inline-block;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin: 0;
+  font-size: 0.9rem;
+  max-width: none;
+  animation: fadeIn 0.3s ease-out;
+  position: static; /* Remove absolute positioning */
+  transform: none;
+  left: auto;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Ensure the search input and buttons stay in line */
+.searchInput {
+  width: 250px;
+  flex-shrink: 0;
+}
+
+.searchButton,
+.clearButton {
+  flex-shrink: 0;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .searchButton {
   padding: 8px 16px;
   font-size: 1rem;
-  background-color: #17a2b8; /* Bootstrap info color */
+  background-color: #2ecc71;
   color: white;
   border: 1px solid #17a2b8; 
   border-radius: 5px;
@@ -359,7 +539,8 @@ input:checked + .slider:before {
 }
 
 .searchButton:hover {
-  background-color: #138496; /* Darker shade for hover */
+  transform: translateY(-1px);
+  filter: brightness(1.1);
 }
 
 .searchContainer {
@@ -451,6 +632,7 @@ input:checked + .slider:before {
   display: none;
 }
 
+/* Message styles */
 .createUserMessage,
 .createProfileMessage,
 .successMessage,
@@ -458,36 +640,77 @@ input:checked + .slider:before {
 .userSearchMessage,
 .allUsersMessage,
 .userErrorMessage {
-  text-align: center;
-  width: 100%;
-  max-width: 250px; /* Same as search input box */
-  box-sizing: border-box;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 10px;
-  border-radius: 5px;
-  margin-bottom: 15px;
+    display: block;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin: 1rem auto;
+    font-size: 0.9rem;
+    width: 90%;
+    max-width: 300px;
+    box-sizing: border-box;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    animation: slideIn 0.3s ease-out;
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
-.successMessage {
-  color: green;
-  background-color: #dff0d8; /* Light green background */
-  border: 1px solid #d6e9c6; /* Border color */
-  padding: 10px;
-  border-radius: 5px;
-  margin-bottom: 15px;
-  text-align: center;
-  width: 100%;
-  max-width: 250px; /* Same as search input box */
-  box-sizing: border-box;
-  margin-left: auto;
-  margin-right: auto;
-}
-
+/* Remove any additional styling for individual message classes that might interfere */
+.createUserMessage,
 .errorMessage {
-  color: #d9534f; /* Bootstrap's danger color */
-  background-color: #f8d7da; /* Light red background */
-  border: 1px solid #f5c6cb; /* Border color */
+    margin-left: auto;
+    margin-right: auto;
+    width: 90%;
+    max-width: 300px;
+}
+
+.createUserMessage,
+.createProfileMessage,
+.successMessage,
+.errorMessage,
+.userSearchMessage,
+.allUsersMessage,
+.userErrorMessage {
+    display: inline-block;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    width: 100%;
+    max-width: 250px;
+    box-sizing: border-box;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    animation: slideIn 0.3s ease-out;
+}
+
+.successMessage,
+.createUserMessage[class*="successfully"],
+.createProfileMessage[class*="successfully"] {
+    background-color: #ebf7f2;
+    color: #27ae60;
+    border: 1px solid #27ae60;
+}
+
+.errorMessage,
+.createUserMessage:not([class*="successfully"]),
+.createProfileMessage:not([class*="successfully"]) {
+    background-color: #fdf3f2;
+    color: #e74c3c;
+    border: 1px solid #e74c3c;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .createUserMessage {
@@ -521,7 +744,244 @@ input:checked + .slider:before {
 }
 
 .matchHeightButton {
-    height: 100%;
+  height: 100%;
+}
+
+/* Responsive layout */
+@media (max-width: 1200px) {
+  .usermanagementContainer {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1400px) {
+  .viewContent {
+    grid-template-columns: 350px 1fr;
+  }
+}
+
+.contentPanel .userTable {
+  display: block; /* Change to block display */
+  overflow-y: auto;
+  max-height: 450px; /* Height for approximately 10 rows */
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+/* Table header styling */
+.userTable thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: #f8f9fa;
+}
+
+.userTable thead tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+/* Table body styling */
+.userTable tbody {
+  display: block;
+  overflow-y: auto;
+}
+
+.userTable tbody tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+/* Style the scrollbar */
+.userTable::-webkit-scrollbar {
+  width: 8px;
+}
+
+.userTable::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.userTable::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.userTable::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Ensure consistent cell widths */
+.userTable th,
+.userTable td {
+  padding: 0.75rem;
+  word-wrap: break-word;
+}
+
+/* Column widths */
+.userTable th:nth-child(1),
+.userTable td:nth-child(1) { width: 5%; }  /* ID */
+.userTable th:nth-child(2),
+.userTable td:nth-child(2) { width: 12%; } /* Username */
+.userTable th:nth-child(3),
+.userTable td:nth-child(3) { width: 15%; } /* Email */
+.userTable th:nth-child(4),
+.userTable td:nth-child(4) { width: 10%; } /* First Name */
+.userTable th:nth-child(5),
+.userTable td:nth-child(5) { width: 10%; } /* Last Name */
+.userTable th:nth-child(6),
+.userTable td:nth-child(6) { width: 12%; } /* Date of Birth */
+.userTable th:nth-child(7),
+.userTable td:nth-child(7) { width: 12%; } /* Profile */
+.userTable th:nth-child(8),
+.userTable td:nth-child(8) { width: 14%; } /* Permissions */
+.userTable th:nth-child(9),
+.userTable td:nth-child(9) { width: 10%; } /* Actions */
+
+.searchContainer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 15px;
+    width: 100%;
+}
+
+/* Message styles for search results */
+.userSearchMessage,
+.profileSearchMessage,
+.allUsersMessage,
+.allProfilesMessage,
+.userErrorMessage,
+.profileErrorMessage {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin: 0;
+    margin-left: 8px;
+    font-size: 0.9rem;
+    height: 38px; /* Match height with buttons */
+    box-sizing: border-box;
+    white-space: nowrap;
+    position: static; /* Remove absolute positioning */
+    transform: none;
+}
+
+/* Ensure search inputs and buttons maintain their size */
+.searchInput {
+    width: 250px;
+    flex-shrink: 0;
+}
+
+.searchButton,
+.clearButton {
+    flex-shrink: 0;
+    height: 38px;
+}
+
+/* Remove any conflicting styles */
+.searchContainer > div {
+    margin: 0;
+    padding: 0;
+    position: static;
+    transform: none;
+    left: auto;
+    top: auto;
+}
+
+/* Keep search input and buttons consistent */
+.searchInput {
+    width: 250px;
+    min-width: 200px;
+    flex-shrink: 0;
+}
+
+.searchButton,
+.clearButton {
+    flex-shrink: 0;
+    width: auto;
+    white-space: nowrap;
+}
+
+/* Message styling adjustments */
+.userSearchMessage,
+.profileSearchMessage,
+.allUsersMessage,
+.allProfilesMessage,
+.userErrorMessage,
+.profileErrorMessage,
+.createUserMessage,
+.createProfileMessage,
+.successMessage,
+.errorMessage {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 38px;  /* Match button height exactly */
+    padding: 0 12px;
+    border-radius: 6px;
+    margin: 0 0 0 8px;
+    font-size: 0.9rem;
+    box-sizing: border-box;
+    white-space: nowrap;
+    position: static;
+    transform: none;
+}
+
+.viewToggle {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    background: #f8f9fa;
+    padding: 0.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.toggleButton {
+    padding: 0.75rem 2rem;
+    font-size: 1rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: transparent;
+    color: #666;
+}
+
+.toggleButton.active {
+    background: white;
+    color: #2c3e50;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    font-weight: 500;
+}
+
+.toggleButton:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* Form container adjustments */
+.usermanagementBox form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+.inputGroup {
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto 0.75rem auto;
+}
+
+.buttonGroup {
+    width: 100%;
+    max-width: 300px;
+    margin: 1rem auto;
 }
 
 

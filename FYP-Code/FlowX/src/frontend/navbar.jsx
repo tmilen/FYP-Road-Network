@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import styles from '../css/navbar.module.css';
 import useNavbarController from '../components/navbar';
+import { FaUser } from 'react-icons/fa';
 
 const Navbar = ({ sticky }) => {
   const {
@@ -108,7 +109,8 @@ const Navbar = ({ sticky }) => {
         {username ? (
           <li className={styles.navbarItem} ref={dropdownRef}>
             <button className={styles.dropdownButton} onClick={toggleDropdown}>
-              <span className={styles.welcomeMessage}>Welcome, {username}</span>
+              <FaUser />
+              <span className={styles.welcomeMessage}>{username}</span>
             </button>
             {isDropdownOpen && (
               <div className={styles.dropdownMenu}>

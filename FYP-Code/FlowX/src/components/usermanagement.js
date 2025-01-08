@@ -89,25 +89,14 @@ const UserManagementController = () => {
     });
 
     const handleFeatureToggle = (feature) => {
-        setFeatures(prev => {
-            const updatedFeatures = {
-                ...prev,
-                [feature]: !prev[feature],
-            };
-
-            // If editing a user, update the editableUser state with the new features
-            if (editUserId !== null) {
-                setEditableUser(prevEditableUser => ({
-                    ...prevEditableUser,
-                    permissions: {
-                        ...prevEditableUser.permissions,
-                        [feature]: updatedFeatures[feature]
-                    }
-                }));
-            }
-
-            return updatedFeatures;
-        });
+        const updatedFeatures = {
+            ...features,
+            [feature]: !features[feature]
+        };
+        setFeatures(updatedFeatures);
+        
+        // Debug log
+        console.log(`Feature ${feature} toggled:`, updatedFeatures[feature]);
     };
 
     const formatPermissionKey = (key) => {
@@ -302,19 +291,19 @@ const handleSaveProfile = (oldProfileName) => {
     const handleSubmitUser = (event) => {
         event.preventDefault();
         
-        // Combine newUser data with features to send all information in one request
+        // Combine newUser data with features state (not just features)
         const userData = {
             ...newUser,
             permissions: {
-                traffic_management: features.traffic_management,
-                data_health: features.data_health,
-                manage_users: features.manage_users,
-                urban_planning: features.urban_planning
+                traffic_management: features.traffic_management || false,
+                data_health: features.data_health || false,
+                manage_users: features.manage_users || false,
+                urban_planning: features.urban_planning || false
             }
         };
     
         // Debugging statement to log userData
-        console.log("Submitting user data:", userData);
+        console.log("Submitting user data with permissions:", userData);
     
         // Check if required fields are empty
         const requiredFields = ['username', 'password', 'email', 'first_name', 'last_name'];

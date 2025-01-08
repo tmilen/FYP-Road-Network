@@ -1,0 +1,520 @@
+.pageWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 30px;
+    width: 100%;
+    background: white;
+    min-height: calc(100vh - 80px);
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.contentWrapper {
+    display: flex;
+    gap: 24px;
+    width: 100%;
+    padding-right: 24px; /* Add padding to prevent hotspot container from touching the edge */
+}
+
+.mapSection {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.functionContainer {
+    display: flex;
+    gap: 10px;
+    padding: 20px;
+    background: #f8fafc;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.myLivemapContainer {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f8fafc;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    height: 600px;
+}
+
+.map {
+    height: 100%;
+    border-radius: 0 0 8px 8px;
+    width: 100%;
+}
+
+.buttonContainer {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.mapButton {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #fff;
+    color: #1e293b;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.mapButton:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+}
+
+.mapButton.active {
+    background: #2563eb;
+    color: white;
+    border-color: #2563eb;
+}
+
+.mapButton.active:hover {
+    background: #1d4ed8;
+}
+
+.placementMode,
+.placementMode :global(*) {
+    cursor: crosshair !important;
+}
+
+.placementMode :global(.leaflet-container),
+.placementMode :global(.leaflet-interactive) {
+    cursor: crosshair !important;
+}
+
+.placementMode :global(.leaflet-grab) {
+    cursor: crosshair !important;
+}
+
+.placementMode :global(.leaflet-dragging) {
+    cursor: crosshair !important;
+}
+
+:global(.selected-marker) {
+    filter: hue-rotate(120deg) brightness(1.2);
+}
+
+.roadTable {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.roadTable th {
+    background: #f8fafc;
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: #1e293b;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.roadTable td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #475569;
+}
+
+.roadTable tr:last-child td {
+    border-bottom: none;
+}
+
+.roadTable tr:hover {
+    background-color: #f5f5f5;
+}
+
+.tableContainer {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f8fafc;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.loadingText {
+    color: #666;
+    font-style: italic;
+}
+
+.nodeSelectButton {
+    padding: 4px 8px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.congestionTracker {
+    position: static;
+    width: 320px; /* Slightly reduced width */
+    background: #f8fafc;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    height: fit-content;
+    max-height: 600px;
+    overflow-y: auto;
+    margin-right: 4px; /* Add small margin to prevent touching the edge */
+}
+
+.congestionTracker h3 {
+    margin: 0 0 12px 0;
+    color: #333;
+    font-size: 1em;
+}
+
+.congestionList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: calc(600px - 80px);
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.congestionItem {
+    padding: 12px;
+    margin-bottom: 6px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border-left: 4px solid;
+    transition: all 0.2s;
+}
+
+.congestionItem:hover {
+    transform: translateX(2px);
+    background: #f1f5f9;
+}
+
+.congestionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.congestionRoute {
+    font-weight: 500;
+    color: #333;
+}
+
+.congestionValue {
+    font-weight: bold;
+}
+
+.congestionDetails {
+    font-size: 0.85em;
+    color: #666;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.incidents {
+    color: #f44336;
+}
+
+.noCongestion {
+    text-align: center;
+    color: #666;
+    padding: 20px;
+}
+
+.clickable {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.clickable:hover {
+    transform: translateX(2px);
+    background-color: #f0f0f0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.clickable:active {
+    transform: translateX(1px);
+}
+
+.popupContent {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px;
+}
+
+.popupButtonContainer {
+    display: flex;
+    gap: 8px;
+}
+
+.nodeSelectButton,
+.nodeRemoveButton {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+    min-width: 85px;
+    text-align: center;
+}
+
+.nodeSelectButton {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.nodeRemoveButton {
+    background-color: #f44336;
+    color: white;
+}
+
+.nodeSelectButton:hover {
+    background-color: #45a049;
+}
+
+.nodeRemoveButton:hover {
+    background-color: #d32f2f;
+}
+
+.hotspotHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.hotspotHeader h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0;
+}
+
+.hotspotSelect {
+    padding: 6px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #fff;
+    color: #1e293b;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.hotspotSelect:hover {
+    border-color: #cbd5e1;
+}
+
+.hotspotSelect:focus {
+    outline: none;
+    border-color: #2563eb;
+}
+
+.title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    text-align: center;
+    margin: 0;
+    padding: 1.5rem 0;
+    color: #2c3e50;
+}
+
+.appContainer {
+    min-height: 100vh;
+    background: white;
+}
+
+.mainContent {
+    display: grid;
+    grid-template-columns: 320px 1fr 320px;
+    gap: 24px;
+    padding: 24px;
+    height: calc(100vh - 80px);
+}
+
+.leftPanel {
+    background: #f8fafc;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow-y: auto;
+}
+
+.controlPanel {
+    padding: 20px;
+}
+
+.panelTitle {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 20px;
+}
+
+.controlButtons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.controlButton {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: white;
+    color: #1e293b;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    width: 100%;
+    cursor: pointer;
+}
+
+.controlButton svg {
+    font-size: 1.2rem;
+}
+
+.controlButton:hover {
+    background: #f1f5f9;
+    transform: translateY(-1px);
+}
+
+.controlButton.active {
+    background: #2563eb;
+    color: white;
+    border-color: #2563eb;
+}
+
+.controlButton.warning {
+    background: #ef4444;
+    color: white;
+    border-color: #ef4444;
+}
+
+.controlButton.warning:hover {
+    background: #dc2626;
+}
+
+.routeList {
+    margin-top: 24px;
+}
+
+.routeList h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 16px;
+}
+
+.routeItems {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.routeItem {
+    background: white;
+    border-radius: 8px;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+}
+
+.routeInfo {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.routeIcon {
+    color: #64748b;
+    font-size: 1.2rem;
+    margin-top: 4px;
+}
+
+.routeDetails {
+    flex: 1;
+}
+
+.routeEndpoints {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    color: #1e293b;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.trafficInfo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.congestionBadge {
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.congestionBadge[data-level="low"] {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.congestionBadge[data-level="medium"] {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.congestionBadge[data-level="high"] {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.speedInfo {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.mapSection {
+    display: flex;
+    flex-direction: column;
+}
+
+.mapContainer {
+    flex: 1;
+    background: #f8fafc;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.map {
+    height: 100%;
+    width: 100%;
+}

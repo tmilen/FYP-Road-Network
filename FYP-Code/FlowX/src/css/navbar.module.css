@@ -61,23 +61,46 @@
   padding: 10px 15px;
   width: auto;
   height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.2s ease;
+}
+
+.dropdownButton:hover {
+  transform: translateY(-2px);
 }
 
 .dropdownMenu {
   position: absolute;
-  top: calc(100% + 10px);
+  top: calc(100% + 5px);
   right: 0;
   background-color: hsl(0, 0%, 29%);
-  padding: 10px;
-  border-radius: 10px;
+  padding: 8px;
+  border-radius: 12px;
   z-index: 1000;
-  width: 250px;
+  width: 220px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  animation: dropdownFade 0.2s ease-in-out;
+  transform-origin: top right;
+}
+
+@keyframes dropdownFade {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .dropdownMenu a, .dropdownMenu button {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
-  padding: 10px 15px;
+  padding: 12px 16px;
   color: white;
   text-align: left;
   border: none;
@@ -85,12 +108,14 @@
   text-decoration: none;
   cursor: pointer;
   box-sizing: border-box;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
 }
 
 .dropdownMenu a:hover, .dropdownMenu button:hover {
-  background-color: #333;
-  border-radius: 10px;
-  transition: background-color 0.3s ease-in-out;
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: translateX(1px);
 }
 
 .signOut {
@@ -101,9 +126,17 @@
 }
 
 .welcomeMessage {
-  color: #ccc;
+  color: #fff;
   padding: 10px;
-  display: block;
+  display: flex;
+  align-items: center;
   font-size: 1rem;
-  line-height: 40px; 
+  font-weight: 500;
+}
+
+.logout {
+  color: #ff6b6b !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  margin-top: 4px;
+  padding-top: 12px !important;
 }

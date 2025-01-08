@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<town>
+    <map width="1600" height="1200">
+        <!-- Define road network structure -->
+        <routes>
+            <!-- Main Roads -->
+            <route id="main-road" type="horizontal" y="650">
+                <start x="50" />
+                <end x="1550" />
+                <intersections>
+                    <point x="280" />
+                    <point x="620" />
+                    <point x="890" />
+                    <point x="1200" />
+                </intersections>
+            </route>
+            <route id="north-road" type="horizontal" y="250">
+                <start x="280" />
+                <end x="1200" />
+                <intersections>
+                    <point x="620" />
+                    <point x="890" />
+                </intersections>
+            </route>
+            <route id="south-road" type="horizontal" y="980">
+                <start x="280" />
+                <end x="1200" />
+                <intersections>
+                    <point x="620" />
+                    <point x="890" />
+                </intersections>
+            </route>
+            <route id="mid-west-road" type="horizontal" y="450">
+                <start x="280" />
+                <end x="620" />
+            </route>
+            <route id="mid-east-road" type="horizontal" y="800">
+                <start x="890" />
+                <end x="1380" />
+            </route>
+
+            <!-- Vertical Roads -->
+            <route id="west-avenue" type="vertical" x="280">
+                <start y="80" />
+                <end y="1120" />
+                <intersections>
+                    <point y="250" />
+                    <point y="450" />
+                    <point y="650" />
+                    <point y="980" />
+                </intersections>
+            </route>
+            <route id="central-avenue" type="vertical" x="620">
+                <start y="250" />
+                <end y="980" />
+                <intersections>
+                    <point y="450" />
+                    <point y="650" />
+                </intersections>
+            </route>
+            <route id="east-avenue" type="vertical" x="890">
+                <start y="80" />
+                <end y="1120" />
+                <intersections>
+                    <point y="250" />
+                    <point y="650" />
+                    <point y="800" />
+                    <point y="980" />
+                </intersections>
+            </route>
+            <route id="far-east-avenue" type="vertical" x="1200">
+                <start y="250" />
+                <end y="980" />
+                <intersections>
+                    <point y="650" />
+                </intersections>
+            </route>
+            <route id="northeast-avenue" type="vertical" x="1380">
+                <start y="650" />
+                <end y="800" />
+            </route>
+        </routes>
+
+        <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1200" viewBox="0 0 1600 1200">
+            <rect width="1600" height="1200" fill="#f0f4f8"/>
+            
+            <!-- Background Elements -->
+            <g id="districts" fill="#e5e9ef" opacity="0.5">
+                <rect x="300" y="280" width="280" height="140" rx="10"/>
+                <rect x="950" y="680" width="200" height="280" rx="10"/>
+                <rect x="650" y="100" width="220" height="120" rx="10"/>
+                <rect x="180" y="720" width="320" height="220" rx="10"/>
+                <rect x="1250" y="400" width="180" height="220" rx="10"/>
+                <path d="M700,500 Q850,450 900,600 T1100,700" fill="#e5e9ef" opacity="0.3"/>
+            </g>
+
+            <g id="roads" fill="none" stroke="#2c3e50" stroke-width="45">
+                <path id="main-road" d="M50,650 L1550,650" stroke-linecap="round"/>
+                <path id="north-road" d="M280,250 L1200,250" stroke-linecap="round"/>
+                <path id="south-road" d="M280,980 L1200,980" stroke-linecap="round"/>
+                <path id="mid-west-road" d="M280,450 L620,450" stroke-linecap="round"/>
+                <path id="mid-east-road" d="M890,800 L1380,800" stroke-linecap="round"/>
+
+                <!-- Vertical Roads -->
+                <path id="west-avenue" d="M280,80 L280,1120" stroke-linecap="round"/>
+                <path id="central-avenue" d="M620,250 L620,980" stroke-linecap="round"/>
+                <path id="east-avenue" d="M890,80 L890,1120" stroke-linecap="round"/>
+                <path id="far-east-avenue" d="M1200,250 L1200,980" stroke-linecap="round"/>
+                <path id="northeast-avenue" d="M1380,650 L1380,800" stroke-linecap="round"/>
+            </g>
+
+            <!-- Intersections -->
+            <g id="intersections" fill="#2c3e50">
+                <circle cx="280" cy="250" r="6"/>
+                <circle cx="280" cy="450" r="6"/>
+                <circle cx="280" cy="650" r="6"/>
+                <circle cx="280" cy="980" r="6"/>
+                <circle cx="620" cy="250" r="6"/>
+                <circle cx="620" cy="450" r="6"/>
+                <circle cx="620" cy="650" r="6"/>
+                <circle cx="620" cy="980" r="6"/>
+                <circle cx="890" cy="250" r="6"/>
+                <circle cx="890" cy="650" r="6"/>
+                <circle cx="890" cy="800" r="6"/>
+                <circle cx="890" cy="980" r="6"/>
+                <circle cx="1200" cy="650" r="6"/>
+            </g>
+        </svg>
+    </map>
+</town>

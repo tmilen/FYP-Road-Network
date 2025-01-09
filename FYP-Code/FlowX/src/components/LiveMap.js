@@ -1,9 +1,9 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import L from 'leaflet';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import TrafficService from '../frontend/trafficService';
-import RoutingService from '../frontend/routingService';
+import RoutingService from '../components/routingService';
 
 const TOMTOM_API_KEY = process.env.TOMTOM_API_KEY
 
@@ -106,6 +106,7 @@ export const useLiveMapLogic = () => {
     const updateTrafficFlow = async () => {
         if (!showTrafficFlow) return;
         const updatedTrafficData = {};
+        
         for (const connection of routeConnections) {
             const startLatLng = markersRef.current[connection.node1].getLatLng();
             const endLatLng = markersRef.current[connection.node2].getLatLng();
@@ -115,52 +116,84 @@ export const useLiveMapLogic = () => {
                     startLatLng.lat,
                     startLatLng.lng,
                     endLatLng.lat,
+                    endLatLng.lng
                 );
-                const congestion = trafficServiceRef.current.calculateCongestion(
-                    data.flow.currentSpeed,
-                    data.flow.freeFlowSpeed,
-                );
-                const routeStyle = trafficServiceRef.current.getRouteStyle(congestion);
+                
+                console.log('Traffic data received:', data);
+
+                updatedTrafficData[connection.routeId] = data;
+
+                // Update route style based on congestion
+                const routeStyle = trafficServiceRef.current.getRouteStyle(data.congestion);
                 routingServiceRef.current.updateRouteStyle(connection.routeId, routeStyle);
-                updatedTrafficData[connection.routeId] = { ...data, congestion };
             } catch (error) {
                 console.error('Error updating traffic data:', error);
+                updatedTrafficData[connection.routeId] = {
+                    flow: { currentSpeed: 0, freeFlowSpeed: 0 },
+                    congestion: 0,
+                    incidents: [],
+                    accidentCount: 0,
+                    congestionCount: 0
+                };
             }
         }
+
         setTrafficData(updatedTrafficData);
     };
 
-    const createRoute = async (startNode, endNode) => {
+    const createRoute = useCallback(async (startNode, endNode) => {
         try {
             const startLatLng = markersRef.current[startNode].getLatLng();
             const endLatLng = markersRef.current[endNode].getLatLng();
-            const { route } = await routingServiceRef.current.calculateRoute(startLatLng, endLatLng);
             const routeId = `route_${routeCounter}`;
-            setRouteCounter(prev => prev + 1);
+            
+            // Calculate route first
+            const { route } = await routingServiceRef.current.calculateRoute(startLatLng, endLatLng);
+            
+            // Store route details
+            routingServiceRef.current.routes.set(routeId, {
+                coordinates: route.coordinates,
+                distance: route.summary.totalDistance,
+                time: route.summary.totalTime
+            });
 
             if (showTrafficFlow) {
-                const trafficData = await trafficServiceRef.current.getTrafficBetweenNodes(
-                    startLatLng.lat,
-                    startLatLng.lng,
-                    endLatLng.lat,
-                );
-                const congestion = trafficServiceRef.current.calculateCongestion(
-                    trafficData.flow.currentSpeed,
-                    trafficData.flow.freeFlowSpeed,
-                );
-                const routeStyle = trafficServiceRef.current.getRouteStyle(congestion);
-                routingServiceRef.current.updateRouteStyle(routeId, routeStyle);
-                setTrafficData(prev => ({
-                    ...prev,
-                    [routeId]: { ...trafficData, congestion },
-                }));
+                try {
+                    const trafficData = await trafficServiceRef.current.getTrafficBetweenNodes(
+                        startLatLng.lat,
+                        startLatLng.lng,
+                        endLatLng.lat
+                    );
+                    
+                    const currentSpeed = trafficData.flow?.currentSpeed || 0;
+                    const freeFlowSpeed = trafficData.flow?.freeFlowSpeed || 0;
+                    const congestion = trafficServiceRef.current.calculateCongestion(currentSpeed, freeFlowSpeed);
+                    
+                    const routeStyle = trafficServiceRef.current.getRouteStyle(congestion);
+                    routingServiceRef.current.updateRouteStyle(routeId, routeStyle);
+                    
+                    setTrafficData(prev => ({
+                        ...prev,
+                        [routeId]: {
+                            flow: {
+                                currentSpeed: currentSpeed,
+                                freeFlowSpeed: freeFlowSpeed
+                            },
+                            congestion: congestion
+                        }
+                    }));
+                } catch (error) {
+                    console.error('Error fetching traffic data:', error);
+                }
             }
+
+            setRouteCounter(prev => prev + 1);
             return routeId;
         } catch (error) {
             console.error('Error creating route:', error);
             return null;
         }
-    };
+    }, [routeCounter, showTrafficFlow]);
 
     const createPopupContent = useCallback((nodeId, marker, selectNodeFn, removeNodeFn) => {
         const popupContent = document.createElement('div');
@@ -170,7 +203,12 @@ export const useLiveMapLogic = () => {
         buttonContainer.className = 'popup-button-container';
 
         const selectButton = document.createElement('button');
-        selectButton.textContent = 'Select Node';
+        selectButton.innerHTML = `
+            <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Select</span>
+        `;
         selectButton.className = 'node-select-button';
         selectButton.onclick = (e) => {
             e.stopPropagation();
@@ -179,7 +217,13 @@ export const useLiveMapLogic = () => {
         };
 
         const removeButton = document.createElement('button');
-        removeButton.textContent = 'Remove Node';
+        removeButton.innerHTML = `
+            <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path fill="none" d="M0 0h24v24H0z"></path>
+                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"></path>
+            </svg>
+            <span>Delete</span>
+        `;
         removeButton.className = 'node-remove-button';
         removeButton.onclick = (e) => {
             e.stopPropagation();
@@ -195,28 +239,43 @@ export const useLiveMapLogic = () => {
     }, []);
 
     const handleNodeRemove = useCallback((nodeId) => {
-        if (markersRef.current[nodeId]) {
-            markersRef.current[nodeId].remove();
-            delete markersRef.current[nodeId];
-        }
-        setNodes(prev => prev.filter(node => node.id !== nodeId));
-        setNodeRoadNames(prev => {
-            const updated = { ...prev };
-            delete updated[nodeId];
-            return updated;
-        });
-        setRouteConnections(prev => {
-            const remainingConnections = prev.filter(
-                conn => !(conn.node1 === nodeId || conn.node2 === nodeId)
-            );
-            prev.forEach(conn => {
-                if (conn.node1 === nodeId || conn.node2 === nodeId) {
-                    routingServiceRef.current.removeRoute(conn.routeId);
-                }
+        console.log('Starting node removal for:', nodeId);
+        
+        try {
+            // Remove marker from map first
+            if (markersRef.current[nodeId]) {
+                const marker = markersRef.current[nodeId];
+                marker.unbindPopup();
+                marker.remove();
+                delete markersRef.current[nodeId];
+            }
+
+            // Remove associated routes
+            setRouteConnections(prev => {
+                const remainingConnections = prev.filter(
+                    conn => !(conn.node1 === nodeId || conn.node2 === nodeId)
+                );
+                prev.forEach(conn => {
+                    if (conn.node1 === nodeId || conn.node2 === nodeId) {
+                        routingServiceRef.current?.removeRoute(conn.routeId);
+                    }
+                });
+                return remainingConnections;
             });
-            return remainingConnections;
-        });
-        setSelectedNodes(prev => prev.filter(id => id !== nodeId));
+
+            // Clean up all related state
+            setNodes(prev => prev.filter(node => node.id !== nodeId));
+            setNodeRoadNames(prev => {
+                const updated = { ...prev };
+                delete updated[nodeId];
+                return updated;
+            });
+            setSelectedNodes(prev => prev.filter(id => id !== nodeId));
+
+            console.log('Node removal completed');
+        } catch (error) {
+            console.error('Error removing node:', error);
+        }
     }, []);
 
     const selectNode = useCallback((nodeId) => {
@@ -331,6 +390,6 @@ export const useLiveMapLogic = () => {
         handleMapClick,
         selectNode,
         clearAllSelections,
-        createPopupContent
+        createPopupContent,
     };
 };

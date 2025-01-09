@@ -4,20 +4,65 @@ const API_URL = process.env.REACT_APP_API_URL;
 class TrafficService {
     async getTrafficBetweenNodes(startLat, startLng, endLat, endLng) {
         try {
-            // Get traffic flow data along the route
-            const trafficData = await this.fetchTrafficFlow(startLat, startLng, endLat, endLng);
+            // Use our backend API instead of TomTom
+            const response = await fetch(`${API_URL}/traffic/data`);
+            if (!response.ok) throw new Error('Failed to fetch traffic data');
             
-            // Get incidents along the route
-            const incidentData = await this.fetchTrafficIncidents(startLat, startLng, endLat, endLng);
-
+            const allData = await response.json();
+            
+            // Find the closest road segment to our coordinates
+            const closestRoad = this.findClosestRoad(allData, startLat, startLng, endLat, endLng);
+            
             return {
-                flow: trafficData,
-                incidents: incidentData
+                flow: {
+                    currentSpeed: closestRoad.currentSpeed,
+                    freeFlowSpeed: closestRoad.freeFlowSpeed,
+                },
+                incidents: closestRoad.incidents || [],
+                congestion: this.calculateCongestion(closestRoad.currentSpeed, closestRoad.freeFlowSpeed),
+                accidentCount: closestRoad.accidentCount || 0,
+                congestionCount: closestRoad.congestionCount || 0
             };
         } catch (error) {
             console.error('Error fetching traffic data:', error);
-            throw error;
+            return {
+                flow: { currentSpeed: 0, freeFlowSpeed: 0 },
+                incidents: [],
+                congestion: 0,
+                accidentCount: 0,
+                congestionCount: 0
+            };
         }
+    }
+
+    findClosestRoad(roads, startLat, startLng, endLat, endLng) {
+        // Calculate midpoint of the route
+        const midLat = (startLat + endLat) / 2;
+        const midLng = (startLng + endLng) / 2;
+
+        // Find closest road by distance to midpoint
+        let closest = roads[0];
+        let minDistance = Infinity;
+
+        roads.forEach(road => {
+            const distance = this.calculateDistance(
+                midLat, midLng,
+                road.coordinates.lat,
+                road.coordinates.lng
+            );
+            if (distance < minDistance) {
+                minDistance = distance;
+                closest = road;
+            }
+        });
+
+        return closest || {
+            currentSpeed: 0,
+            freeFlowSpeed: 0,
+            incidents: [],
+            accidentCount: 0,
+            congestionCount: 0
+        };
     }
 
     async fetchTrafficFlow(startLat, startLng, endLat, endLng) {
@@ -30,33 +75,47 @@ class TrafficService {
             const distance = this.calculateDistance(startLat, startLng, endLat, endLng);
             const radius = Math.ceil(distance * 1000); // Convert to meters
             
-            const url = `https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json` +
-                       `?key=${API_URL}` +
-                       `&point=${midLat},${midLng}` +
-                       `&unit=KMPH` +
-                       `&thickness=10` +
-                       `&radius=${radius}` +
-                       `&sectionType=points`;
+            const response = await fetch(
+                `https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json` +
+                `?key=${API_URL}` +
+                `&point=${midLat},${midLng}` +
+                `&unit=KMPH` +
+                `&thickness=10` +
+                `&radius=${radius}` +
+                `&sectionType=points`
+            );
 
-            const response = await fetch(url);
             if (!response.ok) {
                 throw new Error('Failed to fetch traffic flow data');
             }
 
             const data = await response.json();
             
+            // Extract and validate the speed values
+            const currentSpeed = parseFloat(data.flowSegmentData?.currentSpeed) || 0;
+            const freeFlowSpeed = parseFloat(data.flowSegmentData?.freeFlowSpeed) || 0;
+            
             return {
-                currentSpeed: data.flowSegmentData?.currentSpeed || 0,
-                freeFlowSpeed: data.flowSegmentData?.freeFlowSpeed || 0,
-                currentTravelTime: data.flowSegmentData?.currentTravelTime || 0,
-                freeFlowTravelTime: data.flowSegmentData?.freeFlowTravelTime || 0,
-                confidence: data.flowSegmentData?.confidence || 0,
-                roadClosure: data.flowSegmentData?.roadClosure || false,
+                currentSpeed,
+                freeFlowSpeed,
+                currentTravelTime: parseFloat(data.flowSegmentData?.currentTravelTime) || 0,
+                freeFlowTravelTime: parseFloat(data.flowSegmentData?.freeFlowTravelTime) || 0,
+                confidence: parseInt(data.flowSegmentData?.confidence) || 0,
+                roadClosure: Boolean(data.flowSegmentData?.roadClosure),
                 timestamp: new Date().toISOString()
             };
         } catch (error) {
             console.error('Error fetching traffic flow:', error);
-            throw error;
+            // Return default values on error
+            return {
+                currentSpeed: 0,
+                freeFlowSpeed: 0,
+                currentTravelTime: 0,
+                freeFlowTravelTime: 0,
+                confidence: 0,
+                roadClosure: false,
+                timestamp: new Date().toISOString()
+            };
         }
     }
 
@@ -125,11 +184,11 @@ class TrafficService {
     }
 
     calculateCongestion(currentSpeed, freeFlowSpeed) {
-        if (freeFlowSpeed === 0) return 0;
+        if (!currentSpeed || !freeFlowSpeed || freeFlowSpeed === 0) return 0;
         const congestion = Math.max(0, Math.min(100, 
             (1 - (currentSpeed / freeFlowSpeed)) * 100
         ));
-        return Math.round(congestion * 10) / 10; // Round to 1 decimal place
+        return Math.round(congestion); // Round to whole number for display
     }
 
     getTrafficStatus(congestion) {

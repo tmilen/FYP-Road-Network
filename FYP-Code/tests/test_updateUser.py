@@ -1,18 +1,36 @@
 import unittest
 from flask import json
 from pymongo import MongoClient
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Mock APScheduler before importing app
+sys.modules['apscheduler.schedulers.background'] = MagicMock()
+sys.modules['apscheduler'] = MagicMock()
+
 from app import create_app
 
 class TestUpdateUser(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        # Create main mock client with dictionary access support
         cls.mock_client = MagicMock(spec=MongoClient)
-        cls.db = cls.mock_client['traffic-users']
-        cls.users_collection = cls.db['users']
+        cls.mock_client.__getitem__.side_effect = lambda x: {
+            'traffic-users': cls.db,
+            'TSUN-TESTING': cls.mock_gridfs_db
+        }.get(x, MagicMock())
+        
+        # Initialize database mocks
+        cls.db = MagicMock()
+        cls.mock_gridfs_db = MagicMock()
+        cls.users_collection = MagicMock()
+
+        # Setup database collection access
+        cls.db.__getitem__.side_effect = lambda x: {
+            'users': cls.users_collection
+        }.get(x, MagicMock())
 
         cls.mock_users = []
 
@@ -34,22 +52,25 @@ class TestUpdateUser(unittest.TestCase):
         cls.users_collection.update_one.side_effect = mock_update_one
 
     def setUp(self):
-        self.app = create_app(db_client=self.mock_client)
-        self.client = self.app.test_client()
+        # Mock GridFS
+        with patch('gridfs.GridFS') as mock_gridfs:
+            self.app = create_app(db_client=self.mock_client)
+            self.client = self.app.test_client()
 
-        with self.client.session_transaction() as sess:
-            sess['username'] = 'admin_user'
-            sess['role'] = 'system_admin'
+            with self.client.session_transaction() as sess:
+                sess['username'] = 'admin_user'
+                sess['role'] = 'system_admin'
 
-        self.mock_users.append({
-            "id": 1,
-            "username": "existing_user",
-            "email": "existing_user@example.com",
-            "first_name": "Existing",
-            "last_name": "User",
-            "date_of_birth": "2000-01-01",
-            "user_profile": "traffic_management_user"
-        })
+            self.mock_users.clear()  # Clear users before each test
+            self.mock_users.append({
+                "id": 1,
+                "username": "existing_user",
+                "email": "existing_user@example.com",
+                "first_name": "Existing",
+                "last_name": "User",
+                "date_of_birth": "2000-01-01",
+                "user_profile": "traffic_management_user"
+            })
 
     def test_update_user_success(self):
         response = self.client.put('/api/users/1', json={

@@ -7,13 +7,20 @@ import useTrafficData from '../components/trafficdata';
 function TrafficData() {
     const [selectedRoad, setSelectedRoad] = useState(null);
     const [showFilterModal, setShowFilterModal] = useState(false);
-    const [filterOptions, setFilterOptions] = useState({
-        intensity: 'all',
-        minSpeed: '',
-        maxSpeed: '',
-        date: '',
+    const [showHistoricalFilterModal, setShowHistoricalFilterModal] = useState(false);
+    const [filters, setFilters] = useState({
+        startDate: '',
+        endDate: '',
         startTime: '',
-        endTime: ''
+        endTime: '',
+        conditions: []  // Add this new state
+    });
+    const [historicalFilters, setHistoricalFilters] = useState({
+        startDate: '',
+        endDate: '',
+        startTime: '',
+        endTime: '',
+        conditions: []  // Add this new state
     });
     const {
         trafficData,
@@ -21,7 +28,6 @@ function TrafficData() {
         error,
         searchTerm,
         setSearchTerm,
-        handleFilter,
         handleExport,
         fetchTrafficData,
         fetchHistoricalDataForRoad
@@ -33,7 +39,7 @@ function TrafficData() {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric'
-        });
+        }).split('/').join('-');  // Convert / to -
     };
 
     const formatTime = (dateString) => {
@@ -52,143 +58,159 @@ function TrafficData() {
         setSelectedRoad({
             id: roadId,
             name: roadName,
-            loading: true
+            loading: true,
+            historicalData: []
         });
-        const data = await fetchHistoricalDataForRoad(roadId);
-        setSelectedRoad(prev => ({
-            ...prev,
-            historicalData: data,
-            loading: false
-        }));
+        
+        try {
+            const response = await fetchHistoricalDataForRoad(roadId);
+            setSelectedRoad(prev => ({
+                ...prev,
+                historicalData: response.data || [], // Ensure we have an array
+                loading: false
+            }));
+        } catch (error) {
+            console.error('Error loading historical data:', error);
+            setSelectedRoad(prev => ({
+                ...prev,
+                loading: false,
+                error: 'Failed to load historical data',
+                historicalData: [] // Ensure we have an array even on error
+            }));
+        }
     };
 
     const closeModal = () => {
         setSelectedRoad(null);
     };
 
-    const clearFilters = () => {
-        setFilterOptions({
-            intensity: 'all',
-            minSpeed: '',
-            maxSpeed: '',
-            date: '',
-            startTime: '',
-            endTime: ''
-        });
-        handleFilter({
-            intensity: 'all',
-            minSpeed: '',
-            maxSpeed: '',
-            date: '',
-            startTime: '',
-            endTime: ''
-        });
+    const handleSearchChange = (e) => {
+        setSearchTerm(e.target.value);
     };
 
-    const FilterModal = ({ onClose, onApply, currentFilters }) => {
-        const [localFilters, setLocalFilters] = useState(currentFilters);
-    
-        return (
-            <div className={styles.modal}>
-                <div className={`${styles.modalContent} ${styles.filterModal}`}>
-                    <div className={styles.modalHeader}>
-                        <h3>Filter Traffic Data</h3>
-                        <button className={styles.closeButton} onClick={onClose}>
-                            <FaTimes />
-                        </button>
-                    </div>
-                    <div className={styles.filterContent}>
-                        <div className={styles.filterGroup}>
-                            <label>Traffic Intensity:</label>
-                            <select 
-                                value={localFilters.intensity}
-                                onChange={(e) => setLocalFilters({...localFilters, intensity: e.target.value})}
-                            >
-                                <option value="all">All</option>
-                                <option value="low">Light</option>
-                                <option value="medium">Moderate</option>
-                                <option value="high">Heavy</option>
-                            </select>
-                        </div>
-                        
-                        <div className={styles.filterGroup}>
-                            <label>Speed Range (km/h):</label>
-                            <div className={styles.speedInputs}>
-                                <input
-                                    type="number"
-                                    placeholder="Min"
-                                    value={localFilters.minSpeed}
-                                    onChange={(e) => setLocalFilters({...localFilters, minSpeed: e.target.value})}
-                                />
-                                <span>to</span>
-                                <input
-                                    type="number"
-                                    placeholder="Max"
-                                    value={localFilters.maxSpeed}
-                                    onChange={(e) => setLocalFilters({...localFilters, maxSpeed: e.target.value})}
-                                />
-                            </div>
-                        </div>
+    const handleFilterClick = () => {
+        setShowFilterModal(true);
+    };
 
-                        <div className={styles.filterGroup}>
-                            <label>Date:</label>
-                            <input
-                                type="date"
-                                value={localFilters.date}
-                                onChange={(e) => setLocalFilters({...localFilters, date: e.target.value})}
-                            />
-                        </div>
+    const handleFilterClose = () => {
+        setShowFilterModal(false);
+    };
 
-                        <div className={styles.filterGroup}>
-                            <label>Time Range:</label>
-                            <div className={styles.timeInputs}>
-                                <input
-                                    type="time"
-                                    value={localFilters.startTime}
-                                    onChange={(e) => setLocalFilters({...localFilters, startTime: e.target.value})}
-                                />
-                                <span>to</span>
-                                <input
-                                    type="time"
-                                    value={localFilters.endTime}
-                                    onChange={(e) => setLocalFilters({...localFilters, endTime: e.target.value})}
-                                />
-                            </div>
-                        </div>
+    const handleFilterApply = () => {
+        fetchTrafficData(filters);
+        setShowFilterModal(false);
+    };
 
-                        <div className={styles.filterActions}>
-                            <button 
-                                className={styles.applyButton} 
-                                onClick={() => onApply(localFilters)}
-                            >
-                                Apply Filters
-                            </button>
-                            <button 
-                                className={styles.clearButton}
-                                onClick={() => {
-                                    const clearedFilters = {
-                                        intensity: 'all',
-                                        minSpeed: '',
-                                        maxSpeed: '',
-                                        date: '',
-                                        startTime: '',
-                                        endTime: ''
-                                    };
-                                    setLocalFilters(clearedFilters);
-                                    onApply(clearedFilters);
-                                }}
-                            >
-                                Clear All
-                            </button>
-                        </div>
-                    </div>
-                </div>
+    const handleFilterReset = () => {
+        setFilters({
+            startDate: '',
+            endDate: '',
+            startTime: '',
+            endTime: '',
+            conditions: []  // Add this new state
+        });
+        fetchTrafficData();
+        setShowFilterModal(false);
+    };
+
+    const handleHistoricalFilterClick = () => {
+        setShowHistoricalFilterModal(true);
+    };
+
+    const handleHistoricalFilterClose = () => {
+        setShowHistoricalFilterModal(false);
+    };
+
+    const handleHistoricalFilterApply = async () => {
+        if (selectedRoad) {
+            try {
+                const response = await fetchHistoricalDataForRoad(selectedRoad.id, historicalFilters);
+                setSelectedRoad(prev => ({
+                    ...prev,
+                    historicalData: response.data || [], // Ensure we have an array
+                }));
+                setShowHistoricalFilterModal(false);
+            } catch (error) {
+                console.error('Error applying historical filters:', error);
+                setSelectedRoad(prev => ({
+                    ...prev,
+                    historicalData: [], // Ensure we have an array on error
+                }));
+            }
+        }
+    };
+
+    const handleHistoricalFilterReset = async () => {
+        setHistoricalFilters({
+            startDate: '',
+            endDate: '',
+            startTime: '',
+            endTime: '',
+            conditions: []  // Add this new state
+        });
+        if (selectedRoad) {
+            try {
+                const response = await fetchHistoricalDataForRoad(selectedRoad.id);
+                setSelectedRoad(prev => ({
+                    ...prev,
+                    historicalData: response.data || [], // Ensure we have an array
+                }));
+            } catch (error) {
+                console.error('Error resetting historical data:', error);
+                setSelectedRoad(prev => ({
+                    ...prev,
+                    historicalData: [], // Ensure we have an array on error
+                }));
+            }
+        }
+    };
+
+    const renderFilterConditions = (currentFilters, setCurrentFilters) => (
+        <div className={styles.filterGroup}>
+            <label>Traffic Conditions</label>
+            <div className={styles.conditionCheckboxes}>
+                <label className={styles.checkboxLabel}>
+                    <input
+                        type="checkbox"
+                        checked={currentFilters.conditions.includes('low')}
+                        onChange={(e) => {
+                            const newConditions = e.target.checked
+                                ? [...currentFilters.conditions, 'low']
+                                : currentFilters.conditions.filter(c => c !== 'low');
+                            setCurrentFilters({...currentFilters, conditions: newConditions});
+                        }}
+                    />
+                    Light
+                </label>
+                <label className={styles.checkboxLabel}>
+                    <input
+                        type="checkbox"
+                        checked={currentFilters.conditions.includes('medium')}
+                        onChange={(e) => {
+                            const newConditions = e.target.checked
+                                ? [...currentFilters.conditions, 'medium']
+                                : currentFilters.conditions.filter(c => c !== 'medium');
+                            setCurrentFilters({...currentFilters, conditions: newConditions});
+                        }}
+                    />
+                    Moderate
+                </label>
+                <label className={styles.checkboxLabel}>
+                    <input
+                        type="checkbox"
+                        checked={currentFilters.conditions.includes('high')}
+                        onChange={(e) => {
+                            const newConditions = e.target.checked
+                                ? [...currentFilters.conditions, 'high']
+                                : currentFilters.conditions.filter(c => c !== 'high');
+                            setCurrentFilters({...currentFilters, conditions: newConditions});
+                        }}
+                    />
+                    Heavy
+                </label>
             </div>
-        );
-    };
-
-    if (loading) return <div className={styles.loading}>Loading traffic data...</div>;
-    if (error) return <div className={styles.error}>{error}</div>;
+        </div>
+    );
 
     return (
         <div className={styles.pageContainer}>
@@ -204,23 +226,14 @@ function TrafficData() {
                             <FaSearch className={styles.searchIcon} />
                             <input 
                                 type="text"
-                                placeholder="Search streets..."
+                                placeholder="Search roads..."
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onChange={handleSearchChange}
                             />
                         </div>
-                        <button className={`${styles.controlButton} ${filterOptions.intensity !== 'all' || filterOptions.minSpeed || filterOptions.maxSpeed || filterOptions.date || filterOptions.startTime || filterOptions.endTime ? styles.active : ''}`} 
-                            onClick={() => setShowFilterModal(true)}>
+                        <button className={styles.controlButton} onClick={handleFilterClick}>
                             <FaFilter /> Filter
                         </button>
-                        {(filterOptions.intensity !== 'all' || filterOptions.minSpeed || filterOptions.maxSpeed || filterOptions.date || filterOptions.startTime || filterOptions.endTime) && (
-                            <button 
-                                className={styles.clearButton}
-                                onClick={clearFilters}
-                            >
-                                Clear Filters
-                            </button>
-                        )}
                         <button 
                             className={styles.controlButton} 
                             onClick={() => handleExport(trafficData)}
@@ -247,6 +260,8 @@ function TrafficData() {
                                 <th>Current Speed</th>
                                 <th>Free Flow Speed</th>
                                 <th>Traffic Condition</th>
+                                <th>Accidents</th>
+                                <th>Congestion</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -272,11 +287,17 @@ function TrafficData() {
                                              data.intensity === 'medium' ? 'Moderate' : 'Heavy'}
                                         </span>
                                     </td>
+                                    <td className={data.accidentCount > 0 ? styles.warningCount : ''}>
+                                        {data.accidentCount}
+                                    </td>
+                                    <td className={data.congestionCount > 0 ? styles.warningCount : ''}>
+                                        {data.congestionCount}
+                                    </td>
                                 </tr>
                             ))}
                             {trafficData.length === 0 && (
                                 <tr>
-                                    <td colSpan="7" className={styles.noData}>
+                                    <td colSpan="9" className={styles.noData}>
                                         No traffic data available
                                     </td>
                                 </tr>
@@ -285,18 +306,158 @@ function TrafficData() {
                     </table>
                 </div>
 
+                {/* Filter Modal */}
+                {showFilterModal && (
+                    <div className={styles.modal}>
+                        <div className={`${styles.modalContent} ${styles.filterModal}`}>
+                            <div className={styles.modalHeader}>
+                                <h3>Filter Traffic Data</h3>
+                                <button className={styles.closeButton} onClick={handleFilterClose}>
+                                    <FaTimes />
+                                </button>
+                            </div>
+                            <div className={styles.filterContent}>
+                                <div className={styles.filterGroup}>
+                                    <label>Date Range</label>
+                                    <div className={styles.dateInputs}>
+                                        <input
+                                            type="date"
+                                            value={filters.startDate}
+                                            onChange={(e) => setFilters({...filters, startDate: e.target.value})}
+                                        />
+                                        <span>to</span>
+                                        <input
+                                            type="date"
+                                            value={filters.endDate}
+                                            onChange={(e) => setFilters({...filters, endDate: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+                                <div className={styles.filterGroup}>
+                                    <label>Time Range</label>
+                                    <div className={styles.timeInputs}>
+                                        <input
+                                            type="time"
+                                            value={filters.startTime}
+                                            onChange={(e) => setFilters({...filters, startTime: e.target.value})}
+                                        />
+                                        <span>to</span>
+                                        <input
+                                            type="time"
+                                            value={filters.endTime}
+                                            onChange={(e) => setFilters({...filters, endTime: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+                                {renderFilterConditions(filters, setFilters)}
+                                <div className={styles.filterActions}>
+                                    <button className={styles.applyButton} onClick={handleFilterApply}>
+                                        Apply Filters
+                                    </button>
+                                    <button className={styles.resetButton} onClick={handleFilterReset}>
+                                        Reset Filters
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Historical Data Modal */}
                 {selectedRoad && (
                     <div className={styles.modal}>
                         <div className={styles.modalContent}>
                             <div className={styles.modalHeader}>
                                 <h3>Historical Data for {selectedRoad.name}</h3>
-                                <button className={styles.closeButton} onClick={closeModal}>
-                                    <FaTimes />
-                                </button>
+                                <div className={styles.modalControls}>
+                                    <button className={styles.filterButton} onClick={handleHistoricalFilterClick}>
+                                        <FaFilter /> Filter
+                                    </button>
+                                    <button className={styles.closeButton} onClick={closeModal}>
+                                        <FaTimes />
+                                    </button>
+                                </div>
                             </div>
+
+                            {/* Add incident summary section */}
+                            <div className={styles.incidentSummary}>
+                                <div className={styles.incidentCounter}>
+                                    <span className={styles.label}>Total Accidents:</span>
+                                    <span className={styles.count}>
+                                        {selectedRoad.historicalData?.reduce((total, record) => total + (record.accidentCount || 0), 0)}
+                                    </span>
+                                </div>
+                                <div className={styles.incidentCounter}>
+                                    <span className={styles.label}>Total Congestion:</span>
+                                    <span className={styles.count}>
+                                        {selectedRoad.historicalData?.reduce((total, record) => total + (record.congestionCount || 0), 0)}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {showHistoricalFilterModal && (
+                                <div className={styles.filterSection}>
+                                    <div className={styles.filterGroup}>
+                                        <label>Date Range</label>
+                                        <div className={styles.dateInputs}>
+                                            <input
+                                                type="date"
+                                                value={historicalFilters.startDate}
+                                                onChange={(e) => setHistoricalFilters({
+                                                    ...historicalFilters,
+                                                    startDate: e.target.value
+                                                })}
+                                            />
+                                            <span>to</span>
+                                            <input
+                                                type="date"
+                                                value={historicalFilters.endDate}
+                                                onChange={(e) => setHistoricalFilters({
+                                                    ...historicalFilters,
+                                                    endDate: e.target.value
+                                                })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className={styles.filterGroup}>
+                                        <label>Time Range</label>
+                                        <div className={styles.timeInputs}>
+                                            <input
+                                                type="time"
+                                                value={historicalFilters.startTime}
+                                                onChange={(e) => setHistoricalFilters({
+                                                    ...historicalFilters,
+                                                    startTime: e.target.value
+                                                })}
+                                            />
+                                            <span>to</span>
+                                            <input
+                                                type="time"
+                                                value={historicalFilters.endTime}
+                                                onChange={(e) => setHistoricalFilters({
+                                                    ...historicalFilters,
+                                                    endTime: e.target.value
+                                                })}
+                                            />
+                                        </div>
+                                    </div>
+                                    {renderFilterConditions(historicalFilters, setHistoricalFilters)}
+                                    <div className={styles.filterActions}>
+                                        <button className={styles.applyButton} onClick={handleHistoricalFilterApply}>
+                                            Apply Filters
+                                        </button>
+                                        <button className={styles.resetButton} onClick={handleHistoricalFilterReset}>
+                                            Reset Filters
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                             {selectedRoad.loading ? (
                                 <div className={styles.loading}>Loading historical data...</div>
+                            ) : selectedRoad.error ? (
+                                <div className={styles.error}>{selectedRoad.error}</div>
+                            ) : selectedRoad.historicalData?.length === 0 ? (
+                                <div className={styles.noData}>No historical data available</div>
                             ) : (
                                 <div className={styles.historicalData}>
                                     <table className={styles.dataTable}>
@@ -307,11 +468,13 @@ function TrafficData() {
                                                 <th>Speed</th>
                                                 <th>Free Flow</th>
                                                 <th>Condition</th>
+                                                <th>Accidents</th>
+                                                <th>Congestion</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {selectedRoad.historicalData?.map((record) => (
-                                                <tr key={record.timestamp}>
+                                            {selectedRoad.historicalData?.map((record, index) => (
+                                                <tr key={`${record.timestamp}-${index}`}>
                                                     <td>{formatDate(record.timestamp)}</td>
                                                     <td>{formatTime(record.timestamp)}</td>
                                                     <td>{Math.round(record.currentSpeed)} km/h</td>
@@ -322,6 +485,12 @@ function TrafficData() {
                                                              record.intensity === 'medium' ? 'Moderate' : 'Heavy'}
                                                         </span>
                                                     </td>
+                                                    <td className={record.accidentCount > 0 ? styles.warningCount : ''}>
+                                                        {record.accidentCount}
+                                                    </td>
+                                                    <td className={record.congestionCount > 0 ? styles.warningCount : ''}>
+                                                        {record.congestionCount}
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -330,19 +499,6 @@ function TrafficData() {
                             )}
                         </div>
                     </div>
-                )}
-
-                {/* Filter Modal */}
-                {showFilterModal && (
-                    <FilterModal
-                        onClose={() => setShowFilterModal(false)}
-                        onApply={(newFilters) => {
-                            handleFilter(newFilters);
-                            setFilterOptions(newFilters);
-                            setShowFilterModal(false);
-                        }}
-                        currentFilters={filterOptions}
-                    />
                 )}
             </div>
         </div>

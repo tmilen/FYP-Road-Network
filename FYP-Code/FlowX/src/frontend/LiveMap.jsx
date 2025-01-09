@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import styles from '../css/livemap.module.css';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
@@ -7,11 +7,13 @@ import L from 'leaflet';
 import SingaporeTrafficHotspots from './trafficHotspot';
 import Navbar from './navbar';
 import RoutingService from './routingService';
-import { FaMapMarkerAlt, FaRoute, FaCar, FaTrash, FaSync } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaRoute, FaCar, FaTrash, FaSync, FaChartLine } from 'react-icons/fa';
+import VehicleMarker from './VehicleMarker';
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
 const LiveMap = () => {
+    const [showHotspots, setShowHotspots] = useState(false);
     const {
         error,
         isNodePlacementEnabled,
@@ -30,7 +32,7 @@ const LiveMap = () => {
         trafficServiceRef,
         updateTrafficFlow,
         handleMapClick,
-        clearAllSelections
+        clearAllSelections,
     } = useLiveMapLogic();
 
     useEffect(() => {
@@ -86,6 +88,7 @@ const LiveMap = () => {
 
     return (
         <div className={styles.appContainer}>
+            <h1 className={styles.title}>FlowX</h1>
             <Navbar sticky={false} />
             
             <div className={styles.mainContent}>
@@ -117,6 +120,14 @@ const LiveMap = () => {
                                 <span>Refresh Data</span>
                             </button>
 
+                            <button
+                                className={`${styles.controlButton} ${showHotspots ? styles.active : ''}`}
+                                onClick={() => setShowHotspots(!showHotspots)}
+                            >
+                                <FaChartLine />
+                                <span>Traffic Hotspots</span>
+                            </button>
+
                             {selectedNodes.length > 0 && (
                                 <button 
                                     className={`${styles.controlButton} ${styles.warning}`} 
@@ -127,62 +138,97 @@ const LiveMap = () => {
                                 </button>
                             )}
                         </div>
+                    </div>
+                </div>
 
-                        {routeConnections.length > 0 && (
-                            <div className={styles.routeList}>
+                <div className={styles.centerContent}>
+                    <div className={styles.mapSection}>
+                        <div className={styles.mapContainer}>
+                            <div
+                                ref={mapRef}
+                                className={`${styles.map} ${isNodePlacementEnabled ? styles.placementMode : ''}`}
+                            />
+                            {showTrafficFlow && mapInstanceRef.current && routeConnections.map(connection => {
+                                const route = routingServiceRef.current?.getRouteDetails(connection.routeId);
+                                const traffic = trafficData[connection.routeId];
+                                if (!route?.coordinates) return null;
+                                
+                                return (
+                                    <VehicleMarker
+                                        key={connection.routeId}
+                                        map={mapInstanceRef.current}
+                                        coordinates={route.coordinates}
+                                        currentSpeed={traffic?.flow?.currentSpeed || 0}
+                                        color={trafficServiceRef.current.getTrafficColor(traffic?.congestion || 0)}
+                                    />
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {routeConnections.length > 0 && (
+                        <div className={styles.routesPanel}>
+                            <div className={styles.routesPanelHeader}>
                                 <h3>Active Routes</h3>
-                                <div className={styles.routeItems}>
-                                    {routeConnections.map((connection) => {
-                                        const traffic = trafficData[connection.routeId] || {};
-                                        const congestion = parseInt(traffic?.congestion) || 0;
-                                        return (
-                                            <div key={connection.routeId} className={styles.routeItem}>
-                                                <div className={styles.routeInfo}>
+                                <span className={styles.routeCount}>
+                                    {routeConnections.length} {routeConnections.length === 1 ? 'route' : 'routes'}
+                                </span>
+                            </div>
+                            <div className={styles.routesGrid}>
+                                {routeConnections.map((connection) => {
+                                    const traffic = trafficData[connection.routeId] || {};
+                                    const route = routingServiceRef.current?.getRouteDetails(connection.routeId);
+                                    console.log('Route traffic data:', traffic); // Debug log
+                                    
+                                    // Extract values with fallbacks
+                                    const currentSpeed = traffic?.flow?.currentSpeed || 0;
+                                    const congestion = traffic?.congestion || 0;
+                                    const distance = (route?.distance || 0) / 1000;
+                                    const duration = Math.ceil((route?.time || 0) / 60);
+                                    
+                                    return (
+                                        <div key={connection.routeId} className={styles.routeCard}>
+                                            <div className={styles.routeMainInfo}>
+                                                <div className={styles.routePath}>
+                                                    <span>{nodeRoadNames[connection.node1]}</span>
                                                     <FaRoute className={styles.routeIcon} />
-                                                    <div className={styles.routeDetails}>
-                                                        <div className={styles.routeEndpoints}>
-                                                            <span>{nodeRoadNames[connection.node1]}</span>
-                                                            <span>→</span>
-                                                            <span>{nodeRoadNames[connection.node2]}</span>
-                                                        </div>
-                                                        {showTrafficFlow && (
-                                                            <div className={styles.trafficInfo}>
-                                                                <span 
-                                                                    className={styles.congestionBadge}
-                                                                    data-level={congestion < 30 ? 'low' : congestion < 60 ? 'medium' : 'high'}
-                                                                >
-                                                                    {congestion}% Congested
-                                                                </span>
-                                                                <span className={styles.speedInfo}>
-                                                                    {Math.round(traffic?.flow?.currentSpeed || 0)} km/h
-                                                                </span>
-                                                            </div>
-                                                        )}
+                                                    <span>{nodeRoadNames[connection.node2]}</span>
+                                                </div>
+                                                <div className={styles.routeStats}>
+                                                    <div className={styles.stat}>
+                                                        <span>{distance.toFixed(1)} km</span>
+                                                    </div>
+                                                    <div className={styles.stat}>
+                                                        <span>{duration} min</span>
                                                     </div>
                                                 </div>
                                             </div>
-                                        );
-                                    })}
-                                </div>
+                                            {showTrafficFlow && (
+                                                <div className={styles.trafficStatus} 
+                                                     data-level={congestion < 30 ? 'low' : congestion < 60 ? 'medium' : 'high'}>
+                                                    <span className={styles.speed}>
+                                                        {Math.round(currentSpeed)} km/h
+                                                    </span>
+                                                    <span className={styles.congestion}>
+                                                        {Math.round(congestion)}% congested
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className={styles.mapSection}>
-                    <div className={styles.mapContainer}>
-                        <div
-                            ref={mapRef}
-                            className={`${styles.map} ${isNodePlacementEnabled ? styles.placementMode : ''}`}
-                        />
-                    </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className={styles.rightPanel}>
-                    <SingaporeTrafficHotspots 
-                        trafficService={trafficServiceRef.current}
-                        mapInstance={mapInstanceRef.current}
-                    />
+                    {showHotspots && (
+                        <SingaporeTrafficHotspots 
+                            trafficService={trafficServiceRef.current}
+                            mapInstance={mapInstanceRef.current}
+                        />
+                    )}
                 </div>
             </div>
         </div>

@@ -3,12 +3,12 @@ import 'leaflet-routing-machine';
 
 class RoutingService {
     constructor() {
-        this.routingControls = new Map(); // Store multiple routing controls
+        this.routingControls = new Map();
         this.routes = new Map();
     }
 
     initRouting(map) {
-        this.map = map; // Store map reference
+        this.map = map;
         return this;
     }
 
@@ -52,7 +52,6 @@ class RoutingService {
                 });
 
                 routingControl.off('routesfound', routeFoundHandler);
-
                 resolve({
                     routeId,
                     route: route
@@ -98,14 +97,7 @@ class RoutingService {
     }
 
     getRouteDetails(routeId) {
-        const route = this.routes.get(routeId);
-        if (!route) return null;
-        
-        return {
-            distance: route.distance || 0,
-            time: route.time || 0,
-            coordinates: route.coordinates || []
-        };
+        return this.routes.get(routeId);
     }
 }
 

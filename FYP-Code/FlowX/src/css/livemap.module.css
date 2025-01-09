@@ -4,7 +4,7 @@
     gap: 20px;
     padding: 30px;
     width: 100%;
-    background: white;
+    background: lightgray;
     min-height: calc(100vh - 80px);
     max-width: 100%;
     overflow-x: hidden;
@@ -18,11 +18,14 @@
 }
 
 .mapSection {
-    flex: 1;
+    flex: none; /* Change from flex: 1 to none */
     min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 24px;
+    min-height: 500px;
+    max-height: calc(100vh - 300px); /* Add max-height to prevent map from taking too much space */
+    height: 600px; /* Set a fixed height for the map */
 }
 
 .functionContainer {
@@ -163,15 +166,14 @@
 
 .congestionTracker {
     position: static;
-    width: 320px; /* Slightly reduced width */
+    width: 100%; /* Changed from 90% to 100% */
     background: #f8fafc;
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    padding: 20px;
-    height: fit-content;
-    max-height: 600px;
-    overflow-y: auto;
-    margin-right: 4px; /* Add small margin to prevent touching the edge */
+    padding: 16px; /* Reduced padding */
+    height: auto; /* Changed from fit-content */
+    overflow: hidden; /* Changed from overflow-y: auto */
+    box-sizing: border-box; /* Include padding in width calculation */
 }
 
 .congestionTracker h3 {
@@ -184,9 +186,36 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    max-height: calc(600px - 80px);
+    width: 100%;
+    max-height: calc(100vh - 250px); /* Adjust this value based on your needs */
     overflow-y: auto;
-    padding-right: 4px;
+    overflow-x: hidden;
+    padding-right: 8px; /* Reduced padding */
+}
+
+.congestionList::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.congestionList::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 6px;
+}
+
+.congestionList::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.congestionList::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.congestionList {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
 }
 
 .congestionItem {
@@ -196,6 +225,8 @@
     border-radius: 8px;
     border-left: 4px solid;
     transition: all 0.2s;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .congestionItem:hover {
@@ -208,11 +239,18 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 4px;
+    flex-wrap: wrap; /* Allow wrapping for long road names */
+    gap: 8px;
 }
 
 .congestionRoute {
     font-weight: 500;
     color: #333;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .congestionValue {
@@ -255,43 +293,153 @@
 .popupContent {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 4px;
+    gap: 12px;
+    padding: 8px;
+    min-width: 180px;
 }
 
 .popupButtonContainer {
     display: flex;
     gap: 8px;
+    width: 100%;
+}
+
+/* Updated popup styles - make everything more compact */
+:global(.popup-content) {
+    padding: 4px;
+    min-width: 120px;
+}
+
+:global(.popup-button-container) {
+    display: flex;
+    gap: 3px;
+    margin-top: 1px;
+}
+
+:global(.node-select-button),
+:global(.node-remove-button) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+}
+
+:global(.node-select-button) {
+    background-color: #10b981;
+    color: white;
+}
+
+:global(.node-select-button:hover) {
+    background-color: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+}
+
+:global(.node-remove-button) {
+    background-color: #ef4444;
+    color: white;
+}
+
+:global(.node-remove-button:hover) {
+    background-color: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+}
+
+:global(.node-select-button svg),
+:global(.node-remove-button svg) {
+    width: 12px;
+    height: 12px;
+}
+
+/* Updated popup styles with icon-only buttons */
+:global(.popup-content) {
+    padding: 2px;
+    min-width: 80px;  /* Reduced width since we only have icons */
+}
+
+:global(.popup-button-container) {
+    display: flex;
+    gap: 4px;
+    margin: 0;
+    justify-content: center;  /* Center the icons */
+}
+
+:global(.node-select-button),
+:global(.node-remove-button) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;  /* Equal padding for square buttons */
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 28px;  /* Fixed width */
+    height: 28px; /* Fixed height */
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+:global(.node-select-button svg),
+:global(.node-remove-button svg) {
+    width: 16px;
+    height: 16px;
 }
 
 .nodeSelectButton,
 .nodeRemoveButton {
-    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 0.9rem;
+    font-weight: 500;
     transition: all 0.2s ease;
-    min-width: 85px;
-    text-align: center;
+    flex: 1;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .nodeSelectButton {
-    background-color: #4CAF50;
-    color: white;
-}
-
-.nodeRemoveButton {
-    background-color: #f44336;
+    background-color: #2563eb;
     color: white;
 }
 
 .nodeSelectButton:hover {
-    background-color: #45a049;
+    background-color: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+}
+
+.nodeSelectButton:active {
+    transform: translateY(0);
+}
+
+.nodeRemoveButton {
+    background-color: #f43f5e;
+    color: white;
 }
 
 .nodeRemoveButton:hover {
-    background-color: #d32f2f;
+    background-color: #e11d48;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+}
+
+.nodeRemoveButton:active {
+    transform: translateY(0);
 }
 
 .hotspotHeader {
@@ -346,13 +494,22 @@
 
 .mainContent {
     display: grid;
-    grid-template-columns: 320px 1fr 320px;
+    grid-template-columns: 300px minmax(0, 1fr) 300px;
+    grid-template-rows: none; /* Remove the fixed row template */
     gap: 24px;
     padding: 24px;
-    height: calc(100vh - 80px);
+    min-height: calc(100vh - 120px);
+    max-width: 100%;
+    overflow: visible; /* Change from hidden to visible */
 }
 
 .leftPanel {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    height: fit-content;
+    max-height: 400px;
+    position: sticky;
+    top: 24px;
     background: #f8fafc;
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -360,7 +517,10 @@
 }
 
 .controlPanel {
+    height: 100%;
     padding: 20px;
+    display: flex;
+    flex-direction: column;
 }
 
 .panelTitle {
@@ -393,10 +553,6 @@
     cursor: pointer;
 }
 
-.controlButton svg {
-    font-size: 1.2rem;
-}
-
 .controlButton:hover {
     background: #f1f5f9;
     transform: translateY(-1px);
@@ -408,16 +564,21 @@
     border-color: #2563eb;
 }
 
-.controlButton.warning {
-    background: #ef4444;
-    color: white;
-    border-color: #ef4444;
+/* Update these styles to match other buttons */
+.controlButton.warning,
+.controlButton.clear {
+    background: white;
+    color: #1e293b;
+    border-color: #e2e8f0;
 }
 
-.controlButton.warning:hover {
-    background: #dc2626;
+.controlButton.warning:hover,
+.controlButton.clear:hover {
+    background: #f1f5f9;
+    transform: translateY(-1px);
 }
 
+/* Add cursor style for clear mode */
 .routeList {
     margin-top: 24px;
 }
@@ -455,7 +616,47 @@
 }
 
 .routeDetails {
-    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Create two columns */
+    gap: 8px;
+    width: 100%;
+    align-items: start;
+}
+
+.routeDetail {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 8px;
+    background: #f8fafc;
+    border-radius: 6px;
+    width: 100%;
+    font-size: 0.9rem;
+}
+
+.speedDetails {
+    grid-column: 1 / -1; /* Make speed details span full width */
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+    width: 100%;
+}
+
+.trafficInfo {
+    grid-column: 1 / -1; /* Make traffic info span full width */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.incidents {
+    grid-column: 1 / -1; /* Make incidents span full width */
+    margin-top: 4px;
+    padding: 6px;
+    width: 100%;
 }
 
 .routeEndpoints {
@@ -472,6 +673,10 @@
     align-items: center;
     gap: 12px;
     margin-top: 8px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: center;
 }
 
 .congestionBadge {
@@ -504,17 +709,385 @@
 .mapSection {
     display: flex;
     flex-direction: column;
+    flex: none; /* Change from flex: 1 to none */
+    min-height: 500px;
+    max-height: calc(100vh - 300px); /* Add max-height to prevent map from taking too much space */
+    height: 600px; /* Set a fixed height for the map */
 }
 
 .mapContainer {
-    flex: 1;
+    height: 100%; /* Change from flex: 1 to specific height */
+    min-height: 500px;
     background: #f8fafc;
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    width: 100%; /* Map takes full width of its container */
 }
 
-.map {
-    height: 100%;
+.rightPanel {
+    grid-column: 3;
+    grid-row: 1 / -1;
+    position: sticky;
+    top: 24px;
+    height: auto; /* Changed from fit-content */
+    overflow: hidden; /* Changed from overflow-y: auto */
+    background: transparent;
+}
+
+.rightPanel:empty {
+    display: none;
+}
+
+.centerContent {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    height: auto; /* Change from 100% to auto */
+    overflow: visible; /* Change from auto to visible */
+    padding-bottom: 24px;
+}
+
+.routesPanel {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    width: 100%; /* Change from 1500px to 100% to match map width */
+    height: auto;
+    overflow: visible;
+    min-height: min-content;
+    flex-shrink: 0; /* Prevent panel from shrinking */
+    position: relative; /* Add this */
+    margin-bottom: 24px;
+    box-sizing: border-box; /* Ensure padding is included in width */
+}
+
+.routesPanel::-webkit-scrollbar {
+    width: 6px;
+}
+
+.routesPanel::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 6px;
+}
+
+.routesPanel::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 6px;
+}
+
+.routesPanelHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.routesPanelHeader h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0;
+}
+
+.routeCount {
+    color: #64748b;
+    font-size: 0.875rem;
+}
+
+.routesGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px; /* Increased from 8px for better spacing */
+    width: 100%; /* Ensure grid takes full width */
+    /* Remove any height constraints */
+    height: auto;
+    padding: 4px;
+    margin-top: 12px;
+}
+
+.routeCard {
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    border: 1px solid #e2e8f0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
     width: 100%;
+    max-width: none;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box; /* Ensure padding is included in width */
+    gap: 12px;
+}
+
+.routeCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.routeHeader {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px; /* Reduced from 12px */
+}
+
+.routeEndpoints {
+    grid-column: 1 / -1; /* Make endpoints span full width */
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-weight: 500;
+    color: #1e293b;
+}
+
+.routeDetails {
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Reduced from 12px */
+    width: 100%;
+}
+
+.routeDetail {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 8px; /* Reduced padding */
+    background: #f8fafc;
+    border-radius: 6px;
+    width: 100%;
+    font-size: 0.9rem; /* Slightly smaller font */
+}
+
+.speedDetails, .trafficInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px; /* Reduced from 8px */
+    width: 100%;
+}
+
+.speedDetails {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.incidents {
+    margin-top: 4px; /* Reduced from 8px */
+    padding: 6px; /* Reduced from 8px */
+    background: #fff1f2;
+    border-radius: 6px;
+    border: 1px solid #fecdd3;
+}
+
+.incidentsList {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0 0 0;
+}
+
+.incidentItem {
+    font-size: 0.85rem;
+    color: #be123c;
+    padding: 4px 0;
+    border-bottom: 1px solid #fecdd3;
+}
+
+.incidentItem:last-child {
+    border-bottom: none;
+}
+
+.routeMainInfo {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: center;
+    width: 100%;
+}
+
+.routePath {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-size: 1rem;
+}
+
+.routePath span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.routeStats {
+    display: flex;
+    gap: 16px;
+    flex-shrink: 0;
+    font-weight: 500;
+}
+
+.trafficStatus {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    align-items: center;
+}
+
+.speed, .congestion {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.speed svg, .congestion svg {
+    font-size: 1.1rem;
+}
+
+.trafficStatus[data-level="low"] {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.trafficStatus[data-level="medium"] {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.trafficStatus[data-level="high"] {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.speed {
+    font-weight: 500;
+}
+
+.congestion {
+    font-size: 0.8rem;
+    opacity: 0.9;
+}
+
+/* Add smooth scrolling to all panels */
+.leftPanel,
+.centerContent,
+.rightPanel,
+.routesPanel {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Consistent scrollbar styling */
+.leftPanel::-webkit-scrollbar,
+.centerContent::-webkit-scrollbar,
+.rightPanel::-webkit-scrollbar,
+.routesPanel::-webkit-scrollbar {
+    width: 6px;
+}
+
+.leftPanel::-webkit-scrollbar-track,
+.centerContent::-webkit-scrollbar-track,
+.rightPanel::-webkit-scrollbar-track,
+.routesPanel::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 6px;
+}
+
+.leftPanel::-webkit-scrollbar-thumb,
+.centerContent::-webkit-scrollbar-thumb,
+.rightPanel::-webkit-scrollbar-thumb,
+.routesPanel::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 6px;
+}
+
+.vehicle-marker {
+    transition: all 0.1s linear;
+}
+
+.vehicle-marker:hover {
+    transform: scale(1.5);
+}
+
+/* Update popup box container styles */
+:global(.leaflet-popup-content-wrapper) {
+    padding: 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.95);
+}
+
+:global(.leaflet-popup-content) {
+    margin: 0;
+    line-height: 1;
+    min-width: 70px;
+}
+
+:global(.leaflet-popup-close-button) {
+    display: none; /* Hide the default close button */
+}
+
+:global(.popup-content) {
+    padding: 4px;
+    min-width: 140px;  /* Increased width to accommodate text */
+}
+
+:global(.popup-button-container) {
+    display: flex;
+    gap: 4px;
+    margin: 0;
+    justify-content: space-between;  /* Changed from center to space-between */
+}
+
+:global(.node-select-button),
+:global(.node-remove-button) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 12px;  /* Adjusted padding for text */
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: auto;  /* Changed from fixed width */
+    font-size: 0.85rem;
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+:global(.node-select-button svg),
+:global(.node-remove-button svg) {
+    width: 14px;
+    height: 14px;
+}
+
+:global(.node-select-button) {
+    background-color: #10b981;
+    color: white;
+}
+
+:global(.node-select-button:hover) {
+    background-color: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+}
+
+:global(.node-remove-button) {
+    background-color: #ef4444;
+    color: white;
+}
+
+:global(.node-remove-button:hover) {
+    background-color: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
 }

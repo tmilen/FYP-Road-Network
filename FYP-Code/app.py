@@ -11,8 +11,6 @@ from xml.etree import ElementTree as ET
 from datetime import datetime, timedelta
 import pytz
 import requests
-import random
-import json
 from apscheduler.schedulers.background import BackgroundScheduler
 
 load_dotenv()
@@ -32,7 +30,7 @@ def create_app(db_client=None):
     # Create a GridFS instance for file storage
     fs = gridfs.GridFS(client['TSUN-TESTING'], collection='maps-upload')
 
-    # Add timezone configuration
+        # Add timezone configuration
     SGT = pytz.timezone('Asia/Singapore')
 
     def get_sgt_time():
@@ -56,21 +54,37 @@ def create_app(db_client=None):
         SINGAPORE_ROADS = []  # Fallback to empty list if file read fails
 
     # Add new collection for current traffic data
-    traffic_collection = client['TSUN-TESTING']['current_traffic_data']
+    current_traffic_data = client['TSUN-TESTING']['current_traffic_data']
 
     def fetch_current_traffic():
         """Fetch current traffic data for all roads"""
         try:
             bulk_data = []
             current_time = get_sgt_time()
+            expected_road_count = len(SINGAPORE_ROADS)
+            
+            # First, clear existing data
+            current_traffic_data.delete_many({})
+            print(f"Cleared existing traffic data. Expecting {expected_road_count} new records")
+            
+            api_success_count = 0
+            api_failed_count = 0
             
             for road in SINGAPORE_ROADS:
                 try:
                     tomtom_url = f"https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json?point={road['lat']},{road['lng']}&key={tomtom_api_key}"
-                    response = requests.get(tomtom_url)
+                    incidents_url = f"https://api.tomtom.com/traffic/services/5/incidentDetails?key={tomtom_api_key}&bbox={road['lat']-0.01},{road['lng']-0.01},{road['lat']+0.01},{road['lng']+0.01}"
                     
-                    if response.status_code == 200:
-                        traffic_info = response.json()
+                    print(f"[API DEBUG] Requesting data for {road['name']}")
+                    flow_response = requests.get(tomtom_url)
+                    incidents_response = requests.get(incidents_url)
+                    
+                    if flow_response.status_code == 200 and incidents_response.status_code == 200:
+                        api_success_count += 1
+                        print(f"[API SUCCESS] {road['name']} - Status: {flow_response.status_code}")
+                        traffic_info = flow_response.json()
+                        incidents_info = incidents_response.json()
+                        
                         current_speed = traffic_info['flowSegmentData']['currentSpeed']
                         free_flow_speed = traffic_info['flowSegmentData']['freeFlowSpeed']
                         
@@ -81,10 +95,26 @@ def create_app(db_client=None):
                             intensity = 'medium'
                         else:
                             intensity = 'high'
-
-                        # Round to nearest hour for historical data
-                        historical_time = current_time.replace(minute=0, second=0, microsecond=0)
                         
+                        # Process incidents
+                        incidents = []
+                        accident_count = 0
+                        congestion_count = 0
+                        if 'incidents' in incidents_info:
+                            for incident in incidents_info['incidents']:
+                                incident_type = incident.get('type', 'Unknown')
+                                if incident_type in ['ACCIDENT']:
+                                    accident_count += 1
+                                elif incident_type in ['CONGESTION']:
+                                    congestion_count += 1
+                                if incident_type in ['ACCIDENT', 'CONGESTION']:
+                                    incidents.append({
+                                        'type': incident_type,
+                                        'description': incident.get('description', ''),
+                                        'severity': incident.get('severity', 0)
+                                    })
+                        
+                        current_time = get_sgt_time()
                         data_point = {
                             'road_id': f"road_{SINGAPORE_ROADS.index(road) + 1}",
                             'streetName': road['name'],
@@ -92,130 +122,208 @@ def create_app(db_client=None):
                                 'lat': road['lat'],
                                 'lng': road['lng']
                             },
+                            'date': current_time.strftime('%d-%m-%Y'),
+                            'time': current_time.strftime('%H:%M'),
                             'lastUpdated': current_time,
-                            'historicalTime': historical_time,  # Added for historical grouping
                             'currentSpeed': current_speed,
                             'freeFlowSpeed': free_flow_speed,
-                            'intensity': intensity
+                            'intensity': intensity,
+                            'incidents': incidents,
+                            'accidentCount': accident_count,
+                            'congestionCount': congestion_count,
+                            'incidentCount': len(incidents)  # Total of accidents and congestion only
                         }
                         bulk_data.append(data_point)
+                    else:
+                        api_failed_count += 1
+                        print(f"[API ERROR] {road['name']} - Failed with status: {flow_response.status_code}")
 
                 except Exception as e:
-                    print(f"Error fetching data for {road['name']}: {e}")
+                    api_failed_count += 1
+                    print(f"[API ERROR] {road['name']} - Exception: {str(e)}")
                     continue
 
+            print(f"\n[API SUMMARY] Total Roads: {len(SINGAPORE_ROADS)}")
+            print(f"[API SUMMARY] Successful Requests: {api_success_count}")
+            print(f"[API SUMMARY] Failed Requests: {api_failed_count}")
+
             if bulk_data:
-                # Update current traffic data
-                traffic_collection.delete_many({})
-                traffic_collection.insert_many(bulk_data)
+                # Insert new traffic data
+                current_traffic_data.insert_many(bulk_data)
+                actual_count = len(bulk_data)
                 
-                # Store in historical collection with cleanup
-                ten_days_ago = current_time - timedelta(days=10)
-                historical_collection.delete_many({
-                    'historicalTime': {'$lt': ten_days_ago}
-                })
-                historical_collection.insert_many(bulk_data)
+                print(f"Updated traffic data: {actual_count}/{expected_road_count} roads")
                 
-                print(f"Updated traffic data for {len(bulk_data)} roads")
-                print(f"Stored historical data at {current_time}")
-                return True
+                if actual_count != expected_road_count:
+                    print(f"Warning: Missing data for {expected_road_count - actual_count} roads")
+                    
+                return actual_count == expected_road_count
+            
+            print("No traffic data was collected")
             return False
 
         except Exception as e:
-            print(f"Error in fetch_current_traffic: {e}")
+            print(f"[CRITICAL ERROR] Error in fetch_current_traffic: {e}")
             return False
 
-    # Initialize the scheduler
+    # Add new collection for historical traffic data
+    historical_traffic_data = client['TSUN-TESTING']['historical_traffic_data']
+
+    def fetch_historical_traffic():
+        """Fetch and store historical traffic data for the past 3 days"""
+        try:
+            current_time = get_sgt_time()
+            expected_total_records = len(SINGAPORE_ROADS) * 24 * 1  # 3 days * 24 hours * number of roads
+            
+            # Clear existing historical data
+            historical_traffic_data.delete_many({})
+            print(f"[HISTORICAL] Cleared existing historical data. Expecting {expected_total_records} records")
+            
+            bulk_data = []
+            api_success_count = 0
+            api_failed_count = 0
+            
+            # Generate timestamps for the past 3 days, hourly intervals
+            for hours_ago in range(24, 0, -1):  # 72 hours = 3 days
+                timestamp = current_time - timedelta(hours=hours_ago)
+                print(f"\n[HISTORICAL] Processing data for: {timestamp}")
+                
+                for road in SINGAPORE_ROADS:
+                    try:
+                        tomtom_url = f"https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json?point={road['lat']},{road['lng']}&key={tomtom_api_key}"
+                        incidents_url = f"https://api.tomtom.com/traffic/services/5/incidentDetails?key={tomtom_api_key}&bbox={road['lat']-0.01},{road['lng']-0.01},{road['lat']+0.01},{road['lng']+0.01}"
+                        
+                        flow_response = requests.get(tomtom_url)
+                        incidents_response = requests.get(incidents_url)
+                        
+                        if flow_response.status_code == 200 and incidents_response.status_code == 200:
+                            api_success_count += 1
+                            traffic_info = flow_response.json()
+                            incidents_info = incidents_response.json()
+                            
+                            current_speed = traffic_info['flowSegmentData']['currentSpeed']
+                            free_flow_speed = traffic_info['flowSegmentData']['freeFlowSpeed']
+                            
+                            speed_ratio = current_speed / free_flow_speed
+                            if speed_ratio > 0.8:
+                                intensity = 'low'
+                            elif speed_ratio > 0.5:
+                                intensity = 'medium'
+                            else:
+                                intensity = 'high'
+                            
+                            # Process incidents
+                            incidents = []
+                            accident_count = 0
+                            congestion_count = 0
+                            if 'incidents' in incidents_info:
+                                for incident in incidents_info['incidents']:
+                                    incident_type = incident.get('type', 'Unknown')
+                                    if incident_type in ['ACCIDENT']:
+                                        accident_count += 1
+                                    elif incident_type in ['CONGESTION']:
+                                        congestion_count += 1
+                                    if incident_type in ['ACCIDENT', 'CONGESTION']:
+                                        incidents.append({
+                                            'type': incident_type,
+                                            'description': incident.get('description', ''),
+                                            'severity': incident.get('severity', 0)
+                                        })
+                            
+                            data_point = {
+                                'road_id': f"road_{SINGAPORE_ROADS.index(road) + 1}",
+                                'streetName': road['name'],
+                                'coordinates': {
+                                    'lat': road['lat'],
+                                    'lng': road['lng']
+                                },
+                                'date': timestamp.strftime('%d-%m-%Y'),
+                                'time': timestamp.strftime('%H:%M'),
+                                'timestamp': timestamp,
+                                'currentSpeed': current_speed,
+                                'freeFlowSpeed': free_flow_speed,
+                                'intensity': intensity,
+                                'incidents': incidents,
+                                'accidentCount': accident_count,
+                                'congestionCount': congestion_count,
+                                'incidentCount': len(incidents)  # Total of accidents and congestion only
+                            }
+                            bulk_data.append(data_point)
+                        else:
+                            api_failed_count += 1
+                            print(f"[HISTORICAL ERROR] {road['name']} - Failed with status: {flow_response.status_code}")
+
+                    except Exception as e:
+                        api_failed_count += 1
+                        print(f"[HISTORICAL ERROR] {road['name']} - Exception: {str(e)}")
+                        continue
+
+            if bulk_data:
+                # Insert historical traffic data
+                historical_traffic_data.insert_many(bulk_data)
+                actual_count = len(bulk_data)
+                
+                print(f"\n[HISTORICAL SUMMARY] Expected Records: {expected_total_records}")
+                print(f"[HISTORICAL SUMMARY] Actual Records: {actual_count}")
+                print(f"[HISTORICAL SUMMARY] Success Rate: {(actual_count/expected_total_records)*100:.2f}%")
+                print(f"[HISTORICAL SUMMARY] API Successes: {api_success_count}")
+                print(f"[HISTORICAL SUMMARY] API Failures: {api_failed_count}\n")
+                
+                return actual_count == expected_total_records
+            
+            print("[HISTORICAL] No historical data was collected")
+            return False
+
+        except Exception as e:
+            print(f"[HISTORICAL CRITICAL ERROR] Error in fetch_historical_traffic: {e}")
+            return False
+
+     # Initialize the scheduler
     scheduler = BackgroundScheduler(timezone="Asia/Singapore")
     
-    # Add scheduler task for current traffic data
-    @scheduler.scheduled_job('cron', id='fetch_current_traffic', minute='0', misfire_grace_time=300)
+    # Modify scheduler task for current traffic data to run every 30 minutes on the clock (e.g., 00:00, 00:30, 01:00, 01:30)
+    @scheduler.scheduled_job('cron', id='fetch_current_traffic', minute='0,30', misfire_grace_time=300)
     def scheduled_current_traffic_fetch():
         try:
             current_time = get_sgt_time()
-            print(f"[SCHEDULER DEBUG] Starting hourly traffic data fetch at {current_time}")
+            print(f"[SCHEDULER DEBUG] Starting current traffic data fetch at {current_time}")
             fetch_current_traffic()
             print(f"[SCHEDULER DEBUG] Completed traffic fetch at {get_sgt_time()}")
         except Exception as e:
             print(f"[SCHEDULER ERROR] Error in traffic fetch: {e}")
 
+    # Modify scheduler for historical data to run every hour
+    @scheduler.scheduled_job('cron', id='fetch_historical_traffic', minute='0', misfire_grace_time=300)
+    def scheduled_historical_traffic_fetch():
+        try:
+            current_time = get_sgt_time()
+            print(f"[SCHEDULER DEBUG] Starting hourly historical data fetch at {current_time}")
+            fetch_historical_traffic()
+            print(f"[SCHEDULER DEBUG] Completed historical fetch at {get_sgt_time()}")
+        except Exception as e:
+            print(f"[SCHEDULER ERROR] Error in historical fetch: {e}")
+
+    # Add these lines to ensure scheduler is running
+    print("[SCHEDULER] Starting scheduler...")
+    scheduler.print_jobs()
+    scheduler.start()
+    print("[SCHEDULER] Scheduler started successfully")
+
     # Initialize current traffic data if collection is empty
-    if traffic_collection.count_documents({}) == 0:
+    if current_traffic_data.count_documents({}) == 0:
         print("[INIT] No current traffic data found. Fetching initial data...")
         if fetch_current_traffic():
             print("[INIT] Successfully initialized current traffic data")
         else:
             print("[INIT ERROR] Failed to initialize current traffic data")
 
-    # Start the scheduler after defining jobs
-    scheduler.start()
-
-    # Endpoint to get current traffic data
-    @app.route('/api/traffic/data', methods=['GET'])
-    def get_traffic_data():
-        try:
-            search_term = request.args.get('search', '').lower()
-            date_filter = request.args.get('date')
-            start_time = request.args.get('startTime')
-            end_time = request.args.get('endTime')
-            
-            # Base query
-            query = {}
-            
-            if search_term:
-                query['streetName'] = {'$regex': search_term, '$options': 'i'}
-            
-            # Add date filter
-            if date_filter:
-                start_of_day = datetime.strptime(f"{date_filter} 00:00:00", "%Y-%m-%d %H:%M:%S")
-                end_of_day = datetime.strptime(f"{date_filter} 23:59:59", "%Y-%m-%d %H:%M:%S")
-                query['lastUpdated'] = {'$gte': start_of_day, '$lte': end_of_day}
-            
-            # Add time filter
-            if start_time or end_time:
-                current_date = datetime.now().strftime("%Y-%m-%d")
-                time_query = {}
-                
-                if start_time:
-                    start_datetime = datetime.strptime(f"{current_date} {start_time}", "%Y-%m-%d %H:%M")
-                    time_query['$gte'] = start_datetime
-                
-                if end_time:
-                    end_datetime = datetime.strptime(f"{current_date} {end_time}", "%Y-%m-%d %H:%M")
-                    time_query['$lte'] = end_datetime
-                
-                if time_query:
-                    query['lastUpdated'] = time_query
-            
-            # Fetch data from MongoDB
-            traffic_data = list(traffic_collection.find(
-                query,
-                {'_id': 0}
-            ).sort('streetName', 1))
-
-            print(f"Debug - Query: {query}")
-            print(f"Debug - Results count: {len(traffic_data)}")
-            
-            return jsonify(traffic_data), 200
-
-        except Exception as e:
-            print(f"Error fetching traffic data: {e}")
-            return jsonify({'message': 'Error fetching traffic data'}), 500
-
-    # Endpoint to manually trigger current traffic data fetch
-    @app.route('/api/traffic/fetch', methods=['POST'])
-    def trigger_traffic_fetch():
-        if 'username' not in session:
-            return jsonify({'message': 'Unauthorized'}), 403
-        
-        try:
-            success = fetch_current_traffic()
-            if success:
-                return jsonify({'message': 'Traffic data updated successfully'}), 200
-            else:
-                return jsonify({'message': 'Failed to update traffic data'}), 500
-        except Exception as e:
-            return jsonify({'message': f'Error updating traffic data: {str(e)}'}), 500
+    # Initialize historical traffic data if collection is empty
+    if historical_traffic_data.count_documents({}) == 0:
+        print("[INIT] No historical traffic data found. Fetching initial data...")
+        if fetch_historical_traffic():
+            print("[INIT] Successfully initialized historical traffic data")
+        else:
+            print("[INIT ERROR] Failed to initialize historical traffic data")
 
     # Function to create default profiles if they don't exist
     def create_profiles():
@@ -751,6 +859,11 @@ def create_app(db_client=None):
                 road_count=road_count,
                 route_mapping=mapping  # Store the mapping in metadata
             )
+            
+            return jsonify({
+                'message': 'File uploaded successfully',
+                'file_id': str(file_id)
+            }), 200  # Add success response
 
         except Exception as e:
             print(f"Error uploading file: {e}")
@@ -810,236 +923,150 @@ def create_app(db_client=None):
         except Exception as e:
             print(f"Error deleting map: {e}")
             return jsonify({'message': 'Error deleting map'}), 500
-        
 
-    # Add new collection for historical traffic data
-    historical_collection = client['TSUN-TESTING']['historical_traffic_data']
-
-    def get_hourly_traffic_history():
-        """Get hourly traffic data for past 10 days"""
+    @app.route('/api/traffic/data', methods=['GET'])
+    def get_traffic_data():
         try:
-            end_time = get_sgt_time()
-            start_time = end_time - timedelta(days=10)
-            
-            pipeline = [
-                {
-                    '$match': {
-                        'historicalTime': {
-                            '$gte': start_time,
-                            '$lte': end_time
-                        }
-                    }
-                },
-                {
-                    '$sort': {
-                        'historicalTime': -1  # Sort by time descending
-                    }
-                },
-                {
-                    '$group': {
-                        '_id': {
-                            'road_id': '$road_id',
-                            'hour': '$historicalTime'
-                        },
-                        'streetName': {'$first': '$streetName'},
-                        'currentSpeed': {'$avg': '$currentSpeed'},
-                        'freeFlowSpeed': {'$avg': '$freeFlowSpeed'},
-                        'coordinates': {'$first': '$coordinates'},
-                        'lastUpdated': {'$first': '$historicalTime'}
-                    }
-                },
-                {
-                    '$project': {
-                        '_id': 0,
-                        'road_id': '$_id.road_id',
-                        'streetName': '$streetName',
-                        'timestamp': '$_id.hour',
-                        'currentSpeed': {'$round': ['$currentSpeed', 2]},
-                        'freeFlowSpeed': {'$round': ['$freeFlowSpeed', 2]},
-                        'coordinates': 1,
-                        'lastUpdated': 1,
-                        'intensity': {
-                            '$switch': {
-                                'branches': [
-                                    {
-                                        'case': {'$gt': [{'$divide': ['$currentSpeed', '$freeFlowSpeed']}, 0.8]},
-                                        'then': 'low'
-                                    },
-                                    {
-                                        'case': {'$gt': [{'$divide': ['$currentSpeed', '$freeFlowSpeed']}, 0.5]},
-                                        'then': 'medium'
-                                    }
-                                ],
-                                'default': 'high'
-                            }
-                        }
-                    }
-                },
-                {
-                    '$sort': {
-                        'timestamp': -1,
-                        'streetName': 1
-                    }
-                }
-            ]
-            
-            results = list(historical_collection.aggregate(pipeline))
-            return results
-        except Exception as e:
-            print(f"Error getting historical data: {e}")
-            return []
+            search_term = request.args.get('search', '').lower()
+            start_date = request.args.get('startDate')
+            end_date = request.args.get('endDate')
+            start_time = request.args.get('startTime')
+            end_time = request.args.get('endTime')
+            conditions = request.args.getlist('conditions')  # Add this line
 
-    # Add new endpoint for historical data
+            query = {}
+
+            # Apply search filter if search term exists
+            if search_term:
+                query['streetName'] = {'$regex': search_term, '$options': 'i'}
+
+            # Handle date filtering
+            if start_date or end_date:
+                if start_date:
+                    # Convert YYYY-MM-DD to DD-MM-YYYY
+                    date_obj = datetime.strptime(start_date, '%Y-%m-%d')
+                    formatted_start_date = date_obj.strftime('%d-%m-%Y')
+                    query['date'] = {'$gte': formatted_start_date}
+                if end_date:
+                    # Convert YYYY-MM-DD to DD-MM-YYYY
+                    date_obj = datetime.strptime(end_date, '%Y-%m-%d')
+                    formatted_end_date = date_obj.strftime('%d-%m-%Y')
+                    if 'date' in query:
+                        query['date']['$lte'] = formatted_end_date
+                    else:
+                        query['date'] = {'$lte': formatted_end_date}
+
+            # Handle time filtering
+            if start_time or end_time:
+                if start_time:
+                    query['time'] = {'$gte': start_time}
+                if end_time:
+                    if 'time' in query:
+                        query['time']['$lte'] = end_time
+                    else:
+                        query['time']['$lte'] = end_time
+
+            # Add condition filtering
+            if conditions:
+                query['intensity'] = {'$in': conditions}
+
+            print(f"[DEBUG] Traffic query: {query}")
+
+            # Get current traffic data with filters
+            current_data = list(current_traffic_data.find(query, {'_id': 0}))
+            print(f"[DEBUG] Found {len(current_data)} records")
+            
+            # Add incident count to each record
+            for data in current_data:
+                data['totalIncidents'] = historical_traffic_data.count_documents({
+                    'road_id': data['road_id'],
+                    'intensity': 'high'
+                })
+            
+            return jsonify(current_data)
+
+        except Exception as e:
+            print(f"Error fetching traffic data: {e}")
+            return jsonify({'message': 'Error fetching traffic data'}), 500
+
+    def build_historical_query(road_id, start_date, end_date, start_time, end_time, conditions):
+        query = {'road_id': road_id}
+
+        # Handle date filtering
+        if start_date or end_date:
+            if start_date:
+                date_obj = datetime.strptime(start_date, '%Y-%m-%d')
+                formatted_start_date = date_obj.strftime('%d-%m-%Y')
+                query['date'] = {'$gte': formatted_start_date}
+            if end_date:
+                date_obj = datetime.strptime(end_date, '%Y-%m-%d')
+                formatted_end_date = date_obj.strftime('%d-%m-%Y')
+                if 'date' in query:
+                    query['date']['$lte'] = formatted_end_date
+                else:
+                    query['date'] = {'$lte': formatted_end_date}
+
+        # Handle time filtering
+        if start_time or end_time:
+            if start_time:
+                query['time'] = {'$gte': start_time}
+            if end_time:
+                if 'time' in query:
+                    query['time']['$lte'] = end_time
+                else:
+                    query['time'] = {'$lte': end_time}
+
+        # Add condition filtering
+        if conditions:
+            query['intensity'] = {'$in': conditions}
+
+        return query
+
     @app.route('/api/traffic/history', methods=['GET'])
-    def get_traffic_history():
+    def get_historical_traffic():
         try:
             road_id = request.args.get('road_id')
-            data = get_hourly_traffic_history()
-            
-            if road_id:
-                data = [record for record in data if record['road_id'] == road_id]
-            
-            return jsonify(data), 200
-        except Exception as e:
-            print(f"Error fetching historical traffic data: {e}")
-            return jsonify({'message': 'Error fetching historical data'}), 500
+            if not road_id:
+                return jsonify({'message': 'Road ID is required'}), 400
 
-    def initialize_historical_data():
-        """Initialize exactly 10 days worth of hourly historical data"""
-        try:
-            print("[INIT] Starting historical data initialization...")
-            current_time = get_sgt_time()
-            # Round current time to the nearest hour
-            current_time = current_time.replace(minute=0, second=0, microsecond=0)
-            start_time = (current_time - timedelta(days=10)).replace(hour=0)
-            
-            # Clear existing historical data
-            historical_collection.delete_many({})
-            
-            total_records = 0
-            bulk_data = []
-            
-            # Generate exactly 10 days of hourly data
-            for day in range(10):  # 10 days
-                for hour in range(24):  # 24 hours per day
-                    time_point = start_time + timedelta(days=day, hours=hour)
-                    
-                    for road in SINGAPORE_ROADS:
-                        # Simulate historical data with realistic patterns
-                        base_speed = random.uniform(30, 80)  # Base speed between 30-80 km/h
-                        free_flow = base_speed * 1.2  # Free flow speed is 20% higher
-                        
-                        # Add time-based variations
-                        if 7 <= hour <= 9:  # Morning rush hour
-                            current_speed = base_speed * random.uniform(0.3, 0.6)
-                        elif 17 <= hour <= 19:  # Evening rush hour
-                            current_speed = base_speed * random.uniform(0.4, 0.7)
-                        elif 23 <= hour <= 5:  # Night time
-                            current_speed = base_speed * random.uniform(0.8, 1.1)
-                        else:  # Normal hours
-                            current_speed = base_speed * random.uniform(0.6, 0.9)
-                            
-                        # Calculate intensity
-                        speed_ratio = current_speed / free_flow
-                        if speed_ratio > 0.8:
-                            intensity = 'low'
-                        elif speed_ratio > 0.5:
-                            intensity = 'medium'
-                        else:
-                            intensity = 'high'
+            # Build query from request parameters
+            query = build_historical_query(
+                road_id,
+                request.args.get('startDate'),
+                request.args.get('endDate'),
+                request.args.get('startTime'),
+                request.args.get('endTime'),
+                request.args.getlist('conditions')
+            )
 
-                        data_point = {
-                            'road_id': f"road_{SINGAPORE_ROADS.index(road) + 1}",
-                            'streetName': road['name'],
-                            'coordinates': {
-                                'lat': road['lat'],
-                                'lng': road['lng']
-                            },
-                            'lastUpdated': time_point,
-                            'historicalTime': time_point,
-                            'currentSpeed': round(current_speed, 2),
-                            'freeFlowSpeed': round(free_flow, 2),
-                            'intensity': intensity
-                        }
-                        bulk_data.append(data_point)
-                        total_records += 1
+            print(f"[DEBUG] Historical query: {query}")
 
-                        # Insert in batches of 1000 to avoid memory issues
-                        if len(bulk_data) >= 1000:
-                            historical_collection.insert_many(bulk_data)
-                            bulk_data = []
-                            print(f"[INIT] Inserted batch, total records so far: {total_records}")
+            # Get historical data for specific road with filters
+            historical_data = list(historical_traffic_data.find(query, {'_id': 0}).sort([('timestamp', -1)]))  # Fixed sort method
 
-            # Insert any remaining records
-            if bulk_data:
-                historical_collection.insert_many(bulk_data)
+            print(f"[DEBUG] Found {len(historical_data)} records")
+            if len(historical_data) == 0:
+                sample_data = list(historical_traffic_data.find(
+                    {'road_id': road_id},
+                    {'date': 1, 'time': 1, '_id': 0}
+                ).limit(5))
+                print(f"[DEBUG] Sample data in DB: {sample_data}")
 
-            actual_count = historical_collection.count_documents({})
-            expected_count = len(SINGAPORE_ROADS) * 24 * 10
-            print(f"[INIT] Initialization complete:")
-            print(f"- Expected records: {expected_count}")
-            print(f"- Actual records: {actual_count}")
-            print(f"- Time range: {start_time} to {current_time}")
+            # Calculate total incidents for this road
+            total_incidents = historical_traffic_data.count_documents({
+                'road_id': road_id,
+                'intensity': 'high'
+            })
             
-            if actual_count != expected_count:
-                print(f"[INIT WARNING] Record count mismatch! Expected {expected_count} but got {actual_count}")
-            
-            return actual_count == expected_count
-
-        except Exception as e:
-            print(f"[INIT ERROR] Failed to initialize historical data: {e}")
-            return False
-
-    # Add verification function
-    def verify_historical_data():
-        """Verify the integrity of historical data"""
-        try:
-            total_records = historical_collection.count_documents({})
-            expected_records = len(SINGAPORE_ROADS) * 24 * 10
-            
-            if total_records != expected_records:
-                print(f"[VERIFY] Data count mismatch: Expected {expected_records}, found {total_records}")
-                return False
-                
-            # Verify hourly distribution
-            pipeline = [
-                {
-                    '$group': {
-                        '_id': {
-                            'road_id': '$road_id',
-                            'date': {
-                                '$dateToString': {
-                                    'format': '%Y-%m-%d',
-                                    'date': '$historicalTime'
-                                }
-                            }
-                        },
-                        'count': {'$sum': 1}
-                    }
-                }
-            ]
-            
-            daily_counts = list(historical_collection.aggregate(pipeline))
-            for count_info in daily_counts:
-                if count_info['count'] != 24:
-                    print(f"[VERIFY] Incorrect hourly count for {count_info['_id']}: {count_info['count']}")
-                    return False
-                    
-            print("[VERIFY] Historical data verified successfully")
-            return True
+            return jsonify({
+                'data': historical_data,
+                'totalIncidents': total_incidents
+            })
             
         except Exception as e:
-            print(f"[VERIFY ERROR] {e}")
-            return False
-
-    # Initialize and verify historical data if collection is empty
-    if historical_collection.count_documents({}) == 0:
-        if initialize_historical_data():
-            verify_historical_data()
-        else:
-            print("[INIT ERROR] Failed to initialize historical data")
+            print(f"[ERROR] Error fetching historical data: {str(e)}")
+            return jsonify({'message': f'Error fetching historical data: {str(e)}'}), 500
 
     return app
-
 
 

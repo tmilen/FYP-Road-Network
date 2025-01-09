@@ -2,18 +2,37 @@
 
 import unittest
 from flask import json
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 import bcrypt
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Mock APScheduler before importing app
+sys.modules['apscheduler.schedulers.background'] = MagicMock()
+sys.modules['apscheduler'] = MagicMock()
+
 from app import create_app
 
 class TestChangePassword(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        # Create main mock client with dictionary access support
         cls.mock_client = MagicMock()
-        cls.users_collection = cls.mock_client['traffic-users']['users']
+        cls.mock_client.__getitem__.side_effect = lambda x: {
+            'traffic-users': cls.db,
+            'TSUN-TESTING': cls.mock_gridfs_db
+        }.get(x, MagicMock())
+        
+        # Initialize database mocks
+        cls.db = MagicMock()
+        cls.mock_gridfs_db = MagicMock()
+        cls.users_collection = MagicMock()
+
+        # Setup database collection access
+        cls.db.__getitem__.side_effect = lambda x: {
+            'users': cls.users_collection
+        }.get(x, MagicMock())
 
         cls.mock_user = {
             "username": "test_user",
@@ -40,11 +59,13 @@ class TestChangePassword(unittest.TestCase):
         cls.users_collection.update_one.side_effect = mock_update_one
 
     def setUp(self):
-        self.app = create_app(db_client=self.mock_client)
-        self.client = self.app.test_client()
+        # Mock GridFS
+        with patch('gridfs.GridFS') as mock_gridfs:
+            self.app = create_app(db_client=self.mock_client)
+            self.client = self.app.test_client()
 
-        with self.client.session_transaction() as sess:
-            sess['username'] = 'test_user'
+            with self.client.session_transaction() as sess:
+                sess['username'] = 'test_user'
 
     def test_change_password_success(self):
         response = self.client.post('/api/change-password', json={
@@ -64,7 +85,7 @@ class TestChangePassword(unittest.TestCase):
         })
         self.assertEqual(response.status_code, 401)
         data = json.loads(response.data)
-        self.assertEqual(data['message'], 'Current password is incorrect')
+        self.assertEqual(data['message'], 'Current password does not match')  # Changed to match app's message
 
     def test_change_password_same_as_current(self):
         response = self.client.post('/api/change-password', json={

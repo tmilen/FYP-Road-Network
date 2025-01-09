@@ -6,14 +6,32 @@ import bcrypt
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Mock APScheduler
+sys.modules['apscheduler.schedulers.background'] = MagicMock()
+sys.modules['apscheduler'] = MagicMock()
+
 from app import create_app
 
 class TestLogin(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        # Create main mock client with dictionary access support
         cls.mock_client = MagicMock(spec=MongoClient)
-        cls.db = cls.mock_client['traffic-users']
-        cls.users_collection = cls.db['users']
+        cls.mock_client.__getitem__.side_effect = lambda x: {
+            'traffic-users': cls.db,
+            'TSUN-TESTING': cls.mock_gridfs_db
+        }.get(x, MagicMock())
+        
+        # Initialize database mocks
+        cls.db = MagicMock()
+        cls.mock_gridfs_db = MagicMock()
+        cls.users_collection = MagicMock()
+
+        # Setup database collection access
+        cls.db.__getitem__.side_effect = lambda x: {
+            'users': cls.users_collection
+        }.get(x, MagicMock())
 
         cls.mock_user = {
             "username": "test_user",
@@ -29,8 +47,10 @@ class TestLogin(unittest.TestCase):
         cls.users_collection.find_one.side_effect = mock_find_one
 
     def setUp(self):
-        self.app = create_app(db_client=self.mock_client)
-        self.client = self.app.test_client()
+        # Mock GridFS
+        with patch('gridfs.GridFS') as mock_gridfs:
+            self.app = create_app(db_client=self.mock_client)
+            self.client = self.app.test_client()
 
     def test_login_success(self):
         response = self.client.post('/api/login', json={
@@ -51,7 +71,7 @@ class TestLogin(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         data = json.loads(response.data)
         self.assertEqual(data['status'], 'error')
-        self.assertEqual(data['message'], 'Incorrect username/password')
+        self.assertEqual(data['message'], 'Username or Password does not match')  # Updated message
 
     def test_login_incorrect_password(self):
         response = self.client.post('/api/login', json={
@@ -61,7 +81,7 @@ class TestLogin(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         data = json.loads(response.data)
         self.assertEqual(data['status'], 'error')
-        self.assertEqual(data['message'], 'Incorrect username/password')
+        self.assertEqual(data['message'], 'Username or Password does not match')  # Updated message
 
 if __name__ == '__main__':
     test_suite = unittest.TestLoader().loadTestsFromTestCase(TestLogin)

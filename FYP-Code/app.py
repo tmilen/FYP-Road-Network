@@ -312,26 +312,88 @@ def create_app(db_client=None):
     # Initialize current traffic data if collection is empty
     if current_traffic_data.count_documents({}) == 0:
         print("[INIT] No current traffic data found. Fetching initial data...")
-        if fetch_current_traffic():
-            print("[INIT] Successfully initialized current traffic data")
-        else:
-            print("[INIT ERROR] Failed to initialize current traffic data")
+    if fetch_current_traffic():
+        print("[INIT] Successfully initialized current traffic data")
+    else:
+        print("[INIT ERROR] Failed to initialize current traffic data")
 
     # Initialize historical traffic data if collection is empty
     if historical_traffic_data.count_documents({}) == 0:
         print("[INIT] No historical traffic data found. Fetching initial data...")
-        if fetch_historical_traffic():
-            print("[INIT] Successfully initialized historical traffic data")
-        else:
-            print("[INIT ERROR] Failed to initialize historical traffic data")
+    if fetch_historical_traffic():
+        print("[INIT] Successfully initialized historical traffic data")
+    else:
+        print("[INIT ERROR] Failed to initialize historical traffic data")
 
     # Function to create default profiles if they don't exist
     def create_profiles():
-        profiles = ['system_admin', 'traffic_analyst', 'urban_planner', 'data_engineer', 'traffic_management_user']
+        profiles = {
+            'system_admin': {
+                'user_profile': 'system_admin',
+                'permissions': {
+                    'traffic_management': True,
+                    'data_health': True,
+                    'manage_users': True,
+                    'traffic_data': True,
+                    'live_map': True,
+                    'upload_map': True,
+                    'report': True
+                }
+            },
+            'traffic_analyst': {
+                'user_profile': 'traffic_analyst',
+                'permissions': {
+                    'traffic_management': True,
+                    'data_health': False,
+                    'manage_users': False,
+                    'traffic_data': True,
+                    'live_map': True,
+                    'upload_map': True,
+                    'report': True
+                }
+            },
+            'urban_planner': {
+                'user_profile': 'urban_planner',
+                'permissions': {
+                    'traffic_management': True,
+                    'data_health': False,
+                    'manage_users': False,
+                    'traffic_data': False,
+                    'live_map': True,
+                    'upload_map': True,
+                    'report': False
+                }
+            },
+            'data_engineer': {
+                'user_profile': 'data_engineer',
+                'permissions': {
+                    'traffic_management': True,
+                    'data_health': True,
+                    'manage_users': False,
+                    'traffic_data': False,
+                    'live_map': False,
+                    'upload_map': True,
+                    'report': False
+                }
+            },
+            'traffic_management_user': {
+                'user_profile': 'traffic_management_user',
+                'permissions': {
+                    'traffic_management': True,
+                    'data_health': False,
+                    'manage_users': False,
+                    'traffic_data': True,
+                    'live_map': True,
+                    'upload_map': False,
+                    'report': True
+                }
+            }
+        }
+
         existing_profiles = profiles_collection.distinct("user_profile")
-        for profile in profiles:
-            if profile not in existing_profiles:
-                profiles_collection.insert_one({"user_profile": profile})
+        for profile_name, profile_data in profiles.items():
+            if profile_name not in existing_profiles:
+                profiles_collection.insert_one(profile_data)
         print("Default profiles created or verified.")
 
     # Helper function to get the next user ID
@@ -423,15 +485,15 @@ def create_app(db_client=None):
                 {"_id": 0, "password": 0}
             )
             if user:
-                # Fetch permissions from the user_permissions_collection
-                permissions = user_permissions_collection.find_one(
-                    {"user_id": user["id"]},
-                    {"_id": 0, "user_id": 0}  # Exclude _id and user_id fields
+                # Get permissions from the user's profile instead of user_permissions
+                profile = profiles_collection.find_one(
+                    {"user_profile": user["user_profile"]},
+                    {"_id": 0}
                 )
-                if not permissions:
-                    permissions = {}  # Default to empty permissions if none found
+                
+                # Get permissions from profile, default to empty dict if not found
+                permissions = profile.get('permissions', {}) if profile else {}
 
-                # Debugging output to verify permissions and session
                 print(f"Debug: User session active - Username: {user['username']}, Role: {user['user_profile']}, Permissions: {permissions}")
 
                 return jsonify({
@@ -449,37 +511,6 @@ def create_app(db_client=None):
         else:
             print("Debug: No active session")
             return jsonify({'message': 'No active session'}), 401
-
-
-
-    @app.route('/api/permissions', methods=['POST'])
-    def set_user_permissions():
-        data = request.json
-        user_id = data.get('user_id')
-        permissions = {
-            "traffic_management": data.get("traffic_management", False),
-            "data_health": data.get("data_health", False),
-            "manage_users": data.get("manage_users", False),
-            "urban_planning": data.get("urban_planning", False),
-        }
-
-        # Insert or update the permissions for the user
-        user_permissions_collection.update_one(
-            {"user_id": user_id},
-            {"$set": permissions},
-            upsert=True
-        )
-
-        return jsonify({'message': 'Permissions updated successfully'}), 201
-
-    @app.route('/api/permissions/<int:user_id>', methods=['GET'])
-    def get_user_permissions(user_id):
-        permissions = user_permissions_collection.find_one({"user_id": user_id}, {"_id": 0})
-        if permissions:
-            return jsonify(permissions)
-        else:
-            return jsonify({"error": "Permissions not found"}), 404
-
 
     # Change password
     @app.route('/api/change-password', methods=['POST'])
@@ -510,85 +541,104 @@ def create_app(db_client=None):
     @app.route('/api/users', methods=['GET'])
     def get_all_users():
         query = request.args.get('query', '')
-        users = list(users_collection.find({
+        base_query = {
             "$or": [
                 {"username": {"$regex": query, "$options": "i"}},
                 {"email": {"$regex": query, "$options": "i"}},
                 {"first_name": {"$regex": query, "$options": "i"}},
                 {"last_name": {"$regex": query, "$options": "i"}}
             ]
-        }, {"_id": 0, "password": 0}))  
+        }
+        
+        # Get users without password and _id
+        users = list(users_collection.find(base_query, {"_id": 0, "password": 0}))
+        
+        # Add profile permissions for each user
+        for user in users:
+            profile = profiles_collection.find_one(
+                {"user_profile": user["user_profile"]},
+                {"_id": 0, "permissions": 1}
+            )
+            if profile:
+                user["permissions"] = profile.get("permissions", {})
+            else:
+                user["permissions"] = {}
+        
         return jsonify(users)
 
     # Add a new user
     @app.route('/api/users', methods=['POST'])
     def add_user():
-        if 'username' not in session or session['role'] != 'system_admin':
+        if 'username' not in session:
             return jsonify({'message': 'Unauthorized'}), 403
 
+        # Get the user's profile and check manage_users permission
+        user = users_collection.find_one({"username": session['username']})
+        if not user:
+            return jsonify({'message': 'User not found'}), 404
+
+        # Get permissions from user's profile
+        profile = profiles_collection.find_one({"user_profile": user["user_profile"]})
+        if not profile or not profile.get('permissions', {}).get('manage_users', False):
+            return jsonify({'message': 'Insufficient permissions'}), 403
+
         data = request.json
-        
-        # Log the data received to check permissions
-        print("Data received:", data)
 
-        username = data.get('username')
-        password = data.get('password')
-        email = data.get('email')
-        first_name = data.get('first_name')
-        last_name = data.get('last_name')
-        date_of_birth = data.get('date_of_birth')
-        user_profile = data.get('user_profile', 'traffic_management_user')
+        # Validate required fields
+        required_fields = ['username', 'password', 'email', 'first_name', 'last_name', 'date_of_birth', 'user_profile']
+        if not all(field in data for field in required_fields):
+            return jsonify({'message': 'Missing required fields'}), 400
 
-        # Check if required fields are empty
-        if not all([username, password, email, first_name, last_name]):
-            return jsonify({'message': 'All fields are required'}), 400
-
-        # Retrieve permissions from the data
-        permissions = data.get('permissions', {
-            "traffic_management": False,
-            "data_health": False,
-            "manage_users": False,
-            "urban_planning": False
-        })
-        
-        # Log permissions to verify values
-        print("Permissions to be set:", permissions)
-
-        if users_collection.find_one({'username': username}):
+        # Check if username or email already exists
+        if users_collection.find_one({'username': data['username']}):
             return jsonify({'message': 'Username already exists'}), 400
-
-        if users_collection.find_one({'email': email}):
+        if users_collection.find_one({'email': data['email']}):
             return jsonify({'message': 'Email already exists'}), 400
 
-        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-        new_user_id = get_next_user_id() 
+        try:
+            # Get the next available user ID
+            user_id = get_next_user_id()
 
-        # Insert new user data
-        users_collection.insert_one({
-            'id': new_user_id,
-            'username': username,
-            'password': hashed_password,
-            'email': email,
-            'first_name': first_name,
-            'last_name': last_name,
-            'date_of_birth': date_of_birth,
-            'user_profile': user_profile
-        })
+            # Format the user profile name
+            formatted_profile = data['user_profile'].lower().replace(' ', '_')
 
-        # Initialize permissions for the new user
-        user_permissions_collection.insert_one({
-            'user_id': new_user_id,
-            'traffic_management': permissions["traffic_management"],
-            'data_health': permissions["data_health"],
-            'manage_users': permissions["manage_users"],
-            'urban_planning': permissions["urban_planning"]
-        })
+            # Hash password
+            hashed_password = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt())
 
-        # Log the permissions inserted into the database
-        inserted_permissions = user_permissions_collection.find_one({"user_id": new_user_id}, {"_id": 0})
-        print("Permissions inserted into the database:", inserted_permissions)
+            # Create user document
+            new_user = {
+                'id': user_id,
+                'username': data['username'],
+                'password': hashed_password,
+                'email': data['email'],
+                'first_name': data['first_name'].capitalize(),
+                'last_name': data['last_name'].capitalize(),
+                'date_of_birth': data['date_of_birth'],
+                'user_profile': formatted_profile  # Use formatted profile name
+            }
 
-        return jsonify({'message': 'User created successfully with permissions'}), 201
+            # Insert the new user
+            result = users_collection.insert_one(new_user)
+
+            # Create response object without password
+            response_user = {
+                'id': user_id,
+                'username': new_user['username'],
+                'email': new_user['email'],
+                'first_name': new_user['first_name'],
+                'last_name': new_user['last_name'],
+                'date_of_birth': new_user['date_of_birth'],
+                'user_profile': formatted_profile
+            }
+
+            return jsonify({
+                'message': 'User created successfully',
+                'user': response_user
+            }), 201
+
+        except Exception as e:
+            print(f"Error creating user: {e}")
+            return jsonify({'message': 'Error creating user'}), 500
 
     # Get all profiles with optional search query
     @app.route('/api/profiles', methods=['GET'])
@@ -603,27 +653,71 @@ def create_app(db_client=None):
     # Add a new profile
     @app.route('/api/profiles', methods=['POST'])
     def add_profile():
-        if 'username' not in session or session['role'] != 'system_admin':
+        if 'username' not in session:
             return jsonify({'message': 'Unauthorized'}), 403
+
+        # Get the user's profile and check manage_users permission
+        user = users_collection.find_one({"username": session['username']})
+        if not user:
+            return jsonify({'message': 'User not found'}), 404
+
+        # Get permissions from user's profile
+        profile = profiles_collection.find_one({"user_profile": user["user_profile"]})
+        if not profile or not profile.get('permissions', {}).get('manage_users', False):
+            return jsonify({'message': 'Insufficient permissions'}), 403
 
         data = request.json
         profile_name = data.get('user_profile')
+        permissions = data.get('permissions', {})
 
         # Check if profile name is empty
         if not profile_name:
             return jsonify({'message': 'Profile name is required'}), 400
 
-        if profiles_collection.find_one({'user_profile': profile_name}):
+        # Format profile name (lowercase and underscores)
+        formatted_profile_name = profile_name.lower().replace(' ', '_')
+
+        # Check if profile already exists
+        if profiles_collection.find_one({'user_profile': formatted_profile_name}):
             return jsonify({'message': 'Profile already exists'}), 400
 
-        profiles_collection.insert_one({'user_profile': profile_name})
-        return jsonify({'message': 'Profile created successfully'}), 201
+        # Create profile document with permissions
+        profile_data = {
+            'user_profile': formatted_profile_name,  # The profile name (e.g., 'traffic_analyst')
+            'permissions': {
+                # Each permission is a boolean flag that controls access to different features
+                'traffic_management': permissions.get('traffic_management', False),
+                'data_health': permissions.get('data_health', False),
+                'manage_users': permissions.get('manage_users', False),
+                'traffic_data': permissions.get('traffic_data', False),
+                'live_map': permissions.get('live_map', False),
+                'upload_map': permissions.get('upload_map', False),
+                'report': permissions.get('report', False)
+            }
+        }
+
+        try:
+            profiles_collection.insert_one(profile_data)
+            return jsonify({'message': 'Profile created successfully'}), 201
+        except Exception as e:
+            print(f"Error creating profile: {e}")
+            return jsonify({'message': 'Error creating profile'}), 500
 
     # DELETE endpoint for users
     @app.route('/api/users/<int:user_id>', methods=['DELETE'])
     def delete_user(user_id):
-        if 'username' not in session or session['role'] != 'system_admin':
+        if 'username' not in session:
             return jsonify({'message': 'Unauthorized'}), 403
+
+        # Get the current user's profile and check manage_users permission
+        user = users_collection.find_one({"username": session['username']})
+        if not user:
+            return jsonify({'message': 'User not found'}), 404
+
+        # Get permissions from user's profile
+        profile = profiles_collection.find_one({"user_profile": user["user_profile"]})
+        if not profile or not profile.get('permissions', {}).get('manage_users', False):
+            return jsonify({'message': 'Insufficient permissions'}), 403
 
         result = users_collection.delete_one({"id": user_id})
 
@@ -633,12 +727,21 @@ def create_app(db_client=None):
         else:
             return jsonify({'message': 'User not found'}), 404
 
-
     # DELETE endpoint for profiles
     @app.route('/api/profiles/<string:profile_name>', methods=['DELETE'])
     def delete_profile(profile_name):
-        if 'username' not in session or session['role'] != 'system_admin':
+        if 'username' not in session:
             return jsonify({'message': 'Unauthorized'}), 403
+
+        # Get the user's profile and check manage_users permission
+        user = users_collection.find_one({"username": session['username']})
+        if not user:
+            return jsonify({'message': 'User not found'}), 404
+
+        # Get permissions from user's profile
+        profile = profiles_collection.find_one({"user_profile": user["user_profile"]})
+        if not profile or not profile.get('permissions', {}).get('manage_users', False):
+            return jsonify({'message': 'Insufficient permissions'}), 403
 
         formatted_profile_name = profile_name.lower().replace(' ', '_')
         result = profiles_collection.delete_one({"user_profile": formatted_profile_name})
@@ -650,8 +753,18 @@ def create_app(db_client=None):
         
     @app.route('/api/users/<int:user_id>', methods=['PUT'])
     def update_user(user_id):
-        if 'username' not in session or session['role'] != 'system_admin':
+        if 'username' not in session:
             return jsonify({'message': 'Unauthorized'}), 403
+
+        # Get the user's profile and check manage_users permission
+        user = users_collection.find_one({"username": session['username']})
+        if not user:
+            return jsonify({'message': 'User not found'}), 404
+
+        # Get permissions from user's profile
+        profile = profiles_collection.find_one({"user_profile": user["user_profile"]})
+        if not profile or not profile.get('permissions', {}).get('manage_users', False):
+            return jsonify({'message': 'Insufficient permissions'}), 403
 
         data = request.json
         user_update = {}
@@ -694,8 +807,18 @@ def create_app(db_client=None):
 
     @app.route('/api/profiles/<string:old_profile_name>', methods=['PUT'])
     def update_profile(old_profile_name):
-        if 'username' not in session or session['role'] != 'system_admin':
+        if 'username' not in session:
             return jsonify({'message': 'Unauthorized'}), 403
+
+        # Get the user's profile and check manage_users permission
+        user = users_collection.find_one({"username": session['username']})
+        if not user:
+            return jsonify({'message': 'User not found'}), 404
+
+        # Get permissions from user's profile
+        profile = profiles_collection.find_one({"user_profile": user["user_profile"]})
+        if not profile or not profile.get('permissions', {}).get('manage_users', False):
+            return jsonify({'message': 'Insufficient permissions'}), 403
 
         data = request.json
         new_profile_name = data.get('user_profile')
@@ -730,13 +853,16 @@ def create_app(db_client=None):
             ]
         }, {"_id": 0, "password": 0}))
 
-        # Fetch permissions for each user and add to their data
+        # Add profile permissions for each user
         for user in users:
-            permissions = user_permissions_collection.find_one(
-                {"user_id": user["id"]},
-                {"_id": 0, "user_id": 0}
+            profile = profiles_collection.find_one(
+                {"user_profile": user["user_profile"]},
+                {"_id": 0, "permissions": 1}
             )
-            user["permissions"] = permissions if permissions else {}
+            if profile:
+                user["permissions"] = profile.get("permissions", {})
+            else:
+                user["permissions"] = {}
 
         return jsonify(users)
         
@@ -964,7 +1090,7 @@ def create_app(db_client=None):
                     if 'time' in query:
                         query['time']['$lte'] = end_time
                     else:
-                        query['time']['$lte'] = end_time
+                        query['time'] = {'$lte': end_time}
 
             # Add condition filtering
             if conditions:
@@ -1068,5 +1194,3 @@ def create_app(db_client=None):
             return jsonify({'message': f'Error fetching historical data: {str(e)}'}), 500
 
     return app
-
-

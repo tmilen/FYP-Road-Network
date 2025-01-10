@@ -14,27 +14,53 @@ from app import create_app
 class TestUpdateProfile(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        # Create main mock client with dictionary access support
+        # Create main mock client and database structure
         cls.mock_client = MagicMock()
+        cls.db = MagicMock()
+        cls.mock_gridfs_db = MagicMock()
+        cls.users_collection = MagicMock()
+        cls.profiles_collection = MagicMock()
+
+        # Setup mock database structure
         cls.mock_client.__getitem__.side_effect = lambda x: {
             'traffic-users': cls.db,
             'TSUN-TESTING': cls.mock_gridfs_db
         }.get(x, MagicMock())
-        
-        # Initialize database mocks
-        cls.db = MagicMock()
-        cls.mock_gridfs_db = MagicMock()
-        cls.profiles_collection = MagicMock()
 
-        # Setup database collection access
+        # Setup collections
         cls.db.__getitem__.side_effect = lambda x: {
+            'users': cls.users_collection,
             'profiles': cls.profiles_collection
         }.get(x, MagicMock())
 
-        def mock_find_one(query):
+        # Mock users collection methods
+        def mock_user_find_one(query):
+            if query.get('username') == 'admin_user':
+                return {
+                    'id': 1,
+                    'username': 'admin_user',
+                    'user_profile': 'system_admin'
+                }
+            return None
+
+        # Mock profiles collection methods
+        def mock_profile_find_one(query):
             profile_name = query.get('user_profile')
-            if profile_name == 'new_profile':
-                return {'user_profile': profile_name}
+            if profile_name == 'system_admin':
+                return {
+                    'user_profile': 'system_admin',
+                    'permissions': {'manage_users': True}
+                }
+            elif profile_name == 'new_profile':
+                return {
+                    'user_profile': 'new_profile',
+                    'permissions': {'manage_users': False}
+                }
+            elif profile_name == 'existing_profile':
+                return {
+                    'user_profile': 'existing_profile',
+                    'permissions': {'manage_users': False}
+                }
             return None
 
         def mock_update_one(query, update):
@@ -43,11 +69,11 @@ class TestUpdateProfile(unittest.TestCase):
                 return MagicMock(matched_count=1, modified_count=1)
             return MagicMock(matched_count=0, modified_count=0)
 
-        cls.profiles_collection.find_one.side_effect = mock_find_one
-        cls.profiles_collection.update_one.side_effect = mock_update_one
+        cls.users_collection.find_one = MagicMock(side_effect=mock_user_find_one)
+        cls.profiles_collection.find_one = MagicMock(side_effect=mock_profile_find_one)
+        cls.profiles_collection.update_one = MagicMock(side_effect=mock_update_one)
 
     def setUp(self):
-        # Mock GridFS
         with patch('gridfs.GridFS') as mock_gridfs:
             self.app = create_app(db_client=self.mock_client)
             self.client = self.app.test_client()

@@ -31,7 +31,7 @@ body {
 
 .viewContent {
   display: grid;
-  grid-template-columns: 400px 1fr; /* Increased from 350px to 400px */
+  grid-template-columns: 300px 1fr; /* Reduced from 400px to 300px */
   gap: 2rem;
 }
 
@@ -83,16 +83,16 @@ body {
 }
 
 .contentPanel .usermanagementBox {
-  height: 600px;
+  height: 750px; /* Increased from 600px to 750px to accommodate larger table */
   display: flex;
   flex-direction: column;
   margin-top: 0;
 }
 
 .contentPanel .userTable {
-  display: block; /* Change to block display */
+  display: block;
   overflow-y: auto;
-  max-height: 450px; /* Height for approximately 10 rows */
+  max-height: 600px; /* Increased from 450px to 600px */
   border-collapse: separate;
   border-spacing: 0;
   width: 100%;
@@ -763,7 +763,7 @@ input:checked + .slider:before {
 .contentPanel .userTable {
   display: block; /* Change to block display */
   overflow-y: auto;
-  max-height: 450px; /* Height for approximately 10 rows */
+  max-height: 600px; /* Increased from 450px to 600px */
   border-collapse: separate;
   border-spacing: 0;
   width: 100%;
@@ -827,19 +827,36 @@ input:checked + .slider:before {
 .userTable th:nth-child(2),
 .userTable td:nth-child(2) { width: 12%; } /* Username */
 .userTable th:nth-child(3),
-.userTable td:nth-child(3) { width: 15%; } /* Email */
+.userTable td:nth-child(3) { width: 13%; } /* Email - reduced from 15% */
 .userTable th:nth-child(4),
-.userTable td:nth-child(4) { width: 10%; } /* First Name */
+.userTable td:nth-child(4) { width: 8%; }  /* First Name - reduced from 10% */
 .userTable th:nth-child(5),
-.userTable td:nth-child(5) { width: 10%; } /* Last Name */
+.userTable td:nth-child(5) { width: 8%; }  /* Last Name - reduced from 10% */
 .userTable th:nth-child(6),
-.userTable td:nth-child(6) { width: 12%; } /* Date of Birth */
+.userTable td:nth-child(6) { width: 10%; } /* Date of Birth - reduced from 12% */
 .userTable th:nth-child(7),
-.userTable td:nth-child(7) { width: 12%; } /* Profile */
+.userTable td:nth-child(7) { width: 18%; } /* Profile - increased from 12% */
 .userTable th:nth-child(8),
-.userTable td:nth-child(8) { width: 14%; } /* Permissions */
+.userTable td:nth-child(8) { 
+  width: 20%; /* Increase permissions column width */
+  text-align: left;
+  padding-left: 20px;
+} /* Permissions */
 .userTable th:nth-child(9),
-.userTable td:nth-child(9) { width: 10%; } /* Actions */
+.userTable td:nth-child(9) { width: 6%; } /* Actions - reduced from 10% */
+
+/* Add styles for the permissions list in the table */
+.userTable .permissionsList {
+  list-style-type: decimal;
+  padding-left: 25px;
+  margin: 0;
+  text-align: left;
+}
+
+.userTable .permissionsList li {
+  text-align: left;
+  margin: 2px 0;
+}
 
 .searchContainer {
     display: flex;
@@ -984,8 +1001,148 @@ input:checked + .slider:before {
     margin: 1rem auto;
 }
 
+.permissionList {
+    text-align: left;
+    margin: 0;
+    padding-left: 20px;
+    list-style-type: decimal; /* Add numerical list style */
+    list-style-position: inside;
+    color: #666; /* Slightly muted color to indicate non-editable */
+}
 
+.permissionList li {
+    margin: 2px 0;
+    font-size: 0.9rem;
+    padding: 2px 0;
+    cursor: default; /* Indicates non-interactive */
+}
 
+/* Adjust the column widths for the profile table */
+.userTable th:nth-child(1),
+.userTable td:nth-child(1) { width: 10%; }  /* Profile ID */
+.userTable th:nth-child(2),
+.userTable td:nth-child(2) { width: 25%; } /* Profile Name */
+.userTable th:nth-child(3),
+.userTable td:nth-child(3) { width: 45%; } /* Permissions */
+.userTable th:nth-child(4),
+.userTable td:nth-child(4) { width: 20%; } /* Actions */
 
+/* Adjust the profile table styles */
+.userTable {
+    table-layout: fixed; /* Make the table use fixed layout */
+}
 
+/* Profile table specific column widths */
+.userTable.profileTable th:nth-child(1),
+.userTable.profileTable td:nth-child(1) { 
+    width: 15%; 
+    text-align: center;
+}
 
+.userTable.profileTable th:nth-child(2),
+.userTable.profileTable td:nth-child(2) { 
+    width: 25%; 
+    text-align: left;
+}
+
+.userTable.profileTable th:nth-child(3),
+.userTable.profileTable td:nth-child(3) { 
+    width: 45%; 
+    text-align: left;
+    padding-left: 20px;
+}
+
+.userTable.profileTable th:nth-child(4),
+.userTable.profileTable td:nth-child(4) { 
+    width: 15%; 
+    text-align: center;
+}
+
+.permissionList {
+    text-align: left;
+    margin: 0;
+    padding-left: 20px;
+    list-style-position: inside;
+}
+
+.permissionList li {
+    margin: 2px 0;
+    font-size: 0.9rem;
+    color: #2c3e50;
+    text-align: left;
+}
+
+/* Consistent permission list styling for both users and profiles */
+.permissionList, 
+.permissionsList {
+    text-align: left;
+    margin: 0;
+    padding-left: 25px;
+    list-style-type: decimal;
+    list-style-position: inside;
+    color: #666; /* Slightly muted color to indicate non-editable */
+}
+
+.permissionList li, 
+.permissionsList li {
+    margin: 2px 0;
+    font-size: 0.9rem;
+    color: #2c3e50;
+    text-align: left;
+    padding: 2px 0;
+    cursor: default; /* Indicates non-interactive */
+}
+
+/* Remove any conflicting styles */
+.userTable td[class*="permissions"] {
+    text-align: left;
+    padding-left: 20px;
+}
+
+/* Ensure table headers and content are aligned */
+.userTable th, 
+.userTable td {
+    padding: 0.75rem;
+    word-wrap: break-word;
+    text-align: center; /* Center align all content by default */
+}
+
+/* Override text alignment for specific columns */
+.userTable th:nth-child(8),
+.userTable td:nth-child(8) { 
+    width: 20%;
+    text-align: left;
+    padding-left: 20px;
+}
+
+/* Column widths */
+.userTable th:nth-child(1),
+.userTable td:nth-child(1) { width: 5%; }  /* ID */
+.userTable th:nth-child(2),
+.userTable td:nth-child(2) { width: 12%; } /* Username */
+.userTable th:nth-child(3),
+.userTable td:nth-child(3) { width: 13%; } /* Email - reduced from 15% */
+.userTable th:nth-child(4),
+.userTable td:nth-child(4) { width: 8%; }  /* First Name - reduced from 10% */
+.userTable th:nth-child(5),
+.userTable td:nth-child(5) { width: 8%; }  /* Last Name - reduced from 10% */
+.userTable th:nth-child(6),
+.userTable td:nth-child(6) { width: 10%; } /* Date of Birth - reduced from 12% */
+.userTable th:nth-child(7),
+.userTable td:nth-child(7) { width: 18%; } /* Profile - increased from 12% */
+.userTable th:nth-child(9),
+.userTable td:nth-child(9) { width: 6%; } /* Actions - reduced from 10% */
+
+/* Table header styling */
+.userTable thead {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: #f8f9fa;
+}
+
+/* Remove any conflicting styles */
+.userTable td[class*="permissions"] {
+    text-align: left;
+    padding-left: 20px;
+}

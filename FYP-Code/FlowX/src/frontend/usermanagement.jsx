@@ -184,7 +184,10 @@ const UserManagement = () => {
                                                 required
                                             >
                                                 {profiles.map((profile) => (
-                                                    <option key={profile.user_profile} value={profile.user_profile}>
+                                                    <option 
+                                                        key={profile.user_profile} 
+                                                        value={profile.user_profile.toLowerCase().replace(/\s+/g, '_')}
+                                                    >
                                                         {profile.user_profile}
                                                     </option>
                                                 ))}
@@ -192,46 +195,6 @@ const UserManagement = () => {
                                         </div>
                                     </div>
                                     
-                                    <div className={styles.inputGroup}>
-                                        <label>Permissions Setting</label>
-                                        <div className={styles.inputWrapper}>
-                                            <ul className={styles.permissionsList}>
-                                            <li className={styles.permissionItem}>
-                                                <label className={styles.permissionsLabel}>Traffic Management</label>
-                                                <label className={styles.switch}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={features.traffic_management}
-                                                    onChange={() => handleFeatureToggle('traffic_management')}
-                                                />
-                                                <span className={`${styles.slider} ${styles.round}`}></span>
-                                                </label>
-                                            </li>
-                                            <li className={styles.permissionItem}>
-                                                <label className={styles.permissionsLabel}>Data Health</label>
-                                                <label className={styles.switch}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={features.data_health}
-                                                    onChange={() => handleFeatureToggle('data_health')}
-                                                />
-                                                <span className={`${styles.slider} ${styles.round}`}></span>
-                                                </label>
-                                            </li>
-                                            <li className={styles.permissionItem}>
-                                                <label className={styles.permissionsLabel}>Urban Planning</label>
-                                                <label className={styles.switch}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={features.urban_planning}
-                                                    onChange={() => handleFeatureToggle('urban_planning')}
-                                                />
-                                                <span className={`${styles.slider} ${styles.round}`}></span>
-                                                </label>
-                                            </li>
-                                            </ul>
-                                        </div>
-                                    </div>
                                     <div className={styles.buttonGroup}>
                                         <button type="submit" className={styles.createUserButton}>Create User</button>
                                         <button type="button" className={styles.clearButton} onClick={clearUserFields}>Clear</button>
@@ -377,48 +340,22 @@ const UserManagement = () => {
                                                 </td>
                                                 <td>
                                                     {editUserId === user.id ? (
-                                                        <ul className={styles.permissionsList}>
-                                                            <li className={styles.permissionItem}>
-                                                                <label className={styles.permissionsLabel}>Traffic Management</label>
-                                                                <label className={styles.switch}>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={editableUser.permissions?.traffic_management || false}
-                                                                        onChange={() => handleFeatureToggle('traffic_management')}
-                                                                    />
-                                                                    <span className={styles.slider}></span>
-                                                                </label>
-                                                            </li>
-                                                            <li className={styles.permissionItem}>
-                                                                <label className={styles.permissionsLabel}>Data Health</label>
-                                                                <label className={styles.switch}>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={editableUser.permissions?.data_health || false}
-                                                                        onChange={() => handleFeatureToggle('data_health')}
-                                                                    />
-                                                                    <span className={styles.slider}></span>
-                                                                </label>
-                                                            </li>
-                                                            <li className={styles.permissionItem}>
-                                                                <label className={styles.permissionsLabel}>Urban Planning</label>
-                                                                <label className={styles.switch}>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={editableUser.permissions?.urban_planning || false}
-                                                                        onChange={() => handleFeatureToggle('urban_planning')}
-                                                                    />
-                                                                    <span className={styles.slider}></span>
-                                                                </label>
-                                                            </li>
-                                                        </ul>
+                                                        // When editing, show non-editable permissions from profile
+                                                        <ol className={styles.permissionList}>
+                                                            {Object.entries(editableUser.permissions || {})
+                                                                .filter(([_, value]) => value)
+                                                                .map(([key], i) => (
+                                                                    <li key={i}>{formatPermissionKey(key)}</li>
+                                                                ))}
+                                                        </ol>
                                                     ) : (
-                                                        user.permissions
-                                                            ? Object.entries(user.permissions)
-                                                                .filter(([key, value]) => value && key !== 'user_id')
-                                                                .map(([key]) => formatPermissionKey(key))
-                                                                .join(', ')
-                                                            : 'No permissions'
+                                                        <ol className={styles.permissionList}>
+                                                            {Object.entries(user.permissions || {})
+                                                                .filter(([_, value]) => value)
+                                                                .map(([key], i) => (
+                                                                    <li key={i}>{formatPermissionKey(key)}</li>
+                                                                ))}
+                                                        </ol>
                                                     )}
                                                 </td>
 
@@ -470,6 +407,79 @@ const UserManagement = () => {
                                         />
                                         </div>
                                     </div>
+                                    <div className={styles.inputGroup}>
+                                        <label>Permissions Setting</label>
+                                        <div className={styles.inputWrapper}>
+                                            <ul className={styles.permissionsList}>
+                                            <li className={styles.permissionItem}>
+                                                <label className={styles.permissionsLabel}>Traffic Management</label>
+                                                <label className={styles.switch}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={features.traffic_management}
+                                                    onChange={() => handleFeatureToggle('traffic_management')}
+                                                />
+                                                <span className={`${styles.slider} ${styles.round}`}></span>
+                                                </label>
+                                            </li>
+                                            <li className={styles.permissionItem}>
+                                                <label className={styles.permissionsLabel}>Data Health</label>
+                                                <label className={styles.switch}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={features.data_health}
+                                                    onChange={() => handleFeatureToggle('data_health')}
+                                                />
+                                                <span className={`${styles.slider} ${styles.round}`}></span>
+                                                </label>
+                                            </li>
+                                            <li className={styles.permissionItem}>
+                                                <label className={styles.permissionsLabel}>Traffic Data</label>
+                                                <label className={styles.switch}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={features.traffic_data}
+                                                    onChange={() => handleFeatureToggle('traffic_data')}
+                                                />
+                                                <span className={`${styles.slider} ${styles.round}`}></span>
+                                                </label>
+                                            </li>
+                                            <li className={styles.permissionItem}>
+                                                <label className={styles.permissionsLabel}>Reports</label>
+                                                <label className={styles.switch}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={features.report}
+                                                    onChange={() => handleFeatureToggle('report')}
+                                                />
+                                                <span className={`${styles.slider} ${styles.round}`}></span>
+                                                </label>
+                                            </li>
+                                            <li className={styles.permissionItem}>
+                                                <label className={styles.permissionsLabel}>Live Map</label>
+                                                <label className={styles.switch}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={features.live_map}
+                                                    onChange={() => handleFeatureToggle('live_map')}
+                                                />
+                                                <span className={`${styles.slider} ${styles.round}`}></span>
+                                                </label>
+                                            </li>
+                                            <li className={styles.permissionItem}>
+                                                <label className={styles.permissionsLabel}>Upload Map</label>
+                                                <label className={styles.switch}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={features.upload_map}
+                                                    onChange={() => handleFeatureToggle('upload_map')}
+                                                />
+                                                <span className={`${styles.slider} ${styles.round}`}></span>
+                                                </label>
+                                            </li>
+                                            </ul>
+                                        </div>
+                                    </div>
                                     <div className={styles.buttonGroup}>
                                         <button type="submit" className={styles.createProfileButton}>Create Profile</button>
                                         <button type="button" className={styles.clearButton} onClick={clearProfileFields}>Clear</button>
@@ -515,11 +525,12 @@ const UserManagement = () => {
                                         </div>
                                     )}
                                 </div>
-                                <table className={styles.userTable}>
+                                <table className={`${styles.userTable} ${styles.profileTable}`}>
                                     <thead>
                                         <tr>
                                             <th>Profile ID</th>
                                             <th>Profile Name</th>
+                                            <th>Permissions</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -538,6 +549,15 @@ const UserManagement = () => {
                                                     ) : (
                                                         profile.user_profile
                                                     )}
+                                                </td>
+                                                <td>
+                                                    <ol className={styles.permissionList}>
+                                                        {Object.entries(profile.permissions || {})
+                                                            .filter(([_, value]) => value)
+                                                            .map(([key], i) => (
+                                                                <li key={i}>{formatPermissionKey(key)}</li>
+                                                            ))}
+                                                    </ol>
                                                 </td>
                                                 <td>
                                                     {editProfileId === profile.user_profile ? (

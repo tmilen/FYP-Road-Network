@@ -82,10 +82,13 @@ const UserManagementController = () => {
     }, [profileSearchQuery]);
 
     const [features, setFeatures] = useState({
-        traffic_management: true,
-        manage_users: false,
+        traffic_management: false,
         data_health: false,
-        urban_planning: false,
+        manage_users: false,
+        traffic_data: false,
+        live_map: false,
+        upload_map: false,
+        report: false
     });
 
     const handleFeatureToggle = (feature) => {
@@ -166,34 +169,14 @@ const handleSaveProfile = (oldProfileName) => {
     // Fetch users from the server, including their permissions
     const fetchUsers = async () => {
         try {
-            // First, fetch all users
-            const usersResponse = await axios.get(`${API_URL}/users`, { withCredentials: true });
-            const usersData = usersResponse.data;
+            const response = await axios.get(`${API_URL}/users`, { withCredentials: true });
+            
+            // The backend now automatically includes the permissions from profiles collection
+            // No need for additional permissions fetch
+            const usersData = response.data;
 
-            // Fetch permissions for each user and add to their data
-            const usersWithPermissions = await Promise.all(
-                usersData.map(async (user) => {
-                    try {
-                        // Fetch the permissions for each user
-                        const permissionsResponse = await axios.get(`${API_URL}/permissions/${user.id}`, { withCredentials: true });
-                        return { 
-                            ...user, 
-                            permissions: permissionsResponse.data,
-                            user_profile: user.user_profile.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
-                        };
-                    } catch (error) {
-                        console.error(`Error fetching permissions for user ${user.id}:`, error);
-                        return { 
-                            ...user, 
-                            permissions: null, // If permissions fetch fails, set permissions to null
-                            user_profile: user.user_profile.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
-                        };
-                    }
-                })
-            );
-
-            // Update state with users and their permissions
-            setUsers(usersWithPermissions);
+            // Update state with users (permissions are already included)
+            setUsers(usersData);
         } catch (error) {
             console.error("Error fetching users:", error);
         }
@@ -291,19 +274,9 @@ const handleSaveProfile = (oldProfileName) => {
     const handleSubmitUser = (event) => {
         event.preventDefault();
         
-        // Combine newUser data with features state (not just features)
         const userData = {
-            ...newUser,
-            permissions: {
-                traffic_management: features.traffic_management || false,
-                data_health: features.data_health || false,
-                manage_users: features.manage_users || false,
-                urban_planning: features.urban_planning || false
-            }
+            ...newUser
         };
-    
-        // Debugging statement to log userData
-        console.log("Submitting user data with permissions:", userData);
     
         // Check if required fields are empty
         const requiredFields = ['username', 'password', 'email', 'first_name', 'last_name'];
@@ -333,13 +306,6 @@ const handleSaveProfile = (oldProfileName) => {
                     date_of_birth: '',
                     user_profile: 'traffic_management_user'
                 });
-                setFeatures({
-                    traffic_management: true,
-                    data_health: false,
-                    manage_users: false,
-                    urban_planning: false,
-                });
-    
                 setCreateUserMessage("User created successfully");
                 clearMessageAfterTimeout(setCreateUserMessage);
             })
@@ -369,10 +335,34 @@ const handleSaveProfile = (oldProfileName) => {
         // Clear delete profile message
         setDeleteProfileMessage(null);
 
-        axios.post(`${API_URL}/profiles`, { user_profile: formattedProfileName }, { withCredentials: true })
+        // Include permissions in the profile creation
+        const profileData = {
+            user_profile: formattedProfileName,
+            permissions: {
+                traffic_management: features.traffic_management || false,
+                data_health: features.data_health || false,
+                manage_users: features.manage_users || false,
+                traffic_data: features.traffic_data || false,
+                live_map: features.live_map || false,
+                upload_map: features.upload_map || false,
+                report: features.report || false
+            }
+        };
+
+        axios.post(`${API_URL}/profiles`, profileData, { withCredentials: true })
             .then((response) => {
                 setCreateProfileMessage(response.data.message || "Profile created successfully"); 
                 setNewProfile(''); 
+                // Reset features after creating profile
+                setFeatures({
+                    traffic_management: false,
+                    data_health: false,
+                    manage_users: false,
+                    traffic_data: false,
+                    live_map: false,
+                    upload_map: false,
+                    report: false
+                });
                 fetchProfiles(); 
                 clearMessageAfterTimeout(setCreateProfileMessage);
             })
@@ -424,18 +414,24 @@ const handleSaveProfile = (oldProfileName) => {
             traffic_management: user.permissions?.traffic_management || false,
             data_health: user.permissions?.data_health || false,
             manage_users: user.permissions?.manage_users || false,
-            urban_planning: user.permissions?.urban_planning || false,
+            traffic_data: user.permissions?.traffic_data || false,
+            live_map: user.permissions?.live_map || false,
+            upload_map: user.permissions?.upload_map || false,
+            report: user.permissions?.report || false
         });
     };
 
     const handleCancelEdit = () => {
         setEditUserId(null);        
         setEditableUser({});        
-        setFeatures({                
-            traffic_management: true,
+        setFeatures({
+            traffic_management: false,
             data_health: false,
             manage_users: false,
-            urban_planning: false,
+            traffic_data: false,
+            live_map: false,
+            upload_map: false,
+            report: false
         });
         setUserErrorMessage(null); // Clear the error message
     };
@@ -475,10 +471,13 @@ const handleSaveProfile = (oldProfileName) => {
                     setEditUserId(null);
                     setEditableUser({});
                     setFeatures({
-                        traffic_management: true,
+                        traffic_management: false,
                         data_health: false,
                         manage_users: false,
-                        urban_planning: false,
+                        traffic_data: false,
+                        live_map: false,
+                        upload_map: false,
+                        report: false
                     });
                     clearMessageAfterTimeout(setAllUsersMessage); // Clear the message after a timeout
 
@@ -514,10 +513,13 @@ const handleSaveProfile = (oldProfileName) => {
             user_profile: 'traffic_management_user'
         });
         setFeatures({
-            traffic_management: true,
+            traffic_management: false,
             data_health: false,
             manage_users: false,
-            urban_planning: false,
+            traffic_data: false,
+            live_map: false,
+            upload_map: false,
+            report: false
         });
     };
 

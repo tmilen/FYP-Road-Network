@@ -17,51 +17,76 @@ class TestUpdateUser(unittest.TestCase):
     def setUpClass(cls):
         # Create main mock client with dictionary access support
         cls.mock_client = MagicMock(spec=MongoClient)
+        cls.db = MagicMock()
+        cls.mock_gridfs_db = MagicMock()
+        cls.users_collection = MagicMock()
+        cls.profiles_collection = MagicMock()
+        cls.mock_users = []
+
+        # Setup mock database structure
         cls.mock_client.__getitem__.side_effect = lambda x: {
             'traffic-users': cls.db,
             'TSUN-TESTING': cls.mock_gridfs_db
         }.get(x, MagicMock())
-        
-        # Initialize database mocks
-        cls.db = MagicMock()
-        cls.mock_gridfs_db = MagicMock()
-        cls.users_collection = MagicMock()
 
-        # Setup database collection access
+        # Setup collections
         cls.db.__getitem__.side_effect = lambda x: {
-            'users': cls.users_collection
+            'users': cls.users_collection,
+            'profiles': cls.profiles_collection
         }.get(x, MagicMock())
 
-        cls.mock_users = []
+        def mock_user_find_one(query=None, **kwargs):
+            if query is None:
+                return None
 
-        def mock_find_one(query=None, **kwargs):
-            if query:
-                for user in cls.mock_users:
-                    if user.get("id") == query.get("id"):
-                        return user
+            # Handle username lookup for admin
+            if query.get('username') == 'admin_user':
+                return {
+                    'id': 999,
+                    'username': 'admin_user',
+                    'user_profile': 'system_admin'
+                }
+
+            # Handle user ID lookup
+            user_id = query.get('id')
+            if user_id:
+                return next((u for u in cls.mock_users if u.get('id') == user_id), None)
+
             return None
 
-        def mock_update_one(filter, update, **kwargs):
-            for user in cls.mock_users:
-                if user.get("id") == filter.get("id"):
-                    user.update(update["$set"])
+        def mock_profile_find_one(query=None, **kwargs):
+            if query and query.get('user_profile') == 'system_admin':
+                return {
+                    'user_profile': 'system_admin',
+                    'permissions': {'manage_users': True}
+                }
+            return None
+
+        def mock_update_one(filter_dict, update_dict, **kwargs):
+            user_id = filter_dict.get('id')
+            if user_id:
+                user = next((u for u in cls.mock_users if u.get('id') == user_id), None)
+                if user:
+                    user.update(update_dict['$set'])
                     return MagicMock(matched_count=1, modified_count=1)
             return MagicMock(matched_count=0, modified_count=0)
 
-        cls.users_collection.find_one.side_effect = mock_find_one
+        cls.users_collection.find_one.side_effect = mock_user_find_one
         cls.users_collection.update_one.side_effect = mock_update_one
+        cls.profiles_collection.find_one.side_effect = mock_profile_find_one
 
     def setUp(self):
-        # Mock GridFS
         with patch('gridfs.GridFS') as mock_gridfs:
             self.app = create_app(db_client=self.mock_client)
             self.client = self.app.test_client()
+            self.mock_users.clear()
 
+            # Set up admin session
             with self.client.session_transaction() as sess:
                 sess['username'] = 'admin_user'
                 sess['role'] = 'system_admin'
 
-            self.mock_users.clear()  # Clear users before each test
+            # Add test user
             self.mock_users.append({
                 "id": 1,
                 "username": "existing_user",
@@ -96,10 +121,4 @@ class TestUpdateUser(unittest.TestCase):
         self.assertEqual(data['message'], 'User not found or no changes made')
 
 if __name__ == '__main__':
-    test_suite = unittest.TestLoader().loadTestsFromTestCase(TestUpdateUser)
-    result = unittest.TextTestRunner(verbosity=2).run(test_suite)
-
-    if result.wasSuccessful():
-        print("\ntest_update_user = Pass")
-    else:
-        print("\ntest_update_user = Fail")
+    unittest.main()

@@ -47,15 +47,24 @@ const Navbar = ({ sticky }) => {
     }
   };
 
-  const dropdownItems = Object.keys(permissions)
-    .filter((key) => permissions[key])
-    .map((key) => ({
-      key,
-      label: key
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, (char) => char.toUpperCase()),
-      path: `/${key.replace(/_/g, '-')}`, 
-    }));
+  const dropdownItems = [
+    // Only include menu items if user has corresponding permission
+    permissions?.manage_users && {
+      key: 'manage_users',
+      label: 'User Management',
+      path: '/manage-users',
+    },
+    permissions?.data_health && {
+      key: 'data_health',
+      label: 'Data Health',
+      path: '/data-health',
+    },
+    permissions?.traffic_management && {
+      key: 'traffic_management',
+      label: 'Traffic Management',
+      path: '/traffic-management',
+    },
+  ].filter(Boolean); // Filter out falsy values (undefined from permissions checks)
 
   const staticItems = [
     {
@@ -114,11 +123,13 @@ const Navbar = ({ sticky }) => {
             </button>
             {isDropdownOpen && (
               <div className={styles.dropdownMenu}>
+                {/* Show static items first */}
                 {staticItems.map((item) => (
                   <Link key={item.key} to={item.path} className={styles.dropdownLink}>
                     {item.label}
                   </Link>
                 ))}
+                {/* Then show permission-based items */}
                 {dropdownItems.map((item) => (
                   <Link key={item.key} to={item.path} className={styles.dropdownLink}>
                     {item.label}

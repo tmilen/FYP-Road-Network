@@ -478,7 +478,49 @@
     border-color: #2563eb;
 }
 
+.titleContainer,
+.backButton {
+    display: none;
+}
+
+.modernBackButton {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    color: #1e293b;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.modernBackButton:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.backArrow {
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.backText {
+    font-size: 0.95rem;
+}
+
 .title {
+    margin: 0;
     font-size: 2.5rem;
     font-weight: 700;
     text-align: center;

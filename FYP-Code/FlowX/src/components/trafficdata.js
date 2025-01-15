@@ -36,10 +36,14 @@ const useTrafficData = () => {
             const response = await axios.get(url);
             console.log('[SEARCH] Received data:', response.data);
 
-            // Sort data alphabetically by street name
+            // Sort data alphabetically by street name and add incident warning flags
             const sortedData = [...response.data].sort((a, b) => 
                 a.streetName.localeCompare(b.streetName)
-            );
+            ).map(item => ({
+                ...item,
+                hasAccidents: item.accidentCount > 0,
+                hasCongestion: item.congestionCount > 0
+            }));
 
             setTrafficData(sortedData);
             setError(null);

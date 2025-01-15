@@ -1,0 +1,1056 @@
+.pageWrapper {
+    min-height: 100vh;
+    background-color: white;
+    position: relative;
+}
+
+.pageContainer {
+    min-height: 100vh;
+    background-color: white;
+    padding: 2rem;
+}
+
+.title {
+    font-size: 2rem;
+    font-weight: 600;
+    text-align: center;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+    background: white;
+}
+
+.pageTitle {
+    font-size: 1.2rem;
+    color: #7f8c8d;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.mainContainer {
+    max-width: 1800px;
+    margin: 0 auto;
+    position: relative;
+    display: flex;
+    gap: 2rem;
+    background-color: white;
+}
+
+/* Redesigned Menu Panel */
+.menuPanel {
+    position: fixed;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: white;
+    padding: 1rem 0.5rem;
+    border-radius: 0 12px 12px 0;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 60px;
+    overflow: hidden;
+}
+
+.menuPanel:hover {
+    width: 400px; /* Increased from 300px to 400px */
+    padding: 1rem; /* Increased padding when expanded */
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.15);
+}
+
+.menuItem {
+    display: flex;
+    align-items: flex-start; /* Changed from center to flex-start to align with top of wrapped text */
+    padding: 1rem; /* Increased base padding */
+    margin: 0.5rem 0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: normal; /* Changed from nowrap to normal */
+    gap: 1rem; /* Add gap between icon and content */
+    min-height: 72px; /* Added minimum height to accommodate wrapped text */
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.menuIcon {
+    min-width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: #7f8c8d;
+    margin-top: 0.25rem; /* Added small top margin to align with text better */
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.menuItem:hover .menuIcon,
+.menuItem.active .menuIcon {
+    color: #3498db;
+    transform: scale(1.1);
+}
+
+.menuContent {
+    padding-left: 0.5rem; /* Reduced padding since we added gap */
+    overflow: visible; /* Changed from hidden to visible */
+    width: 300px; /* Set explicit width for text container */
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.menuPanel:hover .menuContent {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.menuItem:hover {
+    background-color: #f8f9fa;
+    transform: translateX(4px);
+}
+
+.menuItem.active {
+    background-color: #e8f4fd;
+    transform: translateX(4px);
+}
+
+.menuContent h3 {
+    font-size: 1rem;
+    margin: 0;
+    color: #2c3e50;
+}
+
+.menuContent p {
+    font-size: 0.85rem; /* Slightly increased font size */
+    color: #95a5a6;
+    margin: 0.3rem 0 0;
+    line-height: 1.4; /* Added line height for better readability */
+    white-space: normal; /* Allow text wrapping */
+    overflow-wrap: break-word; /* Handle long words */
+}
+
+/* Content Area */
+.contentPanel {
+    flex: 1;
+    margin-left: 80px;
+    background: #f8fafc; /* Changed from white to a light gray */
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    min-height: calc(100vh - 200px);
+}
+
+/* Welcome Message */
+.welcomeMessage {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+}
+
+.welcomeMessage h3 {
+    font-size: 1.8rem;
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+.welcomeMessage p {
+    color: #7f8c8d;
+    max-width: 500px;
+}
+
+/* Standard Report Layout */
+.standardReportContainer {
+    display: flex;
+    gap: 2rem;
+    padding: 2rem;
+    height: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    background: #f8fafc; /* Added background color */
+}
+
+.filterPanel {
+    min-width: 300px;
+    max-width: 300px;
+    background: white;
+    border-radius: 12px;
+    padding: 1.8rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    height: fit-content;
+    overflow-y: auto;
+    max-height: calc(100vh - 250px);
+}
+
+.previewPanel {
+    flex: 1;
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    min-width: 0; /* Prevent flex item from overflowing */
+    overflow: auto;
+    max-height: calc(100vh - 250px);
+}
+
+/* Chart Panel Styles */
+.chartPanel {
+    flex: 1;
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    min-width: 0;
+    overflow: auto;
+    max-height: calc(100vh - 250px);
+}
+
+.chartContainer {
+    background: #f8f9fa;
+    border: 2px dashed #e2e8f0;
+    border-radius: 8px;
+    height: calc(100vh - 350px);
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1rem;
+    padding: 1rem;
+}
+
+.placeholderText {
+    color: #94a3b8;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/* View Reports Panel Styles */
+.viewReportsPanel {
+    flex: 1;
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    min-width: 0;
+    overflow: auto;
+}
+
+.reportsPlaceholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: calc(100vh - 350px);
+    color: #94a3b8;
+    text-align: center;
+}
+
+.reportsPlaceholder p {
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+}
+
+/* Form Controls */
+.filterGroup {
+    margin-bottom: 1.5rem;
+}
+
+.filterGroup label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+}
+
+/* Enhanced Form Controls */
+.filterGroup {
+    margin-bottom: 1.5rem;
+}
+
+.filterGroup label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #2c3e50;
+    margin-bottom: 0.8rem;
+}
+
+.dateInputs {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0.8rem;
+    align-items: center;
+    width: 100%;
+}
+
+.dateInputs span {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.filterInput, .filterSelect {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: #2c3e50;
+    background-color: white;
+    transition: all 0.2s ease;
+    outline: none;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.filterInput:focus, .filterSelect:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.filterInput:hover, .filterSelect:hover {
+    border-color: #cbd5e0;
+}
+
+.filterInput[type="date"], .filterInput[type="time"] {
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.dateInputs input {
+    width: 100%;
+    min-width: 0; /* Allow inputs to shrink */
+}
+
+.filterSelectMultiple {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: #2c3e50;
+    background-color: white;
+    height: 150px;
+    transition: all 0.2s ease;
+    outline: none;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.filterSelectMultiple:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.filterSelectMultiple option {
+    padding: 0.5rem;
+}
+
+.formatButtons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.formatButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    background: white;
+    color: #7f8c8d;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.formatButton:hover {
+    border-color: #cbd5e0;
+    background-color: #f8f9fa;
+}
+
+.formatButton.active {
+    border-color: #3498db;
+    color: #3498db;
+    background-color: #ebf8ff;
+}
+
+.formatButton svg {
+    font-size: 1.1rem;
+}
+
+.generateButton {
+    width: 100%;
+    padding: 1rem;
+    margin-top: 2rem;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.generateButton:hover {
+    background: #2980b9;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.filterPanel {
+    width: 300px;
+    background: white;
+    border-radius: 12px;
+    padding: 1.8rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.filterPanel h3 {
+    font-size: 1.2rem;
+    color: #2c3e50;
+    margin-bottom: 1.8rem;
+    padding-bottom: 0.8rem;
+    border-bottom: 2px solid #ecf0f1;
+    font-weight: 600;
+}
+
+/* Add custom scrollbar */
+.filterPanel::-webkit-scrollbar,
+.previewPanel::-webkit-scrollbar {
+    width: 8px;
+}
+
+.filterPanel::-webkit-scrollbar-track,
+.previewPanel::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.filterPanel::-webkit-scrollbar-thumb,
+.previewPanel::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 4px;
+}
+
+.filterPanel::-webkit-scrollbar-thumb:hover,
+.previewPanel::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+}
+
+@media (max-width: 1024px) {
+    .menuPanel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        top: auto;
+        transform: none;
+        width: 100%;
+        height: 60px;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-around;
+        border-radius: 12px 12px 0 0;
+    }
+
+    .menuPanel:hover {
+        width: 100%;
+    }
+
+    .menuContent {
+        display: none;
+    }
+
+    .contentPanel {
+        margin-left: 0;
+        margin-bottom: 80px;
+    }
+
+    .standardReportContainer {
+        flex-direction: column;
+    }
+
+    .filterPanel {
+        min-width: 100%;
+        max-width: 100%;
+        max-height: none;
+    }
+
+    .previewPanel {
+        max-height: none;
+    }
+
+    .chartPanel {
+        max-height: none;
+    }
+
+    .chartContainer {
+        height: 400px;
+    }
+}
+
+@media (max-width: 768px) {
+    .pageContainer {
+        padding: 1rem;
+    }
+}
+
+.roadSelectorButton {
+    width: 100%;
+    padding: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    color: #2c3e50;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.roadSelectorButton:hover {
+    border-color: #3498db;
+    background: #f8f9fa;
+}
+
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.roadSelectorModal {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.modalHeader {
+    padding: 1rem 1.5rem;
+    border-bottom: 2px solid #ecf0f1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.closeButton {
+    background: none;
+    border: none;
+    color: #95a5a6;
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 0.5rem;
+    transition: color 0.2s ease;
+}
+
+.closeButton:hover {
+    color: #2c3e50;
+}
+
+.searchBox {
+    padding: 1rem;
+    border-bottom: 1px solid #ecf0f1;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    padding-right: 3rem; /* Add right padding to shift content left */
+}
+
+.searchInput {
+    width: 70%; /* Reduced from 80% to 70% */
+    padding: 0.75rem 1rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.searchInput:focus {
+    border-color: #3498db;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.roadsList {
+    padding: 1rem 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+    max-height: 400px;
+}
+
+.roadItem {
+    padding: 0.75rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    background: white;
+}
+
+.roadItem:hover {
+    background: #f8f9fa;
+}
+
+.roadItem.selected {
+    background: #ebf8ff;
+    color: #3498db;
+}
+
+.checkIcon {
+    color: #3498db;
+}
+
+.modalFooter {
+    padding: 1rem 1.5rem;
+    border-top: 2px solid #ecf0f1;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.confirmButton {
+    padding: 0.75rem 1.5rem;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.confirmButton:hover {
+    background: #2980b9;
+    transform: translateY(-1px);
+}
+
+.selectedRoadsList {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.selectedRoadItem {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: #ebf8ff;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #3498db;
+}
+
+.removeRoadButton {
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.removeRoadButton:hover {
+    color: #e74c3c;
+}
+
+.filterNote {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 1.5rem;
+    padding: 0.75rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #3498db;
+}
+
+.rangeHint {
+    font-size: 0.8rem;
+    color: #666;
+    margin-left: 0.5rem;
+    font-weight: normal;
+}
+
+/* Styles for the preview table */
+.previewTable {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.previewTable table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    table-layout: fixed;
+}
+
+.previewTable th,
+.previewTable td {
+    padding: 0.75rem;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 120px;
+}
+
+.previewTable th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #2c3e50;
+    border-bottom: 2px solid #e2e8f0;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.previewTable td {
+    border-bottom: 1px solid #e2e8f0;
+    color: #4a5568;
+}
+
+.previewTable tr:hover {
+    background-color: #f8f9fa;
+}
+
+.previewNote {
+    text-align: center;
+    color: #718096;
+    font-size: 0.9rem;
+    margin-top: 1rem;
+    font-style: italic;
+}
+
+.previewMessage {
+    text-align: center;
+    color: #718096;
+    padding: 2rem;
+}
+
+.selectedRoadsNote {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: #718096;
+    font-style: italic;
+}
+
+/* Reports List Panel Styles */
+.reportsListPanel {
+    min-width: 300px;
+    max-width: 300px;
+    background: white;
+    border-radius: 12px;
+    padding: 1.8rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    height: fit-content;
+    overflow-y: auto;
+    max-height: calc(100vh - 250px);
+}
+
+.reportsFilter {
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.reportsList {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.reportItem {
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s ease;
+}
+
+.reportItem:hover {
+    border-color: #3498db;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    background: #f8fafc;
+}
+
+.reportInfo {
+    margin-bottom: 1rem;
+}
+
+.reportInfo h4 {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 1rem;
+}
+
+.reportInfo p {
+    margin: 0.3rem 0;
+    color: #718096;
+    font-size: 0.85rem;
+}
+
+.reportType {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    background: #ebf8ff;
+    color: #3498db;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.reportActions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.actionButton {
+    flex: 1;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    color: #2c3e50;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.actionButton:hover {
+    background: #f8f9fa;
+    border-color: #3498db;
+}
+
+/* Report Preview Panel */
+.reportPreviewPanel {
+    flex: 1;
+    background: white; /* Keep white for contrast */
+    border-radius: 12px;
+    padding: 1.5rem;
+    min-width: 0;
+    overflow: auto;
+    max-height: calc(100vh - 250px);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); /* Added subtle shadow */
+}
+
+.previewContent {
+    background: white; /* Keep white background for content */
+    height: calc(100vh - 350px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed #e2e8f0;
+    border-radius: 8px;
+    margin-top: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+    .reportsListPanel {
+        min-width: 100%;
+        max-width: 100%;
+        max-height: none;
+    }
+
+    .reportPreviewPanel {
+        max-height: none;
+    }
+
+    .previewContent {
+        height: 400px;
+    }
+}
+
+.loadingMessage,
+.emptyMessage {
+    text-align: center;
+    color: #94a3b8;
+    padding: 2rem;
+    font-style: italic;
+}
+
+.reportDetails {
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.detailGroup {
+    margin-bottom: 1.5rem;
+}
+
+.detailGroup label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #64748b;
+    margin-bottom: 0.5rem;
+}
+
+.detailGroup p {
+    margin: 0;
+    color: #1e293b;
+}
+
+.roadsList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.roadItem {
+    padding: 0.25rem 0.75rem;
+    background: #e2e8f0;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: #475569;
+}
+
+.previewPlaceholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.reportItem.selected {
+    border-color: #3498db;
+    background: #f0f9ff;
+}
+
+/* PDF Viewer Styles */
+.pdfViewer {
+    width: 100%;
+    height: 100%;
+    min-height: 600px;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.pdfFrame {
+    border: none;
+    width: 100%;
+    height: 100%;
+}
+
+/* Message box styles */
+.message {
+    display: inline-block;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin: 1rem auto;
+    font-size: 0.9rem;
+    width: 100%;
+    max-width: 300px;
+    box-sizing: border-box;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    animation: slideIn 0.3s ease-out;
+}
+
+.successMessage {
+    background-color: #dff0d8;
+    color: #3c763d;
+    border: 1px solid #d6e9c6;
+    padding: 12px;
+    border-radius: 6px;
+    margin: 1rem 0;
+    text-align: center;
+    font-size: 0.9rem;
+    animation: slideIn 0.3s ease-out;
+    width: 100%;
+}
+
+.errorMessage {
+    background-color: #f8d7da;
+    color: #d9534f;
+    border: 1px solid #f5c6cb;
+    padding: 12px;
+    border-radius: 6px;
+    margin: 1rem 0;
+    text-align: center;
+    font-size: 0.9rem;
+    animation: slideIn 0.3s ease-out;
+    width: 100%;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modernBackButton {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    color: #1e293b;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.modernBackButton:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.backArrow {
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.backText {
+    font-size: 0.95rem;
+}
+
+body {
+    background: white;
+}

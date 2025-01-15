@@ -10,6 +10,7 @@ import UrbanPlanning from './frontend/urbanplanning';
 import UploadMap from './frontend/uploadmap';
 import TrafficData from './frontend/trafficdata';
 import LiveMap  from './frontend/LiveMap';
+import Reports  from './frontend/reports';
 import './css/global.css'
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
         <Route path="/upload-map" element={<UploadMap />} />
         <Route path="/traffic-data" element={<TrafficData />} />
         <Route path="/live-map" element={<LiveMap />} />
+        <Route path="/reports" element={<Reports />} />
       </Routes>
     </Router>
   );

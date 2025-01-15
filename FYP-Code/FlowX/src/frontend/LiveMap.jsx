@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styles from '../css/livemap.module.css';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
@@ -13,6 +14,7 @@ import VehicleMarker from './VehicleMarker';
 L.Marker.prototype.options.icon = DefaultIcon;
 
 const LiveMap = () => {
+    const navigate = useNavigate();
     const [showHotspots, setShowHotspots] = useState(false);
     const {
         error,
@@ -88,6 +90,13 @@ const LiveMap = () => {
 
     return (
         <div className={styles.appContainer}>
+            <button 
+                className={styles.modernBackButton}
+                onClick={() => navigate('/traffic-management')}
+            >
+                <span className={styles.backArrow}>←</span>
+                <span className={styles.backText}>Back to Traffic Management</span>
+            </button>
             <h1 className={styles.title}>FlowX</h1>
             <Navbar sticky={false} />
             

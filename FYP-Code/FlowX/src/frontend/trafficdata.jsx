@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // Add this import
 import Navbar from './navbar';
 import styles from '../css/trafficdata.module.css';
 import { FaSearch, FaFilter, FaDownload, FaTimes, FaSlidersH } from 'react-icons/fa';
 import useTrafficData from '../components/trafficdata';
 
 function TrafficData() {
+    const navigate = useNavigate(); // Add this line
     const [selectedRoad, setSelectedRoad] = useState(null);
     const [showFilterModal, setShowFilterModal] = useState(false);
     const [showHistoricalFilterModal, setShowHistoricalFilterModal] = useState(false);
@@ -214,6 +216,13 @@ function TrafficData() {
 
     return (
         <div className={styles.pageContainer}>
+            <button 
+                className={styles.modernBackButton}
+                onClick={() => navigate('/traffic-management')}
+            >
+                <span className={styles.backArrow}>←</span>
+                <span className={styles.backText}>Back to Traffic Management</span>
+            </button>
             <h1 className={styles.title}>FlowX</h1>
             <Navbar sticky={false} />
             <div className={styles.navbarGap}></div>
@@ -233,18 +242,6 @@ function TrafficData() {
                         </div>
                         <button className={styles.controlButton} onClick={handleFilterClick}>
                             <FaFilter /> Filter
-                        </button>
-                        <button 
-                            className={styles.controlButton} 
-                            onClick={() => handleExport(trafficData)}
-                        >
-                            <FaDownload /> Export
-                        </button>
-                        <button 
-                            className={styles.refreshButton}
-                            onClick={fetchTrafficData}
-                        >
-                            Refresh
                         </button>
                     </div>
                 </div>
@@ -379,18 +376,20 @@ function TrafficData() {
                                 </div>
                             </div>
 
-                            {/* Add incident summary section */}
+                            {/* Update incident summary section to use data from traffic_incidents */}
                             <div className={styles.incidentSummary}>
-                                <div className={styles.incidentCounter}>
+                                <div className={selectedRoad.historicalData.some(record => record.accidentCount > 0) ? 
+                                     `${styles.incidentCounter} ${styles.warning}` : styles.incidentCounter}>
                                     <span className={styles.label}>Total Accidents:</span>
                                     <span className={styles.count}>
-                                        {selectedRoad.historicalData?.reduce((total, record) => total + (record.accidentCount || 0), 0)}
+                                        {selectedRoad.historicalData.reduce((sum, record) => sum + record.accidentCount, 0)}
                                     </span>
                                 </div>
-                                <div className={styles.incidentCounter}>
-                                    <span className={styles.label}>Total Congestion:</span>
+                                <div className={selectedRoad.historicalData.some(record => record.congestionCount > 0) ? 
+                                     `${styles.incidentCounter} ${styles.warning}` : styles.incidentCounter}>
+                                    <span className={styles.label}>Total Congestion Events:</span>
                                     <span className={styles.count}>
-                                        {selectedRoad.historicalData?.reduce((total, record) => total + (record.congestionCount || 0), 0)}
+                                        {selectedRoad.historicalData.reduce((sum, record) => sum + record.congestionCount, 0)}
                                     </span>
                                 </div>
                             </div>

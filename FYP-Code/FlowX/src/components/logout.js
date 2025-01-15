@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
 
 export const handleLogout = ({ setUsername, setRole, setPermissions, navigate, API_URL }) => {
   axios

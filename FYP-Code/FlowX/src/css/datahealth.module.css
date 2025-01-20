@@ -1,16 +1,170 @@
-body {
-    font-family: 'Poppins', sans-serif;
-    background-color: lightgray;
-    margin: 0;
-    padding: 0;
+.page {
+  font-family: 'Poppins', sans-serif;
+  background-color: #f8f9fa; 
+  padding: 20px;
+  margin: 0;
 }
 
 .title {
-font-size: 3rem;
-font-weight: 600;
-text-align: center;
-margin: 0;
-position: relative;
-z-index: 1;
-color: hsl(0, 0%, 29%);
+  font-size: 3rem;
+  font-weight: 600;
+  text-align: center;
+  margin: 20px 0;
+  position: relative;
+  z-index: 1;
+  color: hsl(0, 0%, 29%);
+}
+
+.mainContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section {
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+
+.uploadBox {
+  border: 2px dashed #c3c3c3;
+  border-radius: 8px;
+  padding: 30px;
+  text-align: center;
+  color: #555555;
+  margin-bottom: 10px;
+}
+
+.uploadBox:hover {
+  background-color: #f1f1f1;
+  cursor: pointer;
+}
+
+/* File Input */
+.fileInput {
+  display: none;
+}
+
+.uploadLabel {
+  color: #007bff;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.supportedInfo {
+  font-size: 0.9rem;
+  color: #6c757d;
+  margin-top: 5px;
+}
+
+/* Button Styling */
+.button {
+  background-color: #008cba;
+  color: white;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.button:hover {
+  background-color: #005f7f;
+}
+
+.gridContainer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.card {
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+/* Logs Box Styling */
+.logsBox {
+  max-height: 150px;
+  overflow-y: auto;
+  border: 1px solid #d3d3d3;
+  border-radius: 5px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+/* Dropdown Styling */
+.templateSelector {
+  margin-bottom: 10px;
+}
+
+.select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #d3d3d3;
+  border-radius: 5px;
+}
+
+/* Status Text Styling */
+.status {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: #007bff;
+}
+
+/* Progress Bar Container */
+.progressContainer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  background-color: #ffffff;
+  border: 1px solid #d3d3d3;
+  border-radius: 5px;
+  margin-top: 10px;
+}
+
+.progressInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fileName {
+  font-size: 1rem;
+  color: #333333;
+  font-weight: 500;
+}
+
+.fileSize {
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+.progressBar {
+  flex-grow: 1;
+  height: 8px;
+  background-color: #f1f1f1;
+  border-radius: 5px;
+  margin: 0 10px;
+  overflow: hidden;
+}
+
+.progressBar > div {
+  height: 100%;
+  background-color: #008cba;
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+.progressPercentage {
+  font-size: 0.9rem;
+  color: #333333;
 }

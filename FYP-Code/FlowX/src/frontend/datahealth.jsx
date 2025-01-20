@@ -1,21 +1,137 @@
-import React from 'react';
-import Navbar from './navbar';
-import styles from '../css/datahealth.module.css'; 
+import React, { useEffect, useState } from "react";
+import Navbar from "./navbar";
+import useDataHealthController from "../components/datahealth";
+import styles from "../css/datahealth.module.css";
 
-function DataHealth() {
-    return (
-        <div>
-            <h1 className={styles.title}>FlowX</h1>
-            <Navbar sticky={false} />   
-            <div>
-                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus lacinia odio vitae vestibulum vestibulum. Cras venenatis euismod malesuada. Nullam ac erat consequat, auctor lectus nec, vehicula sapien. Proin ac nunc eget velit venenatis mollis. Fusce vel mauris metus. Integer at magna a libero facilisis gravida sed quis sapien.</p>
-                <p>Pellentesque a ante a quam elementum sollicitudin. Nullam id orci ut sapien consequat accumsan. Ut scelerisque, lectus at aliquam consectetur, risus lorem pellentesque nisi, a luctus purus justo ut justo. Vivamus non eros id felis laoreet congue. Integer nec elit eget odio luctus fermentum sed at dui.</p>
-                <p>Curabitur vulputate nunc id velit laoreet, ac posuere lectus interdum. Morbi ut ipsum ac arcu vehicula accumsan. Fusce egestas, magna vitae iaculis fermentum, nunc augue sollicitudin nulla, a lacinia elit turpis non ligula. Donec et risus vehicula, eleifend augue eget, feugiat arcu. Etiam eget justo vitae justo vehicula condimentum.</p>
-                <p>Aliquam erat volutpat. Quisque laoreet nisi nec velit feugiat, non dapibus ligula auctor. Vivamus bibendum eros eu tellus dignissim luctus. Nam consequat eros vel elit bibendum, non placerat est blandit. Suspendisse id augue euismod, interdum lorem sed, posuere sem. Proin luctus lectus nec eros lacinia, ut posuere est pretium.</p>
-                <p>Sed mollis libero eget magna consequat, vitae vestibulum felis fermentum. Curabitur auctor leo ut ipsum dignissim, nec rhoncus lorem lobortis. Nulla ut felis consectetur, vestibulum elit a, tincidunt lacus. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Integer tristique consequat felis, nec tincidunt ligula.</p>
-            </div> 
+const DataHealth = () => {
+  const {
+    retrainModel,
+    uploadZip,
+    fetchLogs,
+    file,
+    setFile,
+    logs,
+    uploadStatus,
+    retrainStatus,
+    uploadProgress,
+  } = useDataHealthController();
+
+  const [models, setModels] = useState([]);
+  const [selectedModel, setSelectedModel] = useState("");
+
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/models`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setModels(data.models); // Populate models with the list of files from the backend
+      } catch (error) {
+        console.error("Error fetching models:", error);
+      }
+    };
+  
+    fetchModels(); 
+  }, []);
+
+  const handleRetrain = () => {
+    if (selectedModel) {
+      retrainModel(selectedModel);
+    } else {
+      alert("Please select a model to retrain.");
+    }
+  };
+
+  return (
+    <div className={styles.page}>
+      <h1 className={styles.title}>FlowX</h1>
+      <Navbar sticky={false} />
+
+      <div className={styles.mainContainer}>
+        <div className={styles.section}>
+          <h2>Upload Dataset as Zip</h2>
+          <div className={styles.uploadBox}>
+            <input
+              type="file"
+              id="file-upload"
+              accept=".zip"
+              onChange={(e) => setFile(e.target.files[0])}
+              className={styles.fileInput}
+            />
+            <label htmlFor="file-upload" className={styles.uploadLabel}>
+              Click to upload a .zip file
+            </label>
+          </div>
+          <div className={styles.supportedInfo}>
+            Supported formats: .zip only | Maximum size: 500MB
+          </div>
+          <button className={styles.button} onClick={uploadZip}>
+            Upload Zip File
+          </button>
+          {uploadStatus && <p className={styles.status}>{uploadStatus}</p>}
+
+          {file && (
+            <div className={styles.progressContainer}>
+              <div className={styles.progressInfo}>
+                <span className={styles.fileName}>{file.name}</span>
+                <span className={styles.fileSize}>
+                  {(file.size / (1024 * 1024)).toFixed(2)} MB
+                </span>
+              </div>
+              <div className={styles.progressBar}>
+                <div style={{ width: `${uploadProgress}%` }}></div>
+              </div>
+              <span className={styles.progressPercentage}>
+                {uploadProgress}%
+              </span>
+            </div>
+          )}
         </div>
-    );
-}
+
+        <div className={styles.gridContainer}>
+          <div className={styles.card}>
+            <h2>Logs</h2>
+            <div className={styles.logsBox}>
+              {logs.length > 0 ? (
+                logs.map((log, index) => <p key={index}>{log}</p>)
+              ) : (
+                <p>No logs available.</p>
+              )}
+            </div>
+            <button className={styles.button} onClick={fetchLogs}>
+              Refresh Logs
+            </button>
+          </div>
+
+          <div className={styles.card}>
+            <h2>Choose Model</h2>
+            <div className={styles.templateSelector}>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className={styles.select}
+              >
+                <option value="" disabled>
+                  Select a model
+                </option>
+                {models.map((model, index) => (
+                  <option key={index} value={model}>
+                    {model}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button className={styles.button} onClick={handleRetrain}>
+              Retrain Model
+            </button>
+            {retrainStatus && <p className={styles.status}>{retrainStatus}</p>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default DataHealth;

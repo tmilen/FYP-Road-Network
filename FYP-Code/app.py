@@ -1,4 +1,4 @@
-from flask import Flask, request, session, jsonify, make_response, send_file
+from flask import Flask, request, session, jsonify, make_response, send_file, Response
 from pymongo import MongoClient, UpdateOne
 import gridfs
 from flask_cors import CORS
@@ -26,6 +26,14 @@ from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.graphics.shapes import Drawing, Line
 from datetime import datetime
+import zipfile
+import threading
+import time
+import tensorflow as tf
+import shutil
+from tensorflow.keras.models import load_model
+from tensorflow.keras.callbacks import LambdaCallback
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 load_dotenv()
 def create_app(db_client=None):
@@ -1879,5 +1887,194 @@ def create_app(db_client=None):
         except Exception as e:
             print(f"Error deleting report: {str(e)}")
             return jsonify({'message': f'Error deleting report: {str(e)}'}), 500
+
+    MODEL_FOLDER = "./Models"
+    UPLOAD_FOLDER = "./uploads"
+    
+    # Global variable to hold training logs
+    training_logs = {"trainingComplete": False, "logs": []}
+    
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+    def extract_zip(zip_file_path, extract_to):
+        """
+        Extracts a zip file to a given directory and ensures no nested directories.
+        """
+        with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+            zip_ref.extractall(extract_to)
+
+        # Get the root folder of the extracted content
+        root_folders = [os.path.join(extract_to, folder) for folder in os.listdir(extract_to)]
+        train_dir_folders = [folder for folder in root_folders if os.path.isdir(folder) and 'train_dir' in folder]
+
+        if len(train_dir_folders) == 1:
+            nested_folder = train_dir_folders[0]
+            for item in os.listdir(nested_folder):
+                item_path = os.path.join(nested_folder, item)
+                shutil.move(item_path, extract_to)
+            shutil.rmtree(nested_folder)  # Remove the empty nested folder
+
+
+    @app.route("/api/upload-zip", methods=["POST"])
+    def upload_zip_file():
+        """
+        Handle ZIP file upload and extraction, ensuring proper directory structure.
+        """
+        if "file" not in request.files:
+            return jsonify({"error": "No file part in the request"}), 400
+
+        file = request.files["file"]
+
+        if file.filename == "":
+            return jsonify({"error": "No file selected"}), 400
+
+        # Validate file type
+        if not file.filename.lower().endswith(".zip"):
+            return jsonify({"error": "Only ZIP files are allowed for folder uploads."}), 400
+
+        # Save the uploaded file
+        save_path = os.path.join(UPLOAD_FOLDER, file.filename)
+        file.save(save_path)
+
+        try:
+            # Extract the ZIP file
+            extract_to = os.path.join(UPLOAD_FOLDER, "train_dir")
+            os.makedirs(extract_to, exist_ok=True)
+
+            extract_zip(save_path, extract_to)
+
+            # Remove the uploaded ZIP file after extraction
+            os.remove(save_path)
+
+            return jsonify({"message": "File uploaded and extracted successfully."}), 200
+
+        except Exception as e:
+            return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+        
+    #List all model files in the Models folder.
+    @app.route("/api/models", methods=["GET"])
+    def list_models():
+        
+        try:
+            if not os.path.exists(MODEL_FOLDER):
+                return jsonify({"models": []})  # Return empty if folder doesn't exist
+
+            # Get all model files in the directory
+            model_files = [
+                f for f in os.listdir(MODEL_FOLDER) 
+                if os.path.isfile(os.path.join(MODEL_FOLDER, f))
+            ]
+            return jsonify({"models": model_files}), 200
+        except Exception as e:
+            return jsonify({"error": f"Unable to list models: {str(e)}"}), 500
+
+    # Logging function for live logs
+    def log_message(message):
+        training_logs["logs"].append(message)
+        print(message)  # For backend debugging
+
+        
+    def run_retraining(model_path):
+        """
+        Handles the retraining of the model with the uploaded dataset.
+        """
+        try:
+            log_message("Loading the model...")
+            model = load_model(model_path)
+
+            # Assuming new data is uploaded to UPLOAD_FOLDER
+            dataset_path = os.path.join(UPLOAD_FOLDER, "train_dir")
+            if not os.path.exists(dataset_path):
+                log_message("Error: No dataset found in the uploads folder.")
+                training_logs["trainingComplete"] = True
+                return
+
+            # Data augmentation using ImageDataGenerator
+            log_message("Setting up data augmentation...")
+            train_datagen = ImageDataGenerator(
+                rotation_range=40,
+                width_shift_range=0.2,
+                height_shift_range=0.2,
+                shear_range=0.2,
+                zoom_range=0.1,
+                brightness_range=[0.5, 1.25],
+                horizontal_flip=True,
+                vertical_flip=True,
+            )
+
+            train_generator = train_datagen.flow_from_directory(
+                dataset_path,
+                target_size=(300, 300),
+                batch_size=256,
+                class_mode="categorical",
+                seed=55,
+            )
+
+            
+            log_message("Starting retraining...")
+            # Calculate the starting epoch for retraining
+            initial_epoch = model.optimizer.iterations.numpy() // len(train_generator)
+
+            # Retrain the model with live logging
+            history = model.fit(
+                train_generator,
+                epochs=initial_epoch + 1,  
+                initial_epoch=initial_epoch,
+                verbose=1,
+                callbacks=[
+                    LambdaCallback(
+                        on_epoch_end=lambda epoch, logs: log_message(
+                            f"Epoch {epoch + 1}: Loss = {logs['loss']:.4f}, Accuracy = {logs['accuracy']:.4f}"
+                        )
+                    )
+                ],
+            )
+
+
+            # Save the updated model
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            new_model_name = f"retrained_model_{timestamp}.keras"
+            save_path = os.path.join("./Models", new_model_name)
+            model.save(save_path)
+            log_message("Model retrained and saved successfully.")
+        except Exception as e:
+            log_message(f"Error during retraining: {str(e)}")
+        finally:
+            training_logs["trainingComplete"] = True
+
+    #Endpoint to retrain the model.
+    @app.route("/api/retrain", methods=["POST"])
+    def retrain_model():
+        """
+        API endpoint to start the retraining process.
+        """
+        try:
+            model_name = request.json.get("model")
+            if not model_name:
+                return jsonify({"error": "Model name not provided"}), 400
+
+            model_path = os.path.join("./Models", model_name)
+            if not os.path.exists(model_path):
+                return jsonify({"error": f"Model '{model_name}' not found"}), 404
+
+            # Reset the training logs
+            training_logs['logs']=[]
+
+            # Run retraining in a separate thread to avoid blocking
+            threading.Thread(target=run_retraining, args=(model_path,)).start()
+
+            return jsonify({"message": "Retraining started successfully"}), 200
+        except Exception as e:
+            return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+
+    # Flask endpoint to fetch live training logs
+    @app.route("/api/logs", methods=["GET"])
+    def get_training_logs():
+        """
+        API endpoint to fetch live training logs.
+        """
+        print('Logs requested')
+        print(training_logs)
+        return jsonify(training_logs), 200
 
     return app

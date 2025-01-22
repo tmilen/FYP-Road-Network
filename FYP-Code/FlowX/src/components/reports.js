@@ -203,6 +203,7 @@ export const useStandardReportController = () => {
                 dateRange: dateRange.start && dateRange.end ? dateRange : null,
                 timeRange: timeRange.start && timeRange.end ? timeRange : null,
                 selectedRoads: selectedRoads.length > 0 ? selectedRoads : null,
+                includeIncidents: dataType === 'incidents' || dataType === 'comprehensive', // Only include incidents for relevant reports
                 metadata: {
                     generatedAt: new Date().toISOString(),
                     reportType: 'standard'
@@ -333,18 +334,34 @@ export const useStandardReportController = () => {
             case 'streetName':
                 return 'Street Name';
             case 'currentSpeed':
-                return 'Current Speed';
+                return 'Current Speed (km/h)';
             case 'freeFlowSpeed':
-                return 'Free Flow Speed';
+                return 'Free Flow Speed (km/h)';
             case 'accidentCount':
-                return 'Accident Count';
+                return 'Accidents';
             case 'congestionCount':
-                return 'Congestion Count';
-            case 'incidentCount':
-                return 'Incident Count';
+                return 'Congestion Events';
+            case 'intensity':
+                return 'Traffic Condition';
             default:
                 return column.charAt(0).toUpperCase() + 
                        column.slice(1).replace(/([A-Z])/g, ' $1');
+        }
+    };
+
+    const handleTimeChange = (type, value) => {
+        if (type === 'start') {
+            // If end time exists and is earlier than new start time, reset end time
+            if (timeRange.end && value > timeRange.end) {
+                setTimeRange({ start: value, end: '' });
+            } else {
+                setTimeRange({ ...timeRange, start: value });
+            }
+        } else {
+            // Only allow end time to be set if it's later than start time
+            if (!timeRange.start || value >= timeRange.start) {
+                setTimeRange({ ...timeRange, end: value });
+            }
         }
     };
 
@@ -375,6 +392,7 @@ export const useStandardReportController = () => {
         message,
         setMessage,
         validateInputs,
+        handleTimeChange,
     };
 };
 
@@ -566,30 +584,16 @@ export const useViewReportsController = () => {
             setSelectedReport(report);
             setIsLoadingContent(true);
 
-            if (report.reportFormat === 'pdf') {
-                // For PDF reports, we'll just set basic metadata
-                setReportContent({
-                    metadata: {
-                        reportType: report.dataType,
-                        generatedBy: report.metadata.generatedBy,
-                        generatedAt: report.metadata.generatedAt
-                    },
-                    filters: {
-                        dateRange: report.dateRange,
-                        timeRange: report.timeRange,
-                        selectedRoads: report.selectedRoads
-                    }
-                });
-            } else {
-                // For data format, fetch the content as before
-                const response = await axios.get(
-                    `${process.env.REACT_APP_API_URL}/reports/${report._id}`,
-                    { withCredentials: true }
-                );
-                
-                if (response.status === 200) {
-                    setReportContent(response.data);
+            const response = await axios.get(
+                `${process.env.REACT_APP_API_URL}/reports/${report._id}`,
+                { 
+                    params: { includeIncidents: true }, // Add this parameter
+                    withCredentials: true 
                 }
+            );
+            
+            if (response.status === 200) {
+                setReportContent(response.data);
             }
         } catch (error) {
             console.error('Error fetching report content:', error);
@@ -666,8 +670,158 @@ export const useViewReportsController = () => {
 };
 
 export const useTrafficAnalysisController = () => {
-    // TODO: Implement traffic analysis logic
-    return {};
+    const [selectedRoads, setSelectedRoads] = useState([]);
+    const [showRoadSelector, setShowRoadSelector] = useState(false);
+    const [availableRoads, setAvailableRoads] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [analysisDate, setAnalysisDate] = useState('');
+    const [timeRange, setTimeRange] = useState({ start: '', end: '' });
+    const [metric, setMetric] = useState('speed');
+    const [chartData, setChartData] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [availableRanges, setAvailableRanges] = useState({
+        dateRange: { start: '', end: '' },
+        timeRange: { start: '', end: '' }
+    });
+
+    const fetchAvailableRoads = async () => {
+        try {
+            const response = await axios.get(`${process.env.REACT_APP_API_URL}/traffic/roads`);
+            if (response.status === 200) {
+                setAvailableRoads(response.data);
+            }
+        } catch (error) {
+            console.error('Error fetching roads:', error);
+            setError('Failed to fetch available roads');
+        }
+    };
+
+    const fetchAvailableRanges = async () => {
+        try {
+            const response = await axios.get(`${process.env.REACT_APP_API_URL}/traffic/available-ranges`);
+            if (response.status === 200) {
+                // Convert DD-MM-YYYY to YYYY-MM-DD for input fields
+                const { dateRange, timeRange } = response.data;
+                const convertDate = (dateStr) => {
+                    const [day, month, year] = dateStr.split('-');
+                    return `${year}-${month}-${day}`;
+                };
+
+                setAvailableRanges({
+                    dateRange: {
+                        start: convertDate(dateRange.start),
+                        end: convertDate(dateRange.end)
+                    },
+                    timeRange: timeRange
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching available ranges:', error);
+            setError('Failed to fetch available date ranges');
+        }
+    };
+
+    const fetchAnalysisData = async () => {
+        if (!analysisDate || !timeRange.start || !timeRange.end || selectedRoads.length === 0) {
+            setError('Please select all required filters');
+            return;
+        }
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const params = new URLSearchParams();
+            selectedRoads.forEach(road => params.append('roads', road));
+            params.append('date', analysisDate);
+            params.append('startTime', timeRange.start);
+            params.append('endTime', timeRange.end);
+            params.append('metric', metric);
+
+            const response = await axios.get(
+                `${process.env.REACT_APP_API_URL}/traffic/analysis?${params.toString()}`
+            );
+
+            if (response.status === 200) {
+                setChartData(response.data);
+            }
+        } catch (error) {
+            console.error('Error fetching analysis:', error);
+            setError('Failed to fetch analysis data');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchAvailableRanges();
+        fetchAvailableRoads();
+    }, []);
+
+    const handleRoadToggle = (road) => {
+        setSelectedRoads(prev => 
+            prev.includes(road)
+                ? prev.filter(r => r !== road)
+                : selectedRoads.length < 5
+                    ? [...prev, road]
+                    : prev
+        );
+    };
+
+    const getFilteredRoads = () => {
+        return availableRoads.filter(road =>
+            road.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    };
+
+    const clearAll = () => {
+        setSelectedRoads([]);
+        setAnalysisDate('');
+        setTimeRange({ start: '', end: '' });
+        setMetric('speed');
+        setChartData(null);
+        setError(null);
+    };
+
+    const handleTimeChange = (type, value) => {
+        if (type === 'start') {
+            // If end time exists and is earlier than new start time, reset end time
+            if (timeRange.end && value > timeRange.end) {
+                setTimeRange({ start: value, end: '' });
+            } else {
+                setTimeRange(prev => ({ ...prev, start: value }));
+            }
+        } else {
+            // Only allow end time to be set if it's later than start time
+            if (!timeRange.start || value >= timeRange.start) {
+                setTimeRange(prev => ({ ...prev, end: value }));
+            }
+        }
+    };
+
+    return {
+        selectedRoads,
+        showRoadSelector,
+        setShowRoadSelector,
+        searchTerm,
+        setSearchTerm,
+        analysisDate,
+        setAnalysisDate,
+        timeRange,
+        setTimeRange,
+        metric,
+        setMetric,
+        chartData,
+        isLoading,
+        error,
+        handleRoadToggle,
+        getFilteredRoads,
+        fetchAnalysisData,
+        availableRanges,
+        clearAll,
+        handleTimeChange,
+    };
 };
 
 export const useCongestionReportController = () => {

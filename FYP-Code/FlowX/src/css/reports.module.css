@@ -210,12 +210,13 @@
     border: 2px dashed #e2e8f0;
     border-radius: 8px;
     height: calc(100vh - 350px);
-    min-height: 400px;
+    min-height: 600px;
     display: flex;
     align-items: center;
     justify-content: center;
     margin-top: 1rem;
-    padding: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .placeholderText {
@@ -384,9 +385,9 @@
 }
 
 .generateButton {
+    flex: 1;
     width: 100%;
     padding: 1rem;
-    margin-top: 2rem;
     background: #3498db;
     color: white;
     border: none;
@@ -494,7 +495,8 @@
     }
 
     .chartContainer {
-        height: 400px;
+        height: calc(100vh - 250px);
+        min-height: 500px;
     }
 }
 
@@ -1030,10 +1032,19 @@
     font-size: 0.95rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
     backdrop-filter: blur(8px);
     z-index: 1000;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.modernBackButton .backText {
+    max-width: 0;
+    opacity: 0;
+    transition: all 0.3s ease;
+    font-size: 0.95rem;
 }
 
 .modernBackButton:hover {
@@ -1042,15 +1053,106 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.backArrow {
-    font-size: 1.2rem;
-    line-height: 1;
+.modernBackButton:hover .backText {
+    max-width: 200px;
+    opacity: 1;
+    margin-left: 8px;
 }
 
-.backText {
-    font-size: 0.95rem;
+.backArrow {
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
 }
 
 body {
     background: white;
+}
+
+/* Incident Badge Styles */
+.incidentBadge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-left: 0.5rem;
+}
+
+.incidentBadge.accident {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.incidentBadge.congestion {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.loadingMessage {
+    color: #94a3b8;
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 2rem;
+}
+
+/* Button Group and Clear Button */
+.buttonGroup {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 2rem;  /* Move margin to container */
+    align-items: stretch;  /* Add this to ensure equal height */
+}
+
+.generateButton, .clearButton {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 46px;
+    text-transform: capitalize;
+    letter-spacing: 0.3px;
+    box-sizing: border-box;
+    margin: 0;  /* Add this to ensure no margins */
+}
+
+.generateButton {
+    background: #3498db;
+    color: white;
+    border: none;
+    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2);
+}
+
+.generateButton:hover {
+    background: #2980b9;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+}
+
+.clearButton {
+    background: white;
+    color: #3498db;
+    border: 2px solid #3498db;
+    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.1);
+}
+
+.clearButton:hover {
+    background: #f8f9fa;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.15);
+}
+
+.generateButton:disabled, .clearButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }

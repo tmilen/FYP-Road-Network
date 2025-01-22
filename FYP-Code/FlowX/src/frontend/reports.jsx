@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom'; // Add this import
 import styles from '../css/reports.module.css';
 import { FaFilePdf, FaRoad, FaTimes, FaCheck, FaDownload, FaTrash } from 'react-icons/fa';
+import { FaArrowLeftLong } from "react-icons/fa6"; // Add this import
 import Navbar from './navbar';
-import { useReportsController, useStandardReportController, useViewReportsController } from '../components/reports';
+import { useReportsController, useStandardReportController, useViewReportsController, useTrafficAnalysisController } from '../components/reports';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import 'chartjs-adapter-date-fns'; // Add this import
 
 const Reports = () => {
     const navigate = useNavigate(); // Add this line
@@ -242,43 +245,183 @@ const Reports = () => {
     };
 
     const TrafficAnalysis = () => {
+        const {
+            selectedRoads,
+            showRoadSelector,
+            setShowRoadSelector,
+            searchTerm,
+            setSearchTerm,
+            analysisDate,
+            setAnalysisDate,
+            timeRange,
+            setTimeRange,
+            metric,
+            setMetric,
+            chartData,
+            isLoading,
+            error,
+            handleRoadToggle,
+            getFilteredRoads,
+            fetchAnalysisData,
+            availableRanges,
+            clearAll,
+        } = useTrafficAnalysisController();
+
+        const filteredRoads = getFilteredRoads();
+
+        const renderChart = () => {
+            if (!chartData || !chartData.data || Object.keys(chartData.data).length === 0) {
+                return null;
+            }
+
+            // Prepare data for Recharts
+            const times = Object.values(chartData.data)[0]?.times || [];
+            const chartPoints = times.map((time, index) => {
+                const point = { time };
+                Object.entries(chartData.data).forEach(([road, data]) => {
+                    point[road] = data.values[index];
+                });
+                return point;
+            });
+
+            const colors = [
+                '#3498db', '#e74c3c', '#2ecc71', '#f1c40f', '#9b59b6'
+            ];
+
+            return (
+                <div style={{ width: '100%', height: 'calc(100vh - 350px)', minHeight: '600px' }}>
+                    <ResponsiveContainer>
+                        <LineChart 
+                            data={chartPoints}
+                            margin={{
+                                top: 50,
+                                right: 30,
+                                left: 20,
+                                bottom: 85  // Increased from 65 to 85 to make more room
+                            }}
+                        >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis 
+                                dataKey="time"
+                                label={{ 
+                                    value: 'Time', 
+                                    position: 'insideBottom', 
+                                    offset: -50  // Adjusted from -35 to -50 to position above road names
+                                }}
+                                tick={{
+                                    angle: -45,  // Angle the time labels
+                                    textAnchor: 'end',
+                                    dy: 20  // Increased from 10 to 20 to shift text down further
+                                }}
+                                height={80}  // Increased from 60 to 80 to accommodate longer road names
+                            />
+                            <YAxis
+                                label={{ 
+                                    value: metric === 'speed' ? 'Speed (km/h)' : 
+                                          metric === 'incidents' ? 'Number of Incidents' : 
+                                          'Congestion Level',
+                                    angle: -90,
+                                    position: 'insideLeft'
+                                }}
+                            />
+                            <Tooltip 
+                                contentStyle={{
+                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '6px',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                }}
+                            />
+                            <Legend 
+                                verticalAlign="top"
+                                height={36}
+                                wrapperStyle={{
+                                    paddingTop: '10px'
+                                }}
+                            />
+                            {Object.keys(chartData.data).map((road, index) => (
+                                <Line
+                                    key={road}
+                                    type="monotone"
+                                    dataKey={road}
+                                    name={road.length > 20 ? `${road.substring(0, 20)}...` : road}  // Truncate long road names
+                                    stroke={colors[index % colors.length]}
+                                    strokeWidth={2}
+                                    dot={{ r: 4 }}
+                                    activeDot={{ r: 6 }}
+                                />
+                            ))}
+                        </LineChart>
+                    </ResponsiveContainer>
+                </div>
+            );
+        };
+
         return (
             <div className={styles.reportContent}>
                 <div className={styles.standardReportContainer}>
                     {/* Filter Panel */}
                     <div className={styles.filterPanel}>
                         <h3>Analysis Settings</h3>
-                        <p className={styles.filterNote}>
-                            Select a date and roads to compare traffic patterns
-                        </p>
-
+                        
                         <div className={styles.filterGroup}>
-                            <label>Date</label>
+                            <label>
+                                Date
+                                <span className={styles.rangeHint}>
+                                    (Available: {availableRanges.dateRange.start} to {availableRanges.dateRange.end})
+                                </span>
+                            </label>
                             <input
                                 type="date"
                                 className={styles.filterInput}
-                                style={{ width: '100%' }}
+                                value={analysisDate}
+                                onChange={(e) => setAnalysisDate(e.target.value)}
+                                min={availableRanges.dateRange.start}
+                                max={availableRanges.dateRange.end}
                             />
                         </div>
 
                         <div className={styles.filterGroup}>
-                            <label>Time Range</label>
+                            <label>
+                                Time Range
+                                <span className={styles.rangeHint}>
+                                    (Available: {availableRanges.timeRange.start} to {availableRanges.timeRange.end})
+                                </span>
+                            </label>
                             <div className={styles.dateInputs}>
                                 <input
                                     type="time"
                                     className={styles.filterInput}
+                                    value={timeRange.start}
+                                    onChange={(e) => setTimeRange(prev => ({
+                                        ...prev,
+                                        start: e.target.value
+                                    }))}
+                                    min={availableRanges.timeRange.start}
+                                    max={availableRanges.timeRange.end}
                                 />
                                 <span>to</span>
                                 <input
                                     type="time"
                                     className={styles.filterInput}
+                                    value={timeRange.end}
+                                    onChange={(e) => setTimeRange(prev => ({
+                                        ...prev,
+                                        end: e.target.value
+                                    }))}
+                                    min={availableRanges.timeRange.start}
+                                    max={availableRanges.timeRange.end}
                                 />
                             </div>
                         </div>
 
                         <div className={styles.filterGroup}>
-                            <label>Analysis Type</label>
-                            <select className={styles.filterSelect}>
+                            <label>Analysis Metric</label>
+                            <select 
+                                className={styles.filterSelect}
+                                value={metric}
+                                onChange={(e) => setMetric(e.target.value)}
+                            >
                                 <option value="speed">Average Speed</option>
                                 <option value="congestion">Congestion Level</option>
                                 <option value="incidents">Incident Frequency</option>
@@ -286,30 +429,116 @@ const Reports = () => {
                         </div>
 
                         <div className={styles.filterGroup}>
-                            <label>Compare Roads</label>
-                            <button className={styles.roadSelectorButton}>
+                            <label>Compare Roads ({selectedRoads.length}/5)</label>
+                            <button 
+                                className={styles.roadSelectorButton}
+                                onClick={() => setShowRoadSelector(true)}
+                            >
                                 <FaRoad /> Select Roads to Compare
                             </button>
-                            {/* Selected roads list will go here */}
-                            <div className={styles.selectedRoadsNote}>
-                                Select up to 5 roads to compare their traffic patterns
-                            </div>
+                            {selectedRoads.length > 0 && (
+                                <div className={styles.selectedRoadsList}>
+                                    {selectedRoads.map(road => (
+                                        <div key={road} className={styles.selectedRoadItem}>
+                                            <span>{road}</span>
+                                            <FaTimes 
+                                                onClick={() => handleRoadToggle(road)}
+                                                className={styles.removeRoadButton}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
-                        <button className={styles.generateButton}>
-                            Update Analysis
-                        </button>
+                        <div className={styles.buttonGroup}>
+                            <button 
+                                className={styles.generateButton}
+                                onClick={fetchAnalysisData}
+                                disabled={isLoading}
+                            >
+                                Display
+                            </button>
+                            <button 
+                                className={styles.clearButton}
+                                onClick={clearAll}
+                                disabled={isLoading}
+                            >
+                                Clear All
+                            </button>
+                        </div>
+
+                        {error && <div className={styles.errorMessage}>{error}</div>}
                     </div>
 
                     {/* Chart Panel */}
                     <div className={styles.chartPanel}>
                         <h3>Traffic Analysis</h3>
                         <div className={styles.chartContainer}>
-                            <p className={styles.placeholderText}>
-                                Select a date and roads to visualize traffic patterns
-                            </p>
+                            {isLoading ? (
+                                <div className={styles.loadingMessage}>Loading analysis...</div>
+                            ) : chartData ? (
+                                renderChart()
+                            ) : (
+                                <p className={styles.placeholderText}>
+                                    Select a date, time range, and roads to visualize traffic patterns
+                                </p>
+                            )}
                         </div>
                     </div>
+
+                    {/* Road Selector Modal */}
+                    {showRoadSelector && (
+                        <div className={styles.modalOverlay}>
+                            <div className={styles.roadSelectorModal}>
+                                <div className={styles.modalHeader}>
+                                    <h3>Select Roads</h3>
+                                    <button 
+                                        className={styles.closeButton}
+                                        onClick={() => setShowRoadSelector(false)}
+                                    >
+                                        <FaTimes />
+                                    </button>
+                                </div>
+                                
+                                <div className={styles.searchBox}>
+                                    <input
+                                        type="text"
+                                        placeholder="Search roads..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className={styles.searchInput}
+                                    />
+                                </div>
+
+                                <div className={styles.roadsList}>
+                                    {filteredRoads.map(road => (
+                                        <div 
+                                            key={road}
+                                            className={`${styles.roadItem} ${
+                                                selectedRoads.includes(road) ? styles.selected : ''
+                                            }`}
+                                            onClick={() => handleRoadToggle(road)}
+                                        >
+                                            <span>{road}</span>
+                                            {selectedRoads.includes(road) && (
+                                                <FaCheck className={styles.checkIcon} />
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className={styles.modalFooter}>
+                                    <button 
+                                        className={styles.confirmButton}
+                                        onClick={() => setShowRoadSelector(false)}
+                                    >
+                                        Confirm Selection
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -328,7 +557,7 @@ const Reports = () => {
                 className={styles.modernBackButton}
                 onClick={() => navigate('/traffic-management')}
             >
-                <span className={styles.backArrow}>←</span>
+                <FaArrowLeftLong className={styles.backArrow} />
                 <span className={styles.backText}>Back to Traffic Management</span>
             </button>
             <h1 className={styles.title}>FlowX</h1>

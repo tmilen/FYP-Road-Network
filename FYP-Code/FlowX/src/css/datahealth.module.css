@@ -1,45 +1,63 @@
 .page {
   font-family: 'Poppins', sans-serif;
-  background-color: #f8f9fa; 
-  padding: 20px;
+  background-color: white; 
+  padding: 2rem;
   margin: 0;
+  min-height: 100vh;
 }
 
 .title {
-  font-size: 3rem;
+  font-size: 2rem;
   font-weight: 600;
   text-align: center;
   margin: 20px 0;
   position: relative;
   z-index: 1;
-  color: hsl(0, 0%, 29%);
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+  background: white;
 }
 
 .mainContainer {
-  max-width: 1200px;
+  max-width: 1400px;  /* Increased from 1200px */
   margin: 0 auto;
+  position: relative;
+  background-color: white;
 }
 
 .section {
-  background-color: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 20px;
-  margin-bottom: 20px;
+  background: white;
+  border-radius: 12px;
+  padding: 1.8rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  margin-bottom: 2rem;
+  max-width: 1000px;  /* Increased from 800px */
+  margin-left: auto;  /* Center the section */
+  margin-right: auto;
 }
 
+.section h2 {
+  font-size: 1.2rem;
+  color: #2c3e50;
+  margin-bottom: 1.8rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 2px solid #ecf0f1;
+  font-weight: 600;
+}
 
 .uploadBox {
-  border: 2px dashed #c3c3c3;
-  border-radius: 8px;
-  padding: 30px;
+  border: 2px dashed #e2e8f0;
+  border-radius: 12px;
+  padding: 2rem;
   text-align: center;
-  color: #555555;
-  margin-bottom: 10px;
+  background: #f8fafc;
+  transition: all 0.3s ease;
+  margin-bottom: 1.5rem;
 }
 
 .uploadBox:hover {
-  background-color: #f1f1f1;
+  border-color: #3498db;
+  background: #f0f9ff;
   cursor: pointer;
 }
 
@@ -49,55 +67,94 @@
 }
 
 .uploadLabel {
-  color: #007bff;
+  color: #3498db;
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.uploadLabel:hover {
+  color: #2980b9;
 }
 
 .supportedInfo {
   font-size: 0.9rem;
-  color: #6c757d;
-  margin-top: 5px;
+  color: #94a3b8;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #3498db;
 }
 
 /* Button Styling */
 .button {
-  background-color: #008cba;
+  padding: 0.75rem 1.5rem;
+  background: #3498db;
   color: white;
-  padding: 10px 15px;
   border: none;
-  border-radius: 5px;
+  border-radius: 8px;
   font-size: 1rem;
+  font-weight: 500;
   cursor: pointer;
-  margin-top: 10px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
 }
 
 .button:hover {
-  background-color: #005f7f;
+  background: #2980b9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .gridContainer {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+  margin-top: 2rem;
+  max-width: 1200px;  /* Increased from 1000px */
+  margin-left: auto;  /* Center the grid */
+  margin-right: auto;
 }
 
 .card {
-  background-color: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 20px;
+  background: white;
+  border-radius: 12px;
+  padding: 1.8rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.card h2 {
+  font-size: 1.2rem;
+  color: #2c3e50;
+  margin-bottom: 1.8rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 2px solid #ecf0f1;
+  font-weight: 600;
 }
 
 /* Logs Box Styling */
 .logsBox {
-  max-height: 150px;
+  height: 300px;
   overflow-y: auto;
-  border: 1px solid #d3d3d3;
-  border-radius: 5px;
-  padding: 10px;
-  margin-bottom: 10px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background: #f8fafc;
+}
+
+.logsBox p {
+  margin: 0.5rem 0;
+  color: #4a5568;
+  font-family: monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 /* Dropdown Styling */
@@ -107,64 +164,99 @@
 
 .select {
   width: 100%;
-  padding: 10px;
-  border: 1px solid #d3d3d3;
-  border-radius: 5px;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #2c3e50;
+  background-color: white;
+  transition: all 0.2s ease;
+  margin-bottom: 1rem;
+}
+
+.select:focus {
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  outline: none;
 }
 
 /* Status Text Styling */
 .status {
-  margin-top: 10px;
+  padding: 0.75rem;
+  border-radius: 8px;
   font-size: 0.9rem;
-  color: #007bff;
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.status.success {
+  background: #dff0d8;
+  color: #3c763d;
+}
+
+.status.error {
+  background: #f8d7da;
+  color: #d9534f;
 }
 
 /* Progress Bar Container */
 .progressContainer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px;
-  background-color: #ffffff;
-  border: 1px solid #d3d3d3;
-  border-radius: 5px;
-  margin-top: 10px;
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
 }
 
 .progressInfo {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  margin-bottom: 0.5rem;
 }
 
 .fileName {
-  font-size: 1rem;
-  color: #333333;
+  font-size: 0.9rem;
+  color: #2c3e50;
   font-weight: 500;
 }
 
 .fileSize {
-  font-size: 0.9rem;
-  color: #6c757d;
+  font-size: 0.8rem;
+  color: #94a3b8;
 }
 
 .progressBar {
-  flex-grow: 1;
   height: 8px;
-  background-color: #f1f1f1;
-  border-radius: 5px;
-  margin: 0 10px;
+  background: #e2e8f0;
+  border-radius: 4px;
   overflow: hidden;
+  margin: 0.5rem 0;
 }
 
 .progressBar > div {
   height: 100%;
-  background-color: #008cba;
-  width: 0%;
+  background: #3498db;
   transition: width 0.3s ease;
 }
 
 .progressPercentage {
-  font-size: 0.9rem;
-  color: #333333;
+  font-size: 0.8rem;
+  color: #64748b;
+  text-align: right;
+}
+
+@media (max-width: 1024px) {
+  .gridContainer {
+    grid-template-columns: 1fr;
+    max-width: 800px;  /* Increased from 600px */
+  }
+  
+  .section {
+    max-width: 800px;  /* Increased from 600px */
+  }
+  
+  .page {
+    padding: 1rem;
+  }
 }

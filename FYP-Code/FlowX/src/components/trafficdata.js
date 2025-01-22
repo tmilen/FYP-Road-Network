@@ -117,6 +117,25 @@ const useTrafficData = () => {
         link.click();
     };
 
+    const handleTimeChange = (currentTimeRange, setTimeRange, type, value) => {
+        if (type === 'start') {
+            // When changing start time
+            if (currentTimeRange.end && value > currentTimeRange.end) {
+                // If new start time is later than current end time, reset end time
+                setTimeRange({ start: value, end: '' });
+            } else {
+                setTimeRange({ ...currentTimeRange, start: value });
+            }
+        } else {
+            // When changing end time
+            if (value < currentTimeRange.start) {
+                // Prevent setting end time earlier than start time
+                return;
+            }
+            setTimeRange({ ...currentTimeRange, end: value });
+        }
+    };
+
     return {
         trafficData,
         loading,
@@ -125,7 +144,8 @@ const useTrafficData = () => {
         setSearchTerm,
         handleExport,
         fetchTrafficData,
-        fetchHistoricalDataForRoad
+        fetchHistoricalDataForRoad,
+        handleTimeChange,
     };
 };
 

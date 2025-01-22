@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // Add this import
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from './navbar';
 import styles from '../css/trafficdata.module.css';
 import { FaSearch, FaFilter, FaDownload, FaTimes, FaSlidersH } from 'react-icons/fa';
+import { FaArrowLeftLong } from "react-icons/fa6";
 import useTrafficData from '../components/trafficdata';
 
 function TrafficData() {
-    const navigate = useNavigate(); // Add this line
+    const navigate = useNavigate();
     const [selectedRoad, setSelectedRoad] = useState(null);
     const [showFilterModal, setShowFilterModal] = useState(false);
     const [showHistoricalFilterModal, setShowHistoricalFilterModal] = useState(false);
@@ -15,15 +16,20 @@ function TrafficData() {
         endDate: '',
         startTime: '',
         endTime: '',
-        conditions: []  // Add this new state
+        conditions: []
     });
     const [historicalFilters, setHistoricalFilters] = useState({
         startDate: '',
         endDate: '',
         startTime: '',
         endTime: '',
-        conditions: []  // Add this new state
+        conditions: []
     });
+    const [availableRanges, setAvailableRanges] = useState({
+        dateRange: { start: '', end: '' },
+        timeRange: { start: '', end: '' }
+    });
+    const [timeError, setTimeError] = useState('');
     const {
         trafficData,
         loading,
@@ -35,13 +41,37 @@ function TrafficData() {
         fetchHistoricalDataForRoad
     } = useTrafficData();
 
+    const modalRef = useRef(null);
+
+    const handleModalClick = (e) => {
+        if (e.target.className === styles.modal) {
+            closeModal();
+        }
+    };
+
     const formatDate = (dateString) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('en-GB', {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric'
-        }).split('/').join('-');  // Convert / to -
+        });
+    };
+
+    const formatDateForInput = (dateString) => {
+        if (!dateString) return '';
+        // If already in YYYY-MM-DD format, return as is
+        if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) return dateString;
+        // If in DD-MM-YYYY format, convert to YYYY-MM-DD
+        const [day, month, year] = dateString.split('-');
+        return `${year}-${month}-${day}`;
+    };
+
+    const formatDateForAPI = (dateString) => {
+        if (!dateString) return '';
+        // Convert from YYYY-MM-DD to DD-MM-YYYY
+        const [year, month, day] = dateString.split('-');
+        return `${day}-${month}-${year}`;
     };
 
     const formatTime = (dateString) => {
@@ -53,7 +83,18 @@ function TrafficData() {
     };
 
     useEffect(() => {
-        fetchTrafficData();  // Only fetch current traffic data initially
+        const fetchAvailableRanges = async () => {
+            try {
+                const response = await fetch(`${process.env.REACT_APP_API_URL}/traffic/available-ranges`);
+                const data = await response.json();
+                setAvailableRanges(data);
+            } catch (error) {
+                console.error('Error fetching available ranges:', error);
+            }
+        };
+
+        fetchAvailableRanges();
+        fetchTrafficData();
     }, []);
 
     const handleRoadClick = async (roadId, roadName) => {
@@ -68,7 +109,7 @@ function TrafficData() {
             const response = await fetchHistoricalDataForRoad(roadId);
             setSelectedRoad(prev => ({
                 ...prev,
-                historicalData: response.data || [], // Ensure we have an array
+                historicalData: response.data || [],
                 loading: false
             }));
         } catch (error) {
@@ -77,7 +118,7 @@ function TrafficData() {
                 ...prev,
                 loading: false,
                 error: 'Failed to load historical data',
-                historicalData: [] // Ensure we have an array even on error
+                historicalData: []
             }));
         }
     };
@@ -109,7 +150,7 @@ function TrafficData() {
             endDate: '',
             startTime: '',
             endTime: '',
-            conditions: []  // Add this new state
+            conditions: []
         });
         fetchTrafficData();
         setShowFilterModal(false);
@@ -129,14 +170,14 @@ function TrafficData() {
                 const response = await fetchHistoricalDataForRoad(selectedRoad.id, historicalFilters);
                 setSelectedRoad(prev => ({
                     ...prev,
-                    historicalData: response.data || [], // Ensure we have an array
+                    historicalData: response.data || [],
                 }));
                 setShowHistoricalFilterModal(false);
             } catch (error) {
                 console.error('Error applying historical filters:', error);
                 setSelectedRoad(prev => ({
                     ...prev,
-                    historicalData: [], // Ensure we have an array on error
+                    historicalData: [],
                 }));
             }
         }
@@ -148,20 +189,20 @@ function TrafficData() {
             endDate: '',
             startTime: '',
             endTime: '',
-            conditions: []  // Add this new state
+            conditions: []
         });
         if (selectedRoad) {
             try {
                 const response = await fetchHistoricalDataForRoad(selectedRoad.id);
                 setSelectedRoad(prev => ({
                     ...prev,
-                    historicalData: response.data || [], // Ensure we have an array
+                    historicalData: response.data || [],
                 }));
             } catch (error) {
                 console.error('Error resetting historical data:', error);
                 setSelectedRoad(prev => ({
                     ...prev,
-                    historicalData: [], // Ensure we have an array on error
+                    historicalData: [],
                 }));
             }
         }
@@ -214,13 +255,33 @@ function TrafficData() {
         </div>
     );
 
+    const handleTimeChange = (currentFilters, setFilters, type, value) => {
+        if (type === 'start') {
+            // When changing start time
+            if (currentFilters.endTime && value > currentFilters.endTime) {
+                setTimeError('Start time cannot be later than end time');
+            } else {
+                setTimeError('');
+            }
+            setFilters({...currentFilters, startTime: value});
+        } else {
+            // When changing end time
+            if (value < currentFilters.startTime) {
+                setTimeError('End time cannot be earlier than start time');
+            } else {
+                setTimeError('');
+            }
+            setFilters({...currentFilters, endTime: value});
+        }
+    };
+
     return (
         <div className={styles.pageContainer}>
             <button 
                 className={styles.modernBackButton}
                 onClick={() => navigate('/traffic-management')}
             >
-                <span className={styles.backArrow}>←</span>
+                <FaArrowLeftLong className={styles.backArrow} />
                 <span className={styles.backText}>Back to Traffic Management</span>
             </button>
             <h1 className={styles.title}>FlowX</h1>
@@ -240,9 +301,6 @@ function TrafficData() {
                                 onChange={handleSearchChange}
                             />
                         </div>
-                        <button className={styles.controlButton} onClick={handleFilterClick}>
-                            <FaFilter /> Filter
-                        </button>
                     </div>
                 </div>
 
@@ -303,7 +361,6 @@ function TrafficData() {
                     </table>
                 </div>
 
-                {/* Filter Modal */}
                 {showFilterModal && (
                     <div className={styles.modal}>
                         <div className={`${styles.modalContent} ${styles.filterModal}`}>
@@ -319,14 +376,24 @@ function TrafficData() {
                                     <div className={styles.dateInputs}>
                                         <input
                                             type="date"
-                                            value={filters.startDate}
-                                            onChange={(e) => setFilters({...filters, startDate: e.target.value})}
+                                            value={formatDateForInput(filters.startDate)}
+                                            min={formatDateForInput(availableRanges.dateRange.start)}
+                                            max={formatDateForInput(availableRanges.dateRange.end)}
+                                            onChange={(e) => setFilters({
+                                                ...filters, 
+                                                startDate: formatDateForAPI(e.target.value)
+                                            })}
                                         />
                                         <span>to</span>
                                         <input
                                             type="date"
-                                            value={filters.endDate}
-                                            onChange={(e) => setFilters({...filters, endDate: e.target.value})}
+                                            value={formatDateForInput(filters.endDate)}
+                                            min={formatDateForInput(filters.startDate || availableRanges.dateRange.start)}
+                                            max={formatDateForInput(availableRanges.dateRange.end)}
+                                            onChange={(e) => setFilters({
+                                                ...filters, 
+                                                endDate: formatDateForAPI(e.target.value)
+                                            })}
                                         />
                                     </div>
                                 </div>
@@ -336,13 +403,17 @@ function TrafficData() {
                                         <input
                                             type="time"
                                             value={filters.startTime}
-                                            onChange={(e) => setFilters({...filters, startTime: e.target.value})}
+                                            min={availableRanges.timeRange.start}
+                                            max={availableRanges.timeRange.end}
+                                            onChange={(e) => handleTimeChange(filters, setFilters, 'start', e.target.value)}
                                         />
                                         <span>to</span>
                                         <input
                                             type="time"
                                             value={filters.endTime}
-                                            onChange={(e) => setFilters({...filters, endTime: e.target.value})}
+                                            min={filters.startTime || availableRanges.timeRange.start}
+                                            max={availableRanges.timeRange.end}
+                                            onChange={(e) => handleTimeChange(filters, setFilters, 'end', e.target.value)}
                                         />
                                     </div>
                                 </div>
@@ -360,10 +431,9 @@ function TrafficData() {
                     </div>
                 )}
 
-                {/* Historical Data Modal */}
                 {selectedRoad && (
-                    <div className={styles.modal}>
-                        <div className={styles.modalContent}>
+                    <div className={styles.modal} onClick={handleModalClick}>
+                        <div className={styles.modalContent} ref={modalRef}>
                             <div className={styles.modalHeader}>
                                 <h3>Historical Data for {selectedRoad.name}</h3>
                                 <div className={styles.modalControls}>
@@ -376,7 +446,6 @@ function TrafficData() {
                                 </div>
                             </div>
 
-                            {/* Update incident summary section to use data from traffic_incidents */}
                             <div className={styles.incidentSummary}>
                                 <div className={selectedRoad.historicalData.some(record => record.accidentCount > 0) ? 
                                      `${styles.incidentCounter} ${styles.warning}` : styles.incidentCounter}>
@@ -401,19 +470,23 @@ function TrafficData() {
                                         <div className={styles.dateInputs}>
                                             <input
                                                 type="date"
-                                                value={historicalFilters.startDate}
+                                                value={formatDateForInput(historicalFilters.startDate)}
+                                                min={formatDateForInput(availableRanges.dateRange.start)}
+                                                max={formatDateForInput(availableRanges.dateRange.end)}
                                                 onChange={(e) => setHistoricalFilters({
                                                     ...historicalFilters,
-                                                    startDate: e.target.value
+                                                    startDate: formatDateForAPI(e.target.value)
                                                 })}
                                             />
                                             <span>to</span>
                                             <input
                                                 type="date"
-                                                value={historicalFilters.endDate}
+                                                value={formatDateForInput(historicalFilters.endDate)}
+                                                min={formatDateForInput(historicalFilters.startDate || availableRanges.dateRange.start)}
+                                                max={formatDateForInput(availableRanges.dateRange.end)}
                                                 onChange={(e) => setHistoricalFilters({
                                                     ...historicalFilters,
-                                                    endDate: e.target.value
+                                                    endDate: formatDateForAPI(e.target.value)
                                                 })}
                                             />
                                         </div>
@@ -424,21 +497,23 @@ function TrafficData() {
                                             <input
                                                 type="time"
                                                 value={historicalFilters.startTime}
-                                                onChange={(e) => setHistoricalFilters({
-                                                    ...historicalFilters,
-                                                    startTime: e.target.value
-                                                })}
+                                                min={availableRanges.timeRange.start}
+                                                max={availableRanges.timeRange.end}
+                                                onChange={(e) => handleTimeChange(historicalFilters, setHistoricalFilters, 'start', e.target.value)}
+                                                className={styles.filterInput}
                                             />
                                             <span>to</span>
                                             <input
                                                 type="time"
                                                 value={historicalFilters.endTime}
-                                                onChange={(e) => setHistoricalFilters({
-                                                    ...historicalFilters,
-                                                    endTime: e.target.value
-                                                })}
+                                                min={historicalFilters.startTime || availableRanges.timeRange.start}
+                                                max={availableRanges.timeRange.end}
+                                                onChange={(e) => handleTimeChange(historicalFilters, setHistoricalFilters, 'end', e.target.value)}
+                                                className={styles.filterInput}
+                                                disabled={!historicalFilters.startTime} // Disable end time input until start time is selected
                                             />
                                         </div>
+                                        {timeError && <div className={styles.errorMessage}>{timeError}</div>}
                                     </div>
                                     {renderFilterConditions(historicalFilters, setHistoricalFilters)}
                                     <div className={styles.filterActions}>

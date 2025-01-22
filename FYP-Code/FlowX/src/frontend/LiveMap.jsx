@@ -10,6 +10,7 @@ import Navbar from './navbar';
 import RoutingService from './routingService';
 import { FaMapMarkerAlt, FaRoute, FaCar, FaTrash, FaSync, FaChartLine } from 'react-icons/fa';
 import VehicleMarker from './VehicleMarker';
+import { FaArrowLeftLong } from "react-icons/fa6";
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
@@ -94,7 +95,7 @@ const LiveMap = () => {
                 className={styles.modernBackButton}
                 onClick={() => navigate('/traffic-management')}
             >
-                <span className={styles.backArrow}>←</span>
+                <FaArrowLeftLong className={styles.backArrow} />
                 <span className={styles.backText}>Back to Traffic Management</span>
             </button>
             <h1 className={styles.title}>FlowX</h1>

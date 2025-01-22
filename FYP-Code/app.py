@@ -1,4 +1,4 @@
-from flask import Flask, request, session, jsonify, make_response, send_file, Response
+from flask import Flask, request, session, jsonify, make_response, send_file
 from pymongo import MongoClient, UpdateOne
 import gridfs
 from flask_cors import CORS
@@ -190,6 +190,7 @@ def create_app(db_client=None):
             bulk_incidents = []
             api_success_count = 0
             api_failed_count = 0
+            duplicate_count = 0
             
             for hours_ago in range(24, 0, -1):
                 timestamp = current_time - timedelta(hours=hours_ago)
@@ -216,6 +217,19 @@ def create_app(db_client=None):
                                 intensity = 'high'
                             
                             road_id = f"road_{SINGAPORE_ROADS.index(road) + 1}"
+                            formatted_date = timestamp.strftime('%d-%m-%Y')
+                            formatted_time = timestamp.strftime('%H:%M')
+
+                            # Check if record already exists
+                            existing_record = historical_traffic_data.find_one({
+                                'streetName': road['name'],
+                                'date': formatted_date,
+                                'time': formatted_time
+                            })
+
+                            if existing_record:
+                                duplicate_count += 1
+                                continue  # Skip this record as it already exists
 
                             # Record incidents if conditions are met
                             if intensity == 'high':
@@ -262,8 +276,8 @@ def create_app(db_client=None):
                                     'lat': road['lat'],
                                     'lng': road['lng']
                                 },
-                                'date': timestamp.strftime('%d-%m-%Y'),
-                                'time': timestamp.strftime('%H:%M'),
+                                'date': formatted_date,
+                                'time': formatted_time,
                                 'timestamp': timestamp,
                                 'currentSpeed': current_speed,
                                 'freeFlowSpeed': free_flow_speed,
@@ -291,6 +305,7 @@ def create_app(db_client=None):
                 
                 print(f"\n[HISTORICAL SUMMARY] Expected Records: {expected_total_records}")
                 print(f"[HISTORICAL SUMMARY] Inserted: {len(result.inserted_ids)}")
+                print(f"[HISTORICAL SUMMARY] Duplicates Skipped: {duplicate_count}")
                 print(f"[HISTORICAL SUMMARY] Incidents Recorded: {len(bulk_incidents)}")
                 print(f"[HISTORICAL SUMMARY] API Successes: {api_success_count}")
                 print(f"[HISTORICAL SUMMARY] API Failures: {api_failed_count}\n")
@@ -1220,11 +1235,30 @@ def create_app(db_client=None):
         # Handle date filtering
         if start_date or end_date:
             if start_date:
-                date_obj = datetime.strptime(start_date, '%Y-%m-%d')
+                try:
+                    # First, try to parse as YYYY-MM-DD
+                    date_obj = datetime.strptime(start_date, '%Y-%m-%d')
+                except ValueError:
+                    try:
+                        # If that fails, try DD-MM-YYYY
+                        date_obj = datetime.strptime(start_date, '%d-%m-%Y')
+                    except ValueError:
+                        print(f"Invalid start date format: {start_date}")
+                        return query
                 formatted_start_date = date_obj.strftime('%d-%m-%Y')
                 query['date'] = {'$gte': formatted_start_date}
+                
             if end_date:
-                date_obj = datetime.strptime(end_date, '%Y-%m-%d')
+                try:
+                    # First, try to parse as YYYY-MM-DD
+                    date_obj = datetime.strptime(end_date, '%Y-%m-%d')
+                except ValueError:
+                    try:
+                        # If that fails, try DD-MM-YYYY
+                        date_obj = datetime.strptime(end_date, '%d-%m-%Y')
+                    except ValueError:
+                        print(f"Invalid end date format: {end_date}")
+                        return query
                 formatted_end_date = date_obj.strftime('%d-%m-%Y')
                 if 'date' in query:
                     query['date']['$lte'] = formatted_end_date
@@ -1254,13 +1288,19 @@ def create_app(db_client=None):
             if not road_id:
                 return jsonify({'message': 'Road ID is required'}), 400
 
+            # Validate time range
+            start_time = request.args.get('startTime')
+            end_time = request.args.get('endTime')
+            if start_time and end_time and end_time < start_time:
+                return jsonify({'message': 'End time cannot be earlier than start time'}), 400
+
             # Build query from request parameters
             query = build_historical_query(
                 road_id,
                 request.args.get('startDate'),
                 request.args.get('endDate'),
-                request.args.get('startTime'),
-                request.args.get('endTime'),
+                start_time,
+                end_time,
                 request.args.getlist('conditions')
             )
 
@@ -1337,6 +1377,47 @@ def create_app(db_client=None):
     # Add GridFS instance for reports
     reports_fs = gridfs.GridFS(client['TSUN-TESTING'], collection='reports-files')
 
+    def add_incident_data(records, query_date_range=None):
+        """Add incident data to traffic records"""
+        enhanced_records = []
+        
+        for record in records:
+            # Convert date and time to datetime for comparison
+            record_date = datetime.strptime(f"{record['date']} {record['time']}", '%d-%m-%Y %H:%M')
+            
+            # Build incident query
+            incident_query = {
+                'road_id': record.get('road_id'),
+                'start_time': {
+                    '$lte': record_date + timedelta(minutes=30),  # Include incidents within 30 minutes
+                    '$gte': record_date - timedelta(minutes=30)
+                }
+            }
+            
+            # Add date range if provided
+            if query_date_range:
+                incident_query['start_time'].update(query_date_range)
+
+            # Count incidents by type
+            accident_count = traffic_incidents.count_documents({
+                **incident_query,
+                'type': 'ACCIDENT'
+            })
+            
+            congestion_count = traffic_incidents.count_documents({
+                **incident_query,
+                'type': 'CONGESTION'
+            })
+            
+            # Add counts to record
+            record['accidentCount'] = accident_count
+            record['congestionCount'] = congestion_count
+            record['incidentCount'] = accident_count + congestion_count
+            
+            enhanced_records.append(record)
+        
+        return enhanced_records
+
     @app.route('/api/reports', methods=['POST'])
     def generate_report():
         try:
@@ -1349,6 +1430,7 @@ def create_app(db_client=None):
             # Build query for traffic data
             data = request.json
             query = {}
+            query_date_range = None
 
             if data.get('dateRange'):
                 date_range = data['dateRange']
@@ -1361,6 +1443,13 @@ def create_app(db_client=None):
                         query['date']['$lte'] = end_date.strftime('%d-%m-%Y')
                     else:
                         query['date'] = {'$lte': end_date.strftime('%d-%m-%Y')}
+                        
+                # Create date range for incidents query
+                if date_range.get('start') and date_range.get('end'):
+                    query_date_range = {
+                        '$gte': start_date,
+                        '$lte': end_date + timedelta(days=1)  # Include full last day
+                    }
 
             if data.get('timeRange'):
                 time_range = data['timeRange']
@@ -1401,6 +1490,10 @@ def create_app(db_client=None):
             if not traffic_data:
                 return jsonify({'message': 'No data found for the selected criteria'}), 404
 
+            # Add incident data if needed for incidents, comprehensive, or congestion data types
+            if data['dataType'] in ['incidents', 'comprehensive', 'congestion']:
+                traffic_data = add_incident_data(traffic_data, query_date_range)
+
             # Create DataFrame from traffic data
             df = pd.DataFrame(traffic_data)
             
@@ -1410,7 +1503,7 @@ def create_app(db_client=None):
             elif data['dataType'] == 'incidents':
                 columns = ['streetName', 'date', 'time', 'accidentCount', 'congestionCount', 'incidentCount']
             elif data['dataType'] == 'congestion':
-                columns = ['streetName', 'date', 'time', 'intensity', 'congestionCount']
+                columns = ['streetName', 'date', 'time', 'intensity', 'currentSpeed', 'congestionCount']
             else:  # comprehensive
                 columns = ['streetName', 'date', 'time', 'currentSpeed', 'freeFlowSpeed', 
                           'intensity', 'accidentCount', 'congestionCount', 'incidentCount']
@@ -1637,6 +1730,7 @@ def create_app(db_client=None):
 
             data = request.json
             query = {}
+            date_range = None
 
             if data.get('dateRange'):
                 date_range = data['dateRange']
@@ -1649,6 +1743,14 @@ def create_app(db_client=None):
                         query['date']['$lte'] = end_date.strftime('%d-%m-%Y')
                     else:
                         query['date'] = {'$lte': end_date.strftime('%d-%m-%Y')}
+                        
+                # Create date range for incidents query
+                query_date_range = None
+                if date_range.get('start') and date_range.get('end'):
+                    query_date_range = {
+                        '$gte': start_date,
+                        '$lte': end_date + timedelta(days=1)  # Include full last day
+                    }
 
             if data.get('timeRange'):
                 time_range = data['timeRange']
@@ -1674,13 +1776,17 @@ def create_app(db_client=None):
             if not traffic_data:
                 return jsonify({'message': 'No data found for the selected criteria'}), 404
 
+            # Add incident data if needed for incidents, comprehensive, or congestion data types
+            if data['dataType'] in ['incidents', 'comprehensive', 'congestion']:
+                traffic_data = add_incident_data(traffic_data, query_date_range)
+
             # Select columns based on dataType
             if data['dataType'] == 'traffic':
                 columns = ['streetName', 'date', 'time', 'currentSpeed', 'freeFlowSpeed', 'intensity']
             elif data['dataType'] == 'incidents':
                 columns = ['streetName', 'date', 'time', 'accidentCount', 'congestionCount', 'incidentCount']
             elif data['dataType'] == 'congestion':
-                columns = ['streetName', 'date', 'time', 'intensity', 'congestionCount']
+                columns = ['streetName', 'date', 'time', 'intensity', 'currentSpeed', 'congestionCount']
             else:  # comprehensive
                 columns = ['streetName', 'date', 'time', 'currentSpeed', 'freeFlowSpeed', 
                           'intensity', 'accidentCount', 'congestionCount', 'incidentCount']
@@ -1827,7 +1933,7 @@ def create_app(db_client=None):
             elif report['dataType'] == 'incidents':
                 columns = ['streetName', 'date', 'time', 'accidentCount', 'congestionCount', 'incidentCount']
             elif report['dataType'] == 'congestion':
-                columns = ['streetName', 'date', 'time', 'intensity', 'congestionCount']
+                columns = ['streetName', 'date', 'time', 'intensity', 'currentSpeed', 'congestionCount']
             else:  # comprehensive
                 columns = ['streetName', 'date', 'time', 'currentSpeed', 'freeFlowSpeed', 
                           'intensity', 'accidentCount', 'congestionCount', 'incidentCount']
@@ -1887,6 +1993,78 @@ def create_app(db_client=None):
         except Exception as e:
             print(f"Error deleting report: {str(e)}")
             return jsonify({'message': f'Error deleting report: {str(e)}'}), 500
+
+    @app.route('/api/traffic/analysis', methods=['GET'])
+    def get_traffic_analysis():
+        try:
+            # Get parameters
+            roads = request.args.getlist('roads')
+            input_date = request.args.get('date')  # This will be in YYYY-MM-DD format
+            start_time = request.args.get('startTime')
+            end_time = request.args.get('endTime')
+            metric = request.args.get('metric', 'speed')
+
+            if not roads or not input_date:
+                return jsonify({'message': 'Roads and date are required'}), 400
+
+            # Convert YYYY-MM-DD to DD-MM-YYYY for database query
+            date_obj = datetime.strptime(input_date, '%Y-%m-%d')
+            formatted_date = date_obj.strftime('%d-%m-%Y')
+
+            query = {
+                'streetName': {'$in': roads},
+                'date': formatted_date
+            }
+
+            if start_time and end_time:
+                query['time'] = {
+                    '$gte': start_time,
+                    '$lte': end_time
+                }
+
+            # Get data sorted by time
+            data = list(historical_traffic_data.find(
+                query,
+                {'_id': 0, 'streetName': 1, 'time': 1, 'currentSpeed': 1, 'intensity': 1, 'road_id': 1}
+            ).sort([('time', 1)]))
+
+            # Get incidents if needed
+            if metric == 'incidents':
+                for record in data:
+                    record_time = datetime.strptime(f"{formatted_date} {record['time']}", '%d-%m-%Y %H:%M')
+                    incidents = traffic_incidents.count_documents({
+                        'road_id': record.get('road_id'),  # Use road_id for more accurate matching
+                        'start_time': {
+                            '$gte': record_time - timedelta(minutes=30),
+                            '$lt': record_time + timedelta(minutes=30)
+                        }
+                    })
+                    record['incidents'] = incidents
+
+            # Organize data by road
+            analysis_data = {}
+            for road in roads:
+                road_data = [d for d in data if d['streetName'] == road]
+                analysis_data[road] = {
+                    'times': [d['time'] for d in road_data],
+                    'values': [
+                        d['currentSpeed'] if metric == 'speed'
+                        else d.get('incidents', 0) if metric == 'incidents'
+                        else 1 if d['intensity'] == 'high' else 0.5 if d['intensity'] == 'medium' else 0
+                        for d in road_data
+                    ]
+                }
+
+            return jsonify({
+                'data': analysis_data,
+                'metric': metric,
+                'date': formatted_date,
+                'timeRange': {'start': start_time, 'end': end_time}
+            })
+
+        except Exception as e:
+            print(f"Error fetching traffic analysis: {str(e)}")
+            return jsonify({'message': f'Error fetching analysis: {str(e)}'}), 500
 
     MODEL_FOLDER = "./Models"
     UPLOAD_FOLDER = "./uploads"

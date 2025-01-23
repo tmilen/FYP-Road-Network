@@ -417,5 +417,78 @@ body {
     }
 }
 
+.mapControlButton.addRoad {
+    background-color: #3498db;
+    color: white;
+}
 
+.mapControlButton.addRoad:hover {
+    background-color: #2980b9;
+}
 
+.mapControlButton.addRoad:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+}
+
+.mapControlButton.addRoad.active {
+    background-color: #2ecc71;
+}
+
+.mapControlButton.removeRoad {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.mapControlButton.removeRoad:hover {
+    background-color: #c0392b;
+}
+
+.mapControlButton.removeRoad:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+}
+
+.mapControlButton.removeRoad.active {
+    background-color: #c0392b;
+}
+
+/* Add cursor styles for remove mode */
+.svgWrapper.removingMode {
+    cursor: no-drop;
+}
+
+.svgContainer {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.svgContainer > div {
+    width: 100%;
+    height: 100%;
+}
+
+.svgWrapper {
+    width: 100%;
+    height: 100%;
+}
+
+.svgContainer.drawingMode {
+    cursor: crosshair;
+}
+
+.svgWrapper svg {
+    width: 100%;
+    height: 100%;
+}
+
+.drawingMode {
+    cursor: crosshair;
+}
+
+.svgWrapper.removingMode path:hover {
+    stroke: #e74c3c !important;
+    stroke-opacity: 0.8;
+    cursor: no-drop;
+}

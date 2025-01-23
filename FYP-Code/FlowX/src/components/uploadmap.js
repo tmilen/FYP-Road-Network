@@ -12,6 +12,10 @@ const useUploadMap = () => {
     const [isTrafficVisible, setIsTrafficVisible] = useState(false);
     const API_URL = process.env.REACT_APP_API_URL;
     const MESSAGE_TIMEOUT = 5000; // 5 seconds
+    const [isDrawingMode, setIsDrawingMode] = useState(false);
+    const [isRemovingMode, setIsRemovingMode] = useState(false);
+    const [drawingStart, setDrawingStart] = useState(null);
+    const [tempRoad, setTempRoad] = useState(null);
 
     const showTimedMessage = (message, isError = false) => {
         setUploadMessage(message);
@@ -19,6 +23,8 @@ const useUploadMap = () => {
             setUploadMessage('');
         }, MESSAGE_TIMEOUT);
     };
+
+    
 
     const fetchMapsList = async () => {
         try {
@@ -299,6 +305,222 @@ const useUploadMap = () => {
         setUploadedData(null);
     };
 
+    const handleAddRoadClick = () => {
+        console.log('Current drawing mode:', isDrawingMode); // Debug log
+        setIsDrawingMode(prev => {
+            const newValue = !prev;
+            if (newValue) {
+                setIsRemovingMode(false); // Disable removing mode when drawing mode is enabled
+            }
+            console.log('Setting drawing mode to:', newValue); // Debug log
+            return newValue;
+        });
+        
+        if (isDrawingMode) {
+            setDrawingStart(null);
+            setTempRoad(null);
+        }
+    };
+
+    const handleRemoveRoadClick = () => {
+        console.log('Current removing mode:', isRemovingMode);
+        setIsRemovingMode(prev => {
+            const newValue = !prev;
+            if (newValue) {
+                setIsDrawingMode(false); // Disable drawing mode when removing mode is enabled
+            }
+            console.log('Setting removing mode to:', newValue);
+            return newValue;
+        });
+        
+        if (isRemovingMode) {
+            setDrawingStart(null);
+            setTempRoad(null);
+        }
+    };
+
+    const handleMapClick = (e) => {
+        if (!isDrawingMode && !isRemovingMode) return;
+        
+        const findSVGElement = (element) => {
+            while (element && element.tagName !== 'svg') {
+                element = element.parentElement;
+            }
+            return element;
+        };
+
+        const svg = findSVGElement(e.target);
+        if (!svg) return;
+
+        if (isRemovingMode) {
+            // Handle road removal with improved path finding
+            const clickedElement = e.target;
+            let roadToRemove = null;
+
+            // If clicked directly on a path
+            if (clickedElement.tagName === 'path' && clickedElement.parentElement.id === 'roads') {
+                roadToRemove = clickedElement;
+            } else {
+                // If clicked near a path, find the closest one
+                const roads = svg.querySelectorAll('#roads path');
+                const point = svg.createSVGPoint();
+                
+                // Get click coordinates relative to SVG
+                const svgRect = svg.getBoundingClientRect();
+                const x = e.clientX - svgRect.left;
+                const y = e.clientY - svgRect.top;
+                
+                // Convert to SVG coordinates
+                let viewBox = svg.getAttribute('viewBox');
+                let scaledX = x;
+                let scaledY = y;
+                
+                if (viewBox) {
+                    viewBox = viewBox.split(' ').map(Number);
+                    const scaleX = viewBox[2] / svgRect.width;
+                    const scaleY = viewBox[3] / svgRect.height;
+                    scaledX = x * scaleX;
+                    scaledY = y * scaleY;
+                }
+
+                point.x = scaledX;
+                point.y = scaledY;
+
+                // Find the closest road
+                let closestDistance = Infinity;
+                roads.forEach(road => {
+                    const bbox = road.getBBox();
+                    const centerX = bbox.x + bbox.width / 2;
+                    const centerY = bbox.y + bbox.height / 2;
+                    const distance = Math.sqrt(
+                        Math.pow(centerX - scaledX, 2) + 
+                        Math.pow(centerY - scaledY, 2)
+                    );
+
+                    if (distance < closestDistance && distance < 50) { // 50 is the click tolerance
+                        closestDistance = distance;
+                        roadToRemove = road;
+                    }
+                });
+            }
+
+            // Remove the road if found
+            if (roadToRemove) {
+                console.log('Removing road:', roadToRemove.id);
+                roadToRemove.remove();
+                
+                // Update road count
+                if (uploadedData) {
+                    setUploadedData(prev => ({
+                        ...prev,
+                        roadCount: Math.max((prev.roadCount || 0) - 1, 0)
+                    }));
+                }
+
+                // Show feedback message
+                showTimedMessage('Road removed successfully');
+            }
+            return;
+        }
+
+        console.log('Map clicked in drawing mode');
+    
+        // Get the SVG's bounding rectangle
+        const svgRect = svg.getBoundingClientRect();
+        
+        // Calculate relative coordinates
+        const x = e.clientX - svgRect.left;
+        const y = e.clientY - svgRect.top;
+        
+        // Scale coordinates based on viewBox if it exists
+        let viewBox = svg.getAttribute('viewBox');
+        let scaledX = x;
+        let scaledY = y;
+        
+        if (viewBox) {
+            viewBox = viewBox.split(' ').map(Number);
+            const scaleX = viewBox[2] / svgRect.width;
+            const scaleY = viewBox[3] / svgRect.height;
+            scaledX = x * scaleX;
+            scaledY = y * scaleY;
+        }
+    
+        console.log('Clicked coordinates:', { scaledX, scaledY });
+    
+        if (!drawingStart) {
+            // First click - set starting point
+            console.log('Setting start point');
+            setDrawingStart({ x: scaledX, y: scaledY });
+        } else {
+            // Second click - create road
+            console.log('Creating road');
+            const roadGroup = svg.querySelector('#roads');
+            if (roadGroup) {
+                const newRoad = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                newRoad.setAttribute("d", `M${drawingStart.x},${drawingStart.y} L${scaledX},${scaledY}`);
+                newRoad.setAttribute("stroke", "#2c3e50");
+                newRoad.setAttribute("stroke-width", "45");
+                newRoad.setAttribute("stroke-linecap", "round");
+                newRoad.setAttribute("fill", "none");
+                
+                const existingRoads = roadGroup.querySelectorAll('path');
+                const newId = `road_${existingRoads.length + 1}`;
+                newRoad.setAttribute("id", newId);
+                
+                roadGroup.appendChild(newRoad);
+    
+                // Update road count
+                if (uploadedData) {
+                    setUploadedData(prev => ({
+                        ...prev,
+                        roadCount: (prev.roadCount || 0) + 1
+                    }));
+                }
+            }
+    
+            // Reset drawing state
+            setDrawingStart(null);
+            setTempRoad(null);
+        }
+    };
+
+    const handleMapMouseMove = (e) => {
+        if (!isDrawingMode || !drawingStart) return;
+    
+        const findSVGElement = (element) => {
+            while (element && element.tagName !== 'svg') {
+                element = element.parentElement;
+            }
+            return element;
+        };
+    
+        const svg = findSVGElement(e.target);
+        if (!svg) return;
+    
+        const svgRect = svg.getBoundingClientRect();
+        const x = e.clientX - svgRect.left;
+        const y = e.clientY - svgRect.top;
+    
+        let scaledX = x;
+        let scaledY = y;
+        
+        let viewBox = svg.getAttribute('viewBox');
+        if (viewBox) {
+            viewBox = viewBox.split(' ').map(Number);
+            const scaleX = viewBox[2] / svgRect.width;
+            const scaleY = viewBox[3] / svgRect.height;
+            scaledX = x * scaleX;
+            scaledY = y * scaleY;
+        }
+    
+        setTempRoad({
+            start: drawingStart,
+            end: { x: scaledX, y: scaledY }
+        });
+    };
+
+    
+
     return {
         selectedFile,
         uploadMessage,
@@ -312,7 +534,14 @@ const useUploadMap = () => {
         handleDeleteMap,
         handleClearMap,
         isTrafficVisible,
-        handleToggleTraffic
+        handleToggleTraffic,
+        isDrawingMode,
+        handleAddRoadClick,
+        handleMapClick,
+        handleMapMouseMove,
+        tempRoad,
+        isRemovingMode,
+        handleRemoveRoadClick,
     };
 };
 

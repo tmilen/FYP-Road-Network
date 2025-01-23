@@ -99,9 +99,15 @@ def create_app(db_client=None):
                 return False
             
             bulk_updates = []
+            bulk_historical = []  # New list for historical data
             current_time = get_sgt_time()
             expected_road_count = len(SINGAPORE_ROADS)
             print(f"Updating traffic data. Expecting {expected_road_count} records")
+            
+            # Check if current time is at the hour (minutes = 00)
+            is_hourly = current_time.minute == 0
+            if is_hourly:
+                print(f"[DEBUG] Hourly checkpoint detected at {current_time}")
             
             api_success_count = 0
             api_failed_count = 0
@@ -153,6 +159,25 @@ def create_app(db_client=None):
                                 upsert=True
                             )
                         )
+
+                        # If it's hourly, add to historical data
+                        if is_hourly:
+                            historical_record = {
+                                'road_id': road_id,
+                                'streetName': road['name'],
+                                'coordinates': {
+                                    'lat': road['lat'],
+                                    'lng': road['lng']
+                                },
+                                'date': current_time.strftime('%d-%m-%Y'),
+                                'time': current_time.strftime('%H:%M'),
+                                'timestamp': current_time,
+                                'currentSpeed': current_speed,
+                                'freeFlowSpeed': free_flow_speed,
+                                'intensity': intensity
+                            }
+                            bulk_historical.append(historical_record)
+
                     else:
                         api_failed_count += 1
                         print(f"[API ERROR] {road['name']} - Response validation failed")
@@ -163,6 +188,7 @@ def create_app(db_client=None):
                     print(f"[API ERROR] {road['name']} - Exception: {str(e)}")
                     continue
 
+            # Update current traffic data
             if bulk_updates:
                 result = current_traffic_data.bulk_write(bulk_updates)
                 print(f"\n[API SUMMARY] Total Roads: {len(SINGAPORE_ROADS)}")
@@ -170,7 +196,16 @@ def create_app(db_client=None):
                 print(f"[API SUMMARY] Failed Updates: {api_failed_count}")
                 print(f"[API SUMMARY] Modified: {result.modified_count}")
                 print(f"[API SUMMARY] Upserted: {result.upserted_count}")
-                return True
+
+            # Insert historical data if it's hourly
+            if is_hourly and bulk_historical:
+                try:
+                    result = historical_traffic_data.insert_many(bulk_historical)
+                    print(f"[HISTORICAL] Inserted {len(result.inserted_ids)} records at hourly checkpoint")
+                except Exception as e:
+                    print(f"[HISTORICAL ERROR] Failed to insert historical data: {e}")
+                
+            return True
             
             print("[API WARNING] No traffic data was collected")
             return False
@@ -198,6 +233,19 @@ def create_app(db_client=None):
                 
                 for road in SINGAPORE_ROADS:
                     try:
+                        road_id = f"road_{SINGAPORE_ROADS.index(road) + 1}"  # Generate road_id
+                        
+                        # Check if the record already exists
+                        existing_record = historical_traffic_data.find_one({
+                            'road_id': road_id,  # Use road_id instead of road_name
+                            'timestamp': timestamp
+                        })
+                        
+                        if existing_record:
+                            duplicate_count += 1
+                            print(f"[HISTORICAL] Duplicate record found for {road['name']} at {timestamp}")
+                            continue
+                        
                         tomtom_url = f"https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json?point={road['lat']},{road['lng']}&key={tomtom_api_key}"
                         flow_response = requests.get(tomtom_url)
                         
@@ -205,8 +253,8 @@ def create_app(db_client=None):
                             api_success_count += 1
                             traffic_info = flow_response.json()
                             
-                            current_speed = traffic_info['flowSegmentData']['currentSpeed']
-                            free_flow_speed = traffic_info['flowSegmentData']['freeFlowSpeed']
+                            current_speed = traffic_info['flowSegmentData'].get('currentSpeed', 0)
+                            free_flow_speed = traffic_info['flowSegmentData'].get('freeFlowSpeed', 0)
                             
                             speed_ratio = current_speed / free_flow_speed if free_flow_speed > 0 else 0
                             if speed_ratio > 0.8:
@@ -216,68 +264,15 @@ def create_app(db_client=None):
                             else:
                                 intensity = 'high'
                             
-                            road_id = f"road_{SINGAPORE_ROADS.index(road) + 1}"
-                            formatted_date = timestamp.strftime('%d-%m-%Y')
-                            formatted_time = timestamp.strftime('%H:%M')
-
-                            # Check if record already exists
-                            existing_record = historical_traffic_data.find_one({
-                                'streetName': road['name'],
-                                'date': formatted_date,
-                                'time': formatted_time
-                            })
-
-                            if existing_record:
-                                duplicate_count += 1
-                                continue  # Skip this record as it already exists
-
-                            # Record incidents if conditions are met
-                            if intensity == 'high':
-                                incident_doc = {
-                                    'road_id': road_id,
-                                    'streetName': road['name'],
-                                    'coordinates': {
-                                        'lat': road['lat'],
-                                        'lng': road['lng']
-                                    },
-                                    'type': 'CONGESTION',
-                                    'severity': 3,
-                                    'description': f'Heavy traffic detected - Speed {current_speed}km/h',
-                                    'start_time': timestamp,
-                                    'recorded_at': timestamp,
-                                    'status': 'HISTORICAL',
-                                    'speed_ratio': speed_ratio
-                                }
-                                bulk_incidents.append(incident_doc)
-
-                            # Record potential accidents
-                            if speed_ratio < 0.3:
-                                incident_doc = {
-                                    'road_id': road_id,
-                                    'streetName': road['name'],
-                                    'coordinates': {
-                                        'lat': road['lat'],
-                                        'lng': road['lng']
-                                    },
-                                    'type': 'ACCIDENT',
-                                    'severity': 4,
-                                    'description': f'Possible accident detected - Severe slowdown to {current_speed}km/h',
-                                    'start_time': timestamp,
-                                    'recorded_at': timestamp,
-                                    'status': 'HISTORICAL',
-                                    'speed_ratio': speed_ratio
-                                }
-                                bulk_incidents.append(incident_doc)
-                            
                             historical_record = {
-                                'road_id': road_id,
+                                'road_id': road_id,  # Add road_id
                                 'streetName': road['name'],
                                 'coordinates': {
                                     'lat': road['lat'],
                                     'lng': road['lng']
                                 },
-                                'date': formatted_date,
-                                'time': formatted_time,
+                                'date': timestamp.strftime('%d-%m-%Y'),
+                                'time': timestamp.strftime('%H:%M'),
                                 'timestamp': timestamp,
                                 'currentSpeed': current_speed,
                                 'freeFlowSpeed': free_flow_speed,
@@ -309,14 +304,14 @@ def create_app(db_client=None):
                 print(f"[HISTORICAL SUMMARY] Incidents Recorded: {len(bulk_incidents)}")
                 print(f"[HISTORICAL SUMMARY] API Successes: {api_success_count}")
                 print(f"[HISTORICAL SUMMARY] API Failures: {api_failed_count}\n")
-                
+
                 return True
-            
+                
             print("[HISTORICAL] No historical data was collected")
             return False
 
         except Exception as e:
-            print(f"[HISTORICAL CRITICAL ERROR] Error in fetch_historical_traffic: {e}")
+            print(f"[CRITICAL ERROR] Error in fetch_historical_traffic: {e}")
             return False
 
     def check_api_quota():
@@ -352,23 +347,42 @@ def create_app(db_client=None):
         except Exception as e:
             print(f"[SCHEDULER ERROR] Error in traffic fetch: {e}")
 
-    # Modify scheduler task to run every hour at minute 0 (e.g., 00:00, 01:00, 02:00)
-    @scheduler.scheduled_job('cron', id='fetch_historical_traffic', hour='*', minute='0', misfire_grace_time=300)
+    # Remove the old historical scheduler and replace with this:
+    def schedule_one_time_historical_fetch():
+        current_time = get_sgt_time()
+        run_time = current_time + timedelta(minutes=1)
+        
+        scheduler.add_job(
+            func=scheduled_historical_traffic_fetch,
+            trigger='date',
+            run_date=run_time,
+            id='one_time_historical_fetch',
+            name='One-time Historical Data Fetch',
+            misfire_grace_time=300
+        )
+        print(f"[SCHEDULER] Scheduled one-time historical data fetch for: {run_time}")
+
     def scheduled_historical_traffic_fetch():
-       try:
+        try:
             if check_api_quota():
                 print("[SCHEDULER] Skipping historical fetch due to API quota limits")
                 return
                 
             current_time = get_sgt_time()
-            print(f"[SCHEDULER DEBUG] Starting hourly historical data fetch at {current_time}")
-            fetch_historical_traffic()
+            print(f"[SCHEDULER DEBUG] Starting one-time historical data fetch at {current_time}")
+            
+            # Only fetch historical data if collection is empty
+            if historical_traffic_data.count_documents({}) == 0:
+                fetch_historical_traffic()
+            else:
+                print("[HISTORICAL] Historical data already exists, skipping initialization")
+                
             print(f"[SCHEDULER DEBUG] Completed historical fetch at {get_sgt_time()}")
-       except Exception as e:
-          print(f"[SCHEDULER ERROR] Error in historical fetch: {e}")
+        except Exception as e:
+            print(f"[SCHEDULER ERROR] Error in historical fetch: {e}")
 
-    # Add these lines to ensure scheduler is running with job count debug
-    print("[SCHEDULER] Starting scheduler...")
+    # Schedule jobs
+    schedule_one_time_historical_fetch()
     scheduler.print_jobs()
     pending_jobs = len(scheduler.get_jobs())
     print(f"[SCHEDULER] Total pending jobs: {pending_jobs}")
@@ -379,10 +393,23 @@ def create_app(db_client=None):
         except AttributeError:
             next_run = 'Not scheduled'
         print(f"- {job.id}: Next run at {next_run}")
+    
+    # Start the scheduler
     scheduler.start()
     print("[SCHEDULER] Scheduler started successfully")
 
-    # Initialize current traffic data if collection is empty
+    # Remove the immediate initialization check
+    # if historical_traffic_data.count_documents({}) == 0:
+    #     print("[INIT] No historical traffic data found. Checking API quota before fetching...")
+    #     if not check_api_quota():
+    #         if fetch_historical_traffic():
+    #             print("[INIT] Successfully initialized historical traffic data")
+    #         else:
+    #             print("[INIT ERROR] Failed to initialize historical traffic data")
+    #     else:
+    #         print("[INIT ERROR] Cannot initialize data - API quota exceeded")
+
+    # Keep only the current traffic data initialization check if needed
     if current_traffic_data.count_documents({}) == 0:
         print("[INIT] No current traffic data found. Checking API quota before fetching...")
         if not check_api_quota():
@@ -390,17 +417,6 @@ def create_app(db_client=None):
                 print("[INIT] Successfully initialized current traffic data")
             else:
                 print("[INIT ERROR] Failed to initialize current traffic data")
-        else:
-            print("[INIT ERROR] Cannot initialize data - API quota exceeded")
-
-    # Initialize historical traffic data if collection is empty
-    if historical_traffic_data.count_documents({}) == 0:
-        print("[INIT] No historical traffic data found. Checking API quota before fetching...")
-        if not check_api_quota():
-            if fetch_historical_traffic():
-                print("[INIT] Successfully initialized historical traffic data")
-            else:
-                print("[INIT ERROR] Failed to initialize historical traffic data")
         else:
             print("[INIT ERROR] Cannot initialize data - API quota exceeded")
 

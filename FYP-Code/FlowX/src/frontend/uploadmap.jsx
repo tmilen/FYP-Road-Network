@@ -8,6 +8,8 @@ import { FaPlaystation, FaCog } from "react-icons/fa";
 import { GiAk47 } from "react-icons/gi";
 import { IoIosAirplane, IoIosBusiness } from "react-icons/io";
 import { FaCarSide } from 'react-icons/fa';
+import { FaRoad, FaTrash } from 'react-icons/fa';  // Add this import
+
 
 function UploadMap() {
     const {
@@ -23,7 +25,15 @@ function UploadMap() {
         handleDeleteMap,
         handleClearMap,
         isTrafficVisible,
-        handleToggleTraffic
+        handleToggleTraffic,
+        isDrawingMode,
+        handleAddRoadClick,
+        handleMapClick,
+        handleMapMouseMove,
+        tempRoad,
+        // Add these two lines
+        isRemovingMode,
+        handleRemoveRoadClick,
     } = useUploadMap();
 
     return (
@@ -123,6 +133,20 @@ function UploadMap() {
                                 >
                                     <IoIosAirplane />
                                 </button>
+                                <button 
+                                    className={`${styles.mapControlButton} ${styles.addRoad} ${isDrawingMode ? styles.active : ''}`}
+                                    onClick={handleAddRoadClick}
+                                    disabled={!uploadedData}
+                                >
+                                    <FaRoad />
+                                </button>
+                                <button 
+                                    className={`${styles.mapControlButton} ${styles.removeRoad} ${isRemovingMode ? styles.active : ''}`}
+                                    onClick={handleRemoveRoadClick}
+                                    disabled={!uploadedData}
+                                >
+                                    <FaTrash />
+                                </button>
                                 <button className={styles.mapControlButton}>
                                     <IoIosBusiness />
                                 </button>
@@ -142,14 +166,45 @@ function UploadMap() {
                             </div>
                         </div>
                         <div className={styles.mapContainer}>
-                            {uploadedData ? (
-                                <div className={styles.svgContainer} dangerouslySetInnerHTML={{ __html: uploadedData.svgContent }} />
-                            ) : (
-                                <div className={styles.placeholderMessage}>
-                                    <p>Select a map to display</p>
-                                </div>
-                            )}
-                        </div>
+                        {uploadedData ? (
+                            <div className={styles.svgContainer}>
+                                <div 
+                                    className={`${styles.svgWrapper} 
+                                        ${isDrawingMode ? styles.drawingMode : ''} 
+                                        ${isRemovingMode ? styles.removingMode : ''}`}
+                                    onClick={handleMapClick}
+                                    onMouseMove={handleMapMouseMove}
+                                    dangerouslySetInnerHTML={{ __html: uploadedData.svgContent }} 
+                                />
+                                {tempRoad && (
+                                    <svg 
+                                        style={{ 
+                                            position: 'absolute', 
+                                            top: 0, 
+                                            left: 0, 
+                                            width: '100%', 
+                                            height: '100%', 
+                                            pointerEvents: 'none' 
+                                        }}
+                                        viewBox="0 0 1600 1200"
+                                    >
+                                        <path
+                                            d={`M${tempRoad.start.x},${tempRoad.start.y} L${tempRoad.end.x},${tempRoad.end.y}`}
+                                            stroke="#2c3e50"
+                                            strokeWidth="45"
+                                            strokeLinecap="round"
+                                            fill="none"
+                                            opacity="0.5"
+                                        />
+                                    </svg>
+                                )}
+                            </div>
+                        ) : (
+                            <div className={styles.placeholderMessage}>
+                                <p>Select a map to display</p>
+                            </div>
+                        )}
+                    </div>
                     </div>
                 </div>
             </div>

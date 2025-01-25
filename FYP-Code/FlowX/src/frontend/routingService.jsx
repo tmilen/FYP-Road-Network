@@ -1,91 +1,138 @@
 import L from 'leaflet';
-import 'leaflet-routing-machine';
 
 class RoutingService {
     constructor() {
-        this.routingControls = new Map(); // Store multiple routing controls
         this.routes = new Map();
+        this.routePolylines = new Map();
     }
 
     initRouting(map) {
-        this.map = map; // Store map reference
+        this.map = map;
         return this;
     }
 
-    createRoutingControl() {
-        return L.Routing.control({
-            waypoints: [],
-            lineOptions: {
-                styles: [
-                    { color: '#3388ff', opacity: 0.8, weight: 4 }
-                ],
-                addWaypoints: false
-            },
-            showAlternatives: false,
-            fitSelectedRoutes: false,
-            show: false,
-            routeWhileDragging: false
-        }).addTo(this.map);
+    async calculateRoute(startLatLng, endLatLng) {
+        try {
+            // Convert LatLng objects to arrays
+            const startCoords = [startLatLng.lat, startLatLng.lng];
+            const endCoords = [endLatLng.lat, endLatLng.lng];
+
+            // Debug coordinate values
+            console.log('Input coordinates:', { 
+                start: startCoords, 
+                end: endCoords 
+            });
+
+            // Validate coordinates are numbers
+            const isValidCoord = coord => 
+                Array.isArray(coord) && 
+                coord.length === 2 && 
+                !isNaN(coord[0]) && 
+                !isNaN(coord[1]);
+
+            if (!isValidCoord(startCoords) || !isValidCoord(endCoords)) {
+                console.error('Invalid coordinates format:', { startCoords, endCoords });
+                throw new Error('Invalid coordinates');
+            }
+
+            // Validate coordinate ranges for Singapore
+            if (!this.isInSingaporeBounds(startCoords) || !this.isInSingaporeBounds(endCoords)) {
+                console.error('Coordinates outside Singapore bounds');
+                throw new Error('Coordinates outside Singapore bounds');
+            }
+
+            const response = await fetch('http://127.0.0.1:5000/api/route', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    origin: startCoords,
+                    destination: endCoords
+                }),
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                throw new Error('Route calculation failed');
+            }
+
+            const routeData = await response.json();
+            const routeId = `${Date.now()}-${Math.random()}`;
+
+            // Create polyline from route coordinates
+            const polyline = L.polyline(routeData.coordinates, {
+                color: '#3388ff',
+                weight: routeData.warning ? 6 : 4,  // Make short routes more visible
+                opacity: 0.8
+            }).addTo(this.map);
+
+            // If it's a very short route, add a marker at the midpoint
+            if (routeData.warning) {
+                const coords = routeData.coordinates;
+                const midpoint = [
+                    (coords[0][0] + coords[1][0]) / 2,
+                    (coords[0][1] + coords[1][1]) / 2
+                ];
+                
+                L.circleMarker(midpoint, {
+                    radius: 5,
+                    color: '#3388ff',
+                    fillColor: '#3388ff',
+                    fillOpacity: 1
+                }).addTo(this.map);
+
+                // Zoom in closer for short routes
+                this.map.setView(midpoint, 19);
+            }
+
+            // Store route information
+            this.routes.set(routeId, {
+                coordinates: routeData.coordinates,
+                distance: routeData.distance,
+                time: routeData.time,
+                polyline: polyline,
+                warning: routeData.warning
+            });
+
+            this.routePolylines.set(routeId, polyline);
+
+            return {
+                routeId,
+                route: {
+                    coordinates: routeData.coordinates,
+                    summary: {
+                        totalDistance: routeData.distance,
+                        totalTime: routeData.time
+                    }
+                }
+            };
+        } catch (error) {
+            console.error('Error calculating route:', error);
+            throw error;
+        }
     }
 
-    async calculateRoute(startLatLng, endLatLng) {
-        return new Promise((resolve, reject) => {
-            const routeId = `${Date.now()}-${Math.random()}`;
-            const routingControl = this.createRoutingControl();
-            
-            this.routingControls.set(routeId, routingControl);
-            
-            routingControl.setWaypoints([
-                L.latLng(startLatLng),
-                L.latLng(endLatLng)
-            ]);
-
-            const routeFoundHandler = (e) => {
-                const routes = e.routes;
-                const route = routes[0];
-                
-                this.routes.set(routeId, {
-                    coordinates: route.coordinates,
-                    distance: route.summary.totalDistance,
-                    time: route.summary.totalTime,
-                    control: routingControl
-                });
-
-                routingControl.off('routesfound', routeFoundHandler);
-
-                resolve({
-                    routeId,
-                    route: route
-                });
-            };
-
-            const errorHandler = (e) => {
-                routingControl.off('routingerror', errorHandler);
-                reject(e.error);
-            };
-
-            routingControl.on('routesfound', routeFoundHandler);
-            routingControl.on('routingerror', errorHandler);
-        });
+    isInSingaporeBounds(coord) {
+        const [lat, lng] = coord;
+        return lat >= 1.1 && lat <= 1.5 && lng >= 103.6 && lng <= 104.1;
     }
 
     updateRouteStyle(routeId, style) {
-        const route = this.routes.get(routeId);
-        if (route && route.control) {
-            route.control.setStyle({
-                styles: [style]
-            });
+        const polyline = this.routePolylines.get(routeId);
+        if (polyline) {
+            polyline.setStyle(style);
         }
     }
 
     removeRoute(routeId) {
-        if (this.routes.has(routeId)) {
-            const route = this.routes.get(routeId);
-            if (route.control) {
-                this.map.removeControl(route.control);
+        const route = this.routes.get(routeId);
+        if (route) {
+            if (route.polyline) {
+                this.map.removeLayer(route.polyline);
             }
             this.routes.delete(routeId);
-            this.routingControls.delete(routeId);
+            this.routePolylines.delete(routeId);
         }
     }
 
@@ -94,18 +141,11 @@ class RoutingService {
             this.removeRoute(routeId);
         });
         this.routes.clear();
-        this.routingControls.clear();
+        this.routePolylines.clear();
     }
 
     getRouteDetails(routeId) {
-        const route = this.routes.get(routeId);
-        if (!route) return null;
-        
-        return {
-            distance: route.distance || 0,
-            time: route.time || 0,
-            coordinates: route.coordinates || []
-        };
+        return this.routes.get(routeId);
     }
 }
 

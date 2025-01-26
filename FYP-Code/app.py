@@ -34,12 +34,22 @@ import shutil
 from tensorflow.keras.models import load_model
 from tensorflow.keras.callbacks import LambdaCallback
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
+import osmnx as ox
+import networkx as nx
 
 load_dotenv()
 def create_app(db_client=None):
     app = Flask(__name__)
     
-    CORS(app, supports_credentials=True, resources={r"/*": {"origins": "http://127.0.0.1:3000"}})
+    # Update CORS configuration to allow credentials
+    CORS(app, 
+         supports_credentials=True, 
+         resources={r"/*": {
+             "origins": ["http://127.0.0.1:3000", "http://localhost:3000"],
+             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+             "allow_headers": ["Content-Type", "Authorization"]
+         }})
+
     client = db_client or MongoClient(os.getenv("MONGODB_URI"))
     app.secret_key = os.getenv('SECRET_KEY', 'fyp_key')
     tomtom_api_key = os.getenv('TOMTOM_API_KEY')
@@ -2360,5 +2370,188 @@ def create_app(db_client=None):
             traffic_logs.insert_one(log_entry)
         except Exception as e:
             print(f"[LOGGING ERROR] Failed to log activity for {road_name}: {str(e)}")
+
+    @app.route('/api/route', methods=['POST'])
+    def calculate_route():
+        try:
+            data = request.json
+            origin = data.get('origin')
+            destination = data.get('destination')
+
+            # Debug coordinate values
+            print("Received coordinates:", {
+                "origin": origin,
+                "destination": destination
+            })
+
+            # Validate input data
+            if not origin or not destination:
+                return jsonify({'error': 'Origin and destination are required'}), 400
+
+            try:
+                # Convert coordinates to float
+                origin = [float(x) for x in origin]
+                destination = [float(x) for x in destination]
+            except (ValueError, TypeError):
+                return jsonify({'error': 'Invalid coordinate values'}), 400
+
+            # Validate coordinate ranges for Singapore
+            if not (1.1 <= origin[0] <= 1.5 and 103.6 <= origin[1] <= 104.1 and
+                    1.1 <= destination[0] <= 1.5 and 103.6 <= destination[1] <= 104.1):
+                return jsonify({'error': 'Coordinates outside Singapore bounds'}), 400
+
+            # Initialize routing if not already done
+            if not hasattr(app, 'routing_graph'):
+                print("Initializing routing graph...")
+                app.routing_graph = initialize_routing_graph()
+
+            # Calculate route
+            route_result = calculate_route_with_alternatives(
+                app.routing_graph,
+                origin,
+                destination,
+                k=3
+            )
+
+            if not route_result:
+                return jsonify({'error': 'No route found'}), 404
+
+            print("Route calculated successfully")
+            return jsonify(route_result)
+
+        except Exception as e:
+            print(f"Error calculating route: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+
+    def initialize_routing_graph():
+        """Initialize the routing graph using OSMnx"""
+        import pickle
+        import os
+        import networkx as nx
+
+        cache_file = 'singapore_graph.pkl'
+        
+        if os.path.exists(cache_file):
+            with open(cache_file, 'rb') as f:
+                G_multi = pickle.load(f)
+        else:
+            city = "Singapore"
+            G_multi = ox.graph_from_place(city, network_type="drive")
+            with open(cache_file, 'wb') as f:
+                pickle.dump(G_multi, f)
+        
+        # Convert MultiDiGraph to DiGraph
+        G = nx.DiGraph(G_multi)
+        
+        # Combine parallel edges by taking the minimum weight
+        for u, v, data in G.edges(data=True):
+            if 'length' not in data:
+                data['length'] = 1000  # Default length if missing
+        
+        return G
+
+    def calculate_route_with_alternatives(G, origin, destination, k=3):
+        """Calculate route with alternatives using networkx"""
+        try:
+            # Validate input coordinates
+            if not all(isinstance(x, (int, float)) for x in origin + destination):
+                print("Invalid coordinates:", origin, destination)
+                return None
+
+            # Convert coordinates to float explicitly
+            try:
+                origin_lat, origin_lng = float(origin[0]), float(origin[1])
+                dest_lat, dest_lng = float(destination[0]), float(destination[1])
+            except (ValueError, TypeError) as e:
+                print(f"Error converting coordinates: {e}")
+                return None
+
+            # Validate coordinate ranges for Singapore
+            if not (1.1 <= origin_lat <= 1.5 and 103.6 <= origin_lng <= 104.1 and
+                    1.1 <= dest_lat <= 1.5 and 103.6 <= dest_lng <= 104.1):
+                print("Coordinates outside Singapore bounds")
+                return None
+
+            print(f"Finding route from ({origin_lat}, {origin_lng}) to ({dest_lat}, {dest_lng})")
+
+            # Get nearest nodes
+            origin_node = ox.nearest_nodes(G, origin_lng, origin_lat)
+            dest_node = ox.nearest_nodes(G, dest_lng, dest_lat)
+
+            # Calculate straight-line distance between points
+            from math import sqrt
+            distance = sqrt((origin_lat - dest_lat)**2 + (origin_lng - dest_lng)**2)
+            
+            # If points are too close (less than ~50 meters)
+            if distance < 0.0005:
+                return {
+                    'coordinates': [[origin_lat, origin_lng], [dest_lat, dest_lng]],
+                    'distance': distance * 111000,  # Convert to meters (rough approximation)
+                    'time': (distance * 111000) / 35,  # Using 35 km/h average speed
+                    'alternatives': [],
+                    'warning': 'Points are very close together'
+                }
+
+            if origin_node == dest_node:
+                print("Origin and destination nodes are the same")
+                return {
+                    'coordinates': [[origin_lat, origin_lng], [dest_lat, dest_lng]],
+                    'distance': distance * 111000,
+                    'time': (distance * 111000) / 35,
+                    'alternatives': [],
+                    'warning': 'Origin and destination are at the same location'
+                }
+
+            print(f"Found nodes: origin={origin_node}, destination={dest_node}")
+
+            # Find k shortest paths
+            routes = []
+            try:
+                for path in nx.shortest_simple_paths(G, origin_node, dest_node, weight='length'):
+                    if len(routes) >= k:
+                        break
+
+                    coordinates = []
+                    path_length = 0
+                    
+                    for u, v in zip(path[:-1], path[1:]):
+                        lat = float(G.nodes[u]['y'])
+                        lng = float(G.nodes[u]['x'])
+                        coordinates.append([lat, lng])
+                        
+                        # Calculate edge length
+                        edge_data = G.get_edge_data(u, v)
+                        path_length += float(edge_data.get('length', 1000))
+                    
+                    # Add final node
+                    final_lat = float(G.nodes[path[-1]]['y'])
+                    final_lng = float(G.nodes[path[-1]]['x'])
+                    coordinates.append([final_lat, final_lng])
+                    
+                    routes.append({
+                        'coordinates': coordinates,
+                        'distance': path_length,
+                        'time': path_length / 35  # Estimate time based on 35 km/h average speed
+                    })
+
+                if not routes:
+                    print("No routes found")
+                    return None
+
+                print(f"Found {len(routes)} routes")
+                return {
+                    'coordinates': routes[0]['coordinates'],
+                    'distance': routes[0]['distance'],
+                    'time': routes[0]['time'],
+                    'alternatives': routes[1:]
+                }
+
+            except nx.NetworkXNoPath:
+                print("No path exists between the given points")
+                return None
+
+        except Exception as e:
+            print(f"Error in route calculation: {str(e)}")
+            return None
 
     return app

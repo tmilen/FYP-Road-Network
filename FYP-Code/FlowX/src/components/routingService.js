@@ -1,10 +1,9 @@
 import L from 'leaflet';
-import 'leaflet-routing-machine';
 
 class RoutingService {
     constructor() {
-        this.routingControls = new Map();
         this.routes = new Map();
+        this.routePolylines = new Map();
     }
 
     initRouting(map) {
@@ -12,79 +11,74 @@ class RoutingService {
         return this;
     }
 
-    createRoutingControl() {
-        return L.Routing.control({
-            waypoints: [],
-            lineOptions: {
-                styles: [
-                    { color: '#3388ff', opacity: 0.8, weight: 4 }
-                ],
-                addWaypoints: false
-            },
-            showAlternatives: false,
-            fitSelectedRoutes: false,
-            show: false,
-            routeWhileDragging: false
-        }).addTo(this.map);
-    }
-
     async calculateRoute(startLatLng, endLatLng) {
-        return new Promise((resolve, reject) => {
+        try {
+            const response = await fetch('/api/route', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    origin: [startLatLng[0], startLatLng[1]],
+                    destination: [endLatLng[0], endLatLng[1]]
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Route calculation failed');
+            }
+
+            const routeData = await response.json();
             const routeId = `${Date.now()}-${Math.random()}`;
-            const routingControl = this.createRoutingControl();
-            
-            this.routingControls.set(routeId, routingControl);
-            
-            routingControl.setWaypoints([
-                L.latLng(startLatLng),
-                L.latLng(endLatLng)
-            ]);
 
-            const routeFoundHandler = (e) => {
-                const routes = e.routes;
-                const route = routes[0];
-                
-                this.routes.set(routeId, {
-                    coordinates: route.coordinates,
-                    distance: route.summary.totalDistance,
-                    time: route.summary.totalTime,
-                    control: routingControl
-                });
+            // Create polyline from route coordinates
+            const polyline = L.polyline(routeData.coordinates, {
+                color: '#3388ff',
+                weight: 4,
+                opacity: 0.8
+            }).addTo(this.map);
 
-                routingControl.off('routesfound', routeFoundHandler);
-                resolve({
-                    routeId,
-                    route: route
-                });
+            // Store route information
+            this.routes.set(routeId, {
+                coordinates: routeData.coordinates,
+                distance: routeData.distance,
+                time: routeData.time,
+                polyline: polyline
+            });
+
+            this.routePolylines.set(routeId, polyline);
+
+            return {
+                routeId,
+                route: {
+                    coordinates: routeData.coordinates,
+                    summary: {
+                        totalDistance: routeData.distance,
+                        totalTime: routeData.time
+                    }
+                }
             };
-
-            const errorHandler = (e) => {
-                routingControl.off('routingerror', errorHandler);
-                reject(e.error);
-            };
-
-            routingControl.on('routesfound', routeFoundHandler);
-            routingControl.on('routingerror', errorHandler);
-        });
+        } catch (error) {
+            console.error('Error calculating route:', error);
+            throw error;
+        }
     }
 
     updateRouteStyle(routeId, style) {
-        const route = this.routes.get(routeId);
-        if (route && route.control) {
-            route.control.setStyle({
-                styles: [style]
-            });
+        const polyline = this.routePolylines.get(routeId);
+        if (polyline) {
+            polyline.setStyle(style);
         }
     }
 
     removeRoute(routeId) {
-        if (this.routes.has(routeId)) {
-            const route = this.routes.get(routeId);
-            if (route.control) {
-                this.map.removeControl(route.control);
+        const route = this.routes.get(routeId);
+        if (route) {
+            if (route.polyline) {
+                this.map.removeLayer(route.polyline);
             }
             this.routes.delete(routeId);
-            this.routingControls.delete(routeId);
+            this.routePolylines.delete(routeId);
         }
     }
 
@@ -93,7 +87,7 @@ class RoutingService {
             this.removeRoute(routeId);
         });
         this.routes.clear();
-        this.routingControls.clear();
+        this.routePolylines.clear();
     }
 
     getRouteDetails(routeId) {

@@ -65,6 +65,8 @@ def create_app(db_client=None):
     # Add collection for historical traffic data
     historical_traffic_data = client['TSUN-TESTING']['historical_traffic_data']
 
+    traffic_logs = client['TSUN-TESTING']['traffic_logs']
+
         # Add timezone configuration
     SGT = pytz.timezone('Asia/Singapore')
 
@@ -169,6 +171,9 @@ def create_app(db_client=None):
                                 upsert=True
                             )
                         )
+                        
+                        # Log success
+                        log_traffic_activity("success", road["name"], current_time, update_data)
 
                         # If it's hourly, add to historical data
                         if is_hourly:
@@ -192,10 +197,12 @@ def create_app(db_client=None):
                         api_failed_count += 1
                         print(f"[API ERROR] {road['name']} - Response validation failed")
                         print(f"Flow Response: {flow_response.text}")
+                        log_traffic_activity("failure", road["name"], current_time)     
 
                 except Exception as e:
                     api_failed_count += 1
                     print(f"[API ERROR] {road['name']} - Exception: {str(e)}")
+                    log_traffic_activity("failure", road["name"], current_time, {"error": str(e)})
                     continue
 
             # Update current traffic data
@@ -2099,11 +2106,10 @@ def create_app(db_client=None):
     training_logs = {"trainingComplete": False, "logs": []}
     
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
+    
+    #Extracts a zip file to a given directory and ensures no nested directories.
     def extract_zip(zip_file_path, extract_to):
-        """
-        Extracts a zip file to a given directory and ensures no nested directories.
-        """
+       
         with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
             zip_ref.extractall(extract_to)
 
@@ -2118,12 +2124,10 @@ def create_app(db_client=None):
                 shutil.move(item_path, extract_to)
             shutil.rmtree(nested_folder)  # Remove the empty nested folder
 
-
+    #Handle ZIP file upload and extraction, ensuring proper directory structure.
     @app.route("/api/upload-zip", methods=["POST"])
     def upload_zip_file():
-        """
-        Handle ZIP file upload and extraction, ensuring proper directory structure.
-        """
+       
         if "file" not in request.files:
             return jsonify({"error": "No file part in the request"}), 400
 
@@ -2177,11 +2181,9 @@ def create_app(db_client=None):
         training_logs["logs"].append(message)
         print(message)  # For backend debugging
 
-        
+    #Handles the retraining of the model with the uploaded dataset 
     def run_retraining(model_path):
-        """
-        Handles the retraining of the model with the uploaded dataset.
-        """
+       
         try:
             log_message("Loading the model...")
             model = load_model(model_path)
@@ -2249,9 +2251,7 @@ def create_app(db_client=None):
     #Endpoint to retrain the model.
     @app.route("/api/retrain", methods=["POST"])
     def retrain_model():
-        """
-        API endpoint to start the retraining process.
-        """
+        
         try:
             model_name = request.json.get("model")
             if not model_name:
@@ -2274,12 +2274,102 @@ def create_app(db_client=None):
     # Flask endpoint to fetch live training logs
     @app.route("/api/logs", methods=["GET"])
     def get_training_logs():
-        """
-        API endpoint to fetch live training logs.
-        """
+
         print('Logs requested')
         print(training_logs)
         return jsonify(training_logs), 200
+    
+    
+    @app.route('/api/metrics', methods=['GET'])
+    def get_metrics():
+        try:
+            # Log the start of the function
+            print("Fetching metrics...")
+
+            # Total roads processed from the main traffic collection
+            total_roads = current_traffic_data.count_documents({})
+            print(f"Total Roads: {total_roads}")
+
+            # Count of successful API calls (from traffic_logs)
+            successful_calls = traffic_logs.count_documents({"status": "success"})
+            print(f"Successful Calls: {successful_calls}")
+
+            # Count of failed API calls
+            failed_calls = traffic_logs.count_documents({"status": "failure"})
+            print(f"Failed Calls: {failed_calls}")
+
+            # Count of duplicate records
+            duplicates = traffic_logs.count_documents({"status": "duplicate"})
+            print(f"Duplicate Entries: {duplicates}")
+
+            # Calculate ingestion latency
+            recent_log = traffic_logs.find_one(sort=[("timestamp", -1)])
+            print(f"Recent Log: {recent_log}")
+            if recent_log and "timestamp" in recent_log:
+                # Make both datetimes offset-aware
+                naive_timestamp = recent_log["timestamp"]
+                aware_timestamp = naive_timestamp.replace(tzinfo=None).astimezone(SGT)
+                latency = (datetime.now(SGT) - aware_timestamp).total_seconds()
+                print(f"Latency: {latency}")
+            else:
+                latency = None
+                print("Latency: None (no recent log)")
+
+            # Prepare metrics
+            metrics = {
+                "totalRoads": total_roads,
+                "successfulCalls": successful_calls,
+                "failedCalls": failed_calls,
+                "duplicates": duplicates,
+                "ingestionLatency": latency,
+            }
+
+            print("Metrics successfully fetched:", metrics)
+            return jsonify(metrics), 200
+
+        except Exception as e:
+            # Log the error for debugging
+            print(f"Error fetching metrics: {str(e)}")
+            return jsonify({"error": f"Failed to fetch metrics: {str(e)}"}), 500
+
+
+
+    @app.route('/api/live-traffic-logs', methods=['GET'])
+    def get_traffic_logs():
+        try:
+            # Fetch the last 50 logs, sorted by timestamp
+            logs_cursor = traffic_logs.find().sort("timestamp", -1).limit(50)
+            logs = []
+
+            for log in logs_cursor:
+                logs.append({
+                    "timestamp": log["timestamp"].strftime('%Y-%m-%d %H:%M:%S'),
+                    "roadName": log.get("roadName", "Unknown"),
+                    "status": log["status"],
+                    "message": log["message"]
+                })
+
+            return jsonify({"logs": logs}), 200
+
+        except Exception as e:
+            return jsonify({"error": f"Failed to fetch logs: {str(e)}"}), 500
+
+     
+    #Log traffic activity to the traffic_logs collection.
+    def log_traffic_activity(status, road_name, current_time, additional_info=None):
+        
+        log_entry = {
+            "timestamp": current_time,
+            "roadName": road_name,
+            "status": status,  # success, failure, duplicate
+            "message": f"{status.upper()} for {road_name}",
+        }
+        if additional_info:
+            log_entry.update(additional_info)
+        try:
+            traffic_logs.insert_one(log_entry)
+        except Exception as e:
+            print(f"[LOGGING ERROR] Failed to log activity for {road_name}: {str(e)}")
 
     @app.route('/api/route', methods=['POST'])
     def calculate_route():

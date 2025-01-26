@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 
 const useDataHealthController = () => {
@@ -7,6 +7,8 @@ const useDataHealthController = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [logs, setLogs] = useState([]);
   const [retrainStatus, setRetrainStatus] = useState("");
+  const [metrics, setMetrics] = useState(null); // Metrics for monitoring
+  const [trafficLogs, setTrafficLogs] = useState([]); // Logs specific to live traffic monitoring
 
   const API_URL = process.env.REACT_APP_API_URL;
 
@@ -73,6 +75,35 @@ const useDataHealthController = () => {
     }
   };
 
+   // Fetch metrics from the backend
+  const fetchMetrics = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/metrics`);
+      setMetrics(response.data);
+    } catch (error) {
+      console.error("Error fetching metrics:", error);
+    }
+  };
+
+  // Fetch pipeline logs
+  const fetchTrafficLogs = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/live-traffic-logs`);
+      setTrafficLogs(response.data.logs);
+      
+    } catch (error) {
+      console.error("Error fetching traffic logs:", error);
+    }
+  };
+
+  // Poll for logs periodically
+  useEffect(() => {
+    fetchTrafficLogs();
+
+    const interval = setInterval(fetchTrafficLogs, 300000); 
+    return () => clearInterval(interval);
+  }, []);
+
   return {
     file,
     uploadStatus,
@@ -83,6 +114,10 @@ const useDataHealthController = () => {
     uploadZip,
     fetchLogs,
     retrainModel,
+    metrics,
+    trafficLogs,
+    fetchMetrics,
+    fetchTrafficLogs,
   };
 };
 

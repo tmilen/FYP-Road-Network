@@ -15,7 +15,6 @@
   z-index: 1;
   color: #2c3e50;
   margin-bottom: 0.5rem;
-  background: white;
 }
 
 .mainContainer {
@@ -29,7 +28,7 @@
   background: white;
   border-radius: 12px;
   padding: 1.8rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   margin-bottom: 2rem;
   max-width: 1000px;  /* Increased from 800px */
   margin-left: auto;  /* Center the section */
@@ -85,13 +84,13 @@
   padding: 0.75rem;
   background-color: #f8f9fa;
   border-radius: 8px;
-  border-left: 4px solid #3498db;
+  /*border-left: 4px solid #3498db;*/
 }
 
 /* Button Styling */
 .button {
   padding: 0.75rem 1.5rem;
-  background: #3498db;
+  background: #c2c1c1;
   color: white;
   border: none;
   border-radius: 8px;
@@ -126,7 +125,7 @@
   background: white;
   border-radius: 12px;
   padding: 1.8rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .card h2 {
@@ -139,7 +138,7 @@
 }
 
 /* Logs Box Styling */
-.logsBox {
+.logsBox{
   height: 300px;
   overflow-y: auto;
   border: 2px solid #e2e8f0;
@@ -149,7 +148,7 @@
   background: #f8fafc;
 }
 
-.logsBox p {
+.logsBox p, .pipelineLogsBox p {
   margin: 0.5rem 0;
   color: #4a5568;
   font-family: monospace;
@@ -259,4 +258,154 @@
   .page {
     padding: 1rem;
   }
+
+  .chartContainer {
+    padding: 12px; /* Reduce padding on smaller screens */
+    max-width: 100%; /* Allow the chart to take full width */
+  }
+}
+
+.sidebar {
+  position: fixed;
+  top: 200px; /* Aligns below the navigation bar */
+  left: 0;
+  height: 60%; /* Set a middle-range height */
+  width: 80px; /* Adjust for a compact sidebar */
+  background-color: #f4f4f4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-evenly; /* Space items evenly */
+  padding: 1rem 0;
+  border-radius: 12px; /* Add rounded corners for a modern look */
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.sidebarItem {
+  color: #bdc3c7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  gap: 0.5rem; /* Add gap between icon and text */
+}
+
+.sidebarItem:hover,
+.sidebarItem.active {
+  color: #5b5b5b;
+}
+
+.sidebarItem span {
+  font-size: 0.9rem;
+  margin-top: 0.3rem;
+  text-align: center;
+  color: inherit;
+}
+
+.sidebarItem span {
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  text-align: center;
+  color: inherit;
+}
+
+.content {
+  margin-left: 70px; /* Aligns content with the sidebar */
+  padding: 2rem;
+}
+
+/* Main container for the entire layout */
+.dashboardContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 20px; /* Spacing between rows */
+  padding: 20px;
+  background-color: #f7f7f7; /* Light background for dashboard */
+}
+
+/* First row for metrics */
+.metricsRow {
+  display: flex;
+  justify-content: space-between; /* Evenly space metrics */
+  gap: 10px; /* Space between metrics */
+}
+
+/* Metric card styling */
+.metricCard {
+  flex: 1; /* Make all metric cards equal width */
+  padding: 16px;
+  background-color: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.metricCard h3 {
+  font-size: 16px;
+  margin-bottom: 8px;
+  color: #555;
+}
+
+.metricCard p {
+  font-size: 20px;
+  font-weight: bold;
+  color: #333;
+}
+
+/* Second row for chart and logs */
+.secondRow {
+  display: flex;
+  gap: 20px; /* Add space between chart and logs */
+  margin-top: 20px; /* Add some spacing above */
+}
+
+/* Chart container */
+
+.chartContainer {
+  flex: 2; /* Take more space for the chart */
+  padding: 16px;
+  background-color: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Logs container */
+.logsContainer {
+  flex: 1; /* Take less space for logs */
+  padding: 16px;
+  background-color: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  overflow-y: auto; /* Enable scrolling for overflow */
+  max-height: 600px; /* Optional: Limit the height of the logs container */
+}
+
+.pipelineLogsBox{
+  display: flex;
+  flex-direction: column; /* Arrange logs vertically */
+  gap: 10px; /* Add space between individual logs */
+  overflow-y: auto;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background: #f8fafc;
+}
+
+/* Button styling */
+.pLbutton {
+  margin-top: 10px;
+  padding: 10px 20px;
+  background-color: #007bff; /* Blue color for button */
+  color: #ffffff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.pLbutton:hover {
+  background-color: #0056b3; /* Darker blue on hover */
 }

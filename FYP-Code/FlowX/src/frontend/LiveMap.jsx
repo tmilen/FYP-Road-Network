@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from '../css/livemap.module.css';
 import 'leaflet/dist/leaflet.css';
@@ -22,8 +22,14 @@ const LiveMap = () => {
         isNodePlacementEnabled,
         setIsNodePlacementEnabled,
         selectedNodes,
+        nodes,
+        setNodes,
         nodeRoadNames,
+        setNodeRoadNames,
         routeConnections,
+        setRouteConnections,
+        nodeCounter,
+        setNodeCounter,
         showTrafficFlow,
         setShowTrafficFlow,
         trafficData,
@@ -34,9 +40,53 @@ const LiveMap = () => {
         routingServiceRef,
         trafficServiceRef,
         updateTrafficFlow,
+        createRoute,
         handleMapClick,
         clearAllSelections,
     } = useLiveMapLogic();
+
+    const createTestRoute = useCallback(async () => {
+        try {
+            // Marina Bay Sands to Changi Airport coordinates
+            const node1 = { lat: 1.2834, lng: 103.8607 };
+            const node2 = { lat: 1.3644, lng: 103.9915 };
+
+            // Create markers for both locations
+            const marker1 = L.marker([node1.lat, node1.lng]).addTo(mapInstanceRef.current);
+            const marker2 = L.marker([node2.lat, node2.lng]).addTo(mapInstanceRef.current);
+
+            // Store markers
+            const nodeId1 = `node_${nodeCounter}`;
+            const nodeId2 = `node_${nodeCounter + 1}`;
+            markersRef.current[nodeId1] = marker1;
+            markersRef.current[nodeId2] = marker2;
+
+            // Create route
+            const routeId = await createRoute(nodeId1, nodeId2);
+            if (routeId) {
+                setRouteConnections(prev => [...prev, { node1: nodeId1, node2: nodeId2, routeId }]);
+            }
+
+            // Update states
+            setNodes(prev => [...prev, 
+                { id: nodeId1, lat: node1.lat, lng: node1.lng },
+                { id: nodeId2, lat: node2.lat, lng: node2.lng }
+            ]);
+            setNodeRoadNames(prev => ({
+                ...prev,
+                [nodeId1]: 'Marina Bay Sands',
+                [nodeId2]: 'Changi Airport'
+            }));
+            setNodeCounter(prev => prev + 2);
+
+            // Center map to show both points
+            const bounds = L.latLngBounds([node1.lat, node1.lng], [node2.lat, node2.lng]);
+            mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50] });
+
+        } catch (error) {
+            console.error('Error creating test route:', error);
+        }
+    }, [nodeCounter, setNodeCounter, createRoute, setRouteConnections, setNodes, setNodeRoadNames, mapInstanceRef, markersRef]);
 
     useEffect(() => {
         if (!mapInstanceRef.current && mapRef.current) {
@@ -136,6 +186,14 @@ const LiveMap = () => {
                             >
                                 <FaChartLine />
                                 <span>Traffic Hotspots</span>
+                            </button>
+
+                            <button
+                                className={styles.controlButton}
+                                onClick={createTestRoute}
+                            >
+                                <FaRoute />
+                                <span>Test Route</span>
                             </button>
 
                             {selectedNodes.length > 0 && (

@@ -10,6 +10,27 @@ INSTALL REACT
    - cd flowx
    - npm install react react-dom
 
+CREATING ENVIRONMENT FILES
+
+This project requires two `.env` files: one for the frontend and another for the backend. Follow the steps below to create these files:
+
+#### 1. Frontend Environment File
+
+1. Navigate to the `FlowX` directory in your project.
+2. Create a file named `.env` in the `FlowX` directory (if it does not already exist).
+3. Add the following content to the file:
+   - REACT_APP_API_URL=http://127.0.0.1:5000/api
+   -create MONGODB_URI variable and set its value to the connection string.
+   -create TOMTOM_API_KEY variable and set its value to the connection string.
+
+#### 2. Backend Environment File
+
+1. Navigate to the backend directory of your project.
+2. Create a file named `.env` (if it does not already exist).
+3. Add the following content to the file:
+   -create MONGODB_URI variable and set its value to the connection string.
+   -create TOMTOM_API_KEY variable and set its value to the connection string.
+
 RUNNING THE APPLICATION
 
 1. open command prompt in vscode, change directory to fypvenv/scripts, run activate

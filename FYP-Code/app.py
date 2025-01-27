@@ -2429,7 +2429,7 @@ def create_app(db_client=None):
         import os
         import networkx as nx
 
-        cache_file = 'singapore_graph.pkl'
+        cache_file = './singapore_graph.pkl'
         
         if os.path.exists(cache_file):
             with open(cache_file, 'rb') as f:

@@ -36,6 +36,8 @@ from tensorflow.keras.callbacks import LambdaCallback
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import osmnx as ox
 import networkx as nx
+import pickle
+import os
 
 load_dotenv()
 def create_app(db_client=None):
@@ -2425,10 +2427,6 @@ def create_app(db_client=None):
 
     def initialize_routing_graph():
         """Initialize the routing graph using OSMnx"""
-        import pickle
-        import os
-        import networkx as nx
-
         cache_file = './singapore_graph.pkl'
         
         if os.path.exists(cache_file):

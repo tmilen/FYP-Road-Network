@@ -269,7 +269,10 @@ const DataHealth = () => {
           onClick={() => setActiveTab("monitoring")}
         >
           <FaTachometerAlt />
-          <span>Monitoring</span>
+          <div className={styles.menuContent}>
+            <span className={styles.menuTitle}>Monitoring</span>
+            <p className={styles.menuDescription}>Track real-time metrics and system performance</p>
+          </div>
         </div>
         <div
           className={`${styles.sidebarItem} ${
@@ -278,7 +281,10 @@ const DataHealth = () => {
           onClick={() => setActiveTab("operations")}
         >
           <FaCog />
-          <span>Operations</span>
+          <div className={styles.menuContent}>
+            <span className={styles.menuTitle}>Operations</span>
+            <p className={styles.menuDescription}>Manage data uploads and model retraining</p>
+          </div>
         </div>
       </div>
       <div className={styles.content}>{renderContent()}</div>

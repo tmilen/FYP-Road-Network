@@ -265,55 +265,117 @@
   }
 }
 
+/* Updated sidebar styles to match reports page */
 .sidebar {
-  position: fixed;
-  top: 200px; /* Aligns below the navigation bar */
-  left: 0;
-  height: 60%; /* Set a middle-range height */
-  width: 80px; /* Adjust for a compact sidebar */
-  background-color: #f4f4f4;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-evenly; /* Space items evenly */
-  padding: 1rem 0;
-  border-radius: 12px; /* Add rounded corners for a modern look */
-  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+    position: fixed;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: white;
+    padding: 1rem 0.5rem;
+    border-radius: 0 12px 12px 0;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 60px;
+    overflow: hidden;
+    height: auto; /* Remove fixed height */
+}
+
+.sidebar:hover {
+    width: 280px;
+    padding: 1rem;
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.15);
 }
 
 .sidebarItem {
-  color: #bdc3c7;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  font-size: 1.5rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  gap: 0.5rem; /* Add gap between icon and text */
+    display: flex;
+    align-items: flex-start;
+    padding: 1rem;
+    margin: 0.5rem 0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+    gap: 1rem;
+    color: #7f8c8d;
+    min-height: 64px;
+}
+
+.sidebarItem svg {
+    min-width: 20px;
+    font-size: 1.2rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebarItem span {
+    font-size: 0.95rem;
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar:hover .sidebarItem span {
+    opacity: 1;
+    transform: translateX(0);
 }
 
 .sidebarItem:hover,
 .sidebarItem.active {
-  color: #5b5b5b;
+    background-color: #f8f9fa;
+    color: #3498db;
+    transform: translateX(4px);
 }
 
-.sidebarItem span {
-  font-size: 0.9rem;
-  margin-top: 0.3rem;
-  text-align: center;
-  color: inherit;
+.sidebarItem:hover svg,
+.sidebarItem.active svg {
+    transform: scale(1.1);
 }
 
-.sidebarItem span {
-  font-size: 0.8rem;
-  margin-top: 0.5rem;
-  text-align: center;
-  color: inherit;
-}
-
+/* Update content margin to match new sidebar */
 .content {
-  margin-left: 70px; /* Aligns content with the sidebar */
-  padding: 2rem;
+    margin-left: 80px;
+    padding: 2rem;
+    transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Add responsive adjustments */
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        top: auto;
+        transform: none;
+        width: 100%;
+        height: 60px;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-around;
+        border-radius: 12px 12px 0 0;
+    }
+
+    .sidebar:hover {
+        width: 100%;
+    }
+
+    .sidebarItem {
+        flex-direction: column;
+        padding: 0.5rem;
+        margin: 0;
+        gap: 0.3rem;
+    }
+
+    .sidebarItem span {
+        font-size: 0.75rem;
+        opacity: 1;
+        transform: none;
+    }
+
+    .content {
+        margin-left: 0;
+        margin-bottom: 70px;
+    }
 }
 
 /* Main container for the entire layout */
@@ -408,4 +470,47 @@
 
 .pLbutton:hover {
   background-color: #0056b3; /* Darker blue on hover */
+}
+
+/* New menu content styles */
+.menuContent {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.menuTitle {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: inherit;
+}
+
+.menuDescription {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.sidebar:hover .menuContent {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* Adjust mobile view */
+@media (max-width: 768px) {
+    .menuDescription {
+        display: none;
+    }
+    
+    .menuTitle {
+        font-size: 0.75rem;
+    }
+    
+    .sidebarItem {
+        min-height: auto;
+    }
 }

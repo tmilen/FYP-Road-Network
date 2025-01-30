@@ -11,10 +11,13 @@ import {
   Title,
   Tooltip,
   Legend,
+  ArcElement,
+  PointElement,
+  LineElement,
 } from "chart.js";
-import { Bar } from "react-chartjs-2";
+import { Bar, Pie, Line } from "react-chartjs-2";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement);
 
 const DataHealth = () => {
   const {
@@ -25,17 +28,23 @@ const DataHealth = () => {
     setFile,
     logs,
     uploadStatus,
+    setUploadStatus,
     retrainStatus,
     uploadProgress,
+    setUploadProgress,
     metrics,
     trafficLogs,
     fetchMetrics,
     fetchTrafficLogs,
+    fetchPieChartData,
+    fetchLineChartData,
   } = useDataHealthController();
 
   const [models, setModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
   const [activeTab, setActiveTab] = useState("monitoring");
+  const [pieChartData, setPieChartData] = useState(null);
+  const [lineChartData, setLineChartData] = useState(null);
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -60,14 +69,13 @@ const DataHealth = () => {
       alert("Please select a model to retrain.");
     }
   };
+
   const chartData = {
     labels: ["Success", "Failures"],
     datasets: [
       {
         label: "API Calls",
-        data: metrics
-          ? [metrics.successfulCalls, metrics.failedCalls]
-          : [0, 0],
+        data: metrics ? [metrics.successfulCalls, metrics.failedCalls] : [0, 0],
         backgroundColor: ["#4caf50", "#f44336"],
       },
     ],
@@ -86,24 +94,81 @@ const DataHealth = () => {
     },
   };
 
+  const pieOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: "top",
+      },
+      title: {
+        display: true,
+        text: "Unique vs Duplicate Entries",
+      },
+      tooltip: {
+        callbacks: {
+          label: function (context) {
+            const label = context.label || "";
+            const value = context.raw;
+            const total = context.chart._metasets[0].total;
+            const percentage = ((value / total) * 100).toFixed(2);
+            return `${label}: ${value} (${percentage}%)`;
+          },
+        },
+      },
+    },
+  };
+
+  const lineChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: "top",
+      },
+      title: {
+        display: true,
+        text: "Records Processed Over Time",
+      },
+    },
+  };
+
   // Fetch metrics when the component mounts
   useEffect(() => {
     fetchMetrics(); // Fetch once on mount
+    fetchPieChartData().then((data) => setPieChartData(data)); // Fetch pie chart data
+    fetchLineChartData().then((data) => setLineChartData(data)); // Fetch line chart data
 
-    // Optional: Poll for updates every 5000 seconds
     const interval = setInterval(() => {
       fetchMetrics();
-    },300000 );
+      fetchPieChartData().then((data) => setPieChartData(data));
+      fetchLineChartData().then((data) => setLineChartData(data));
+    }, 300000);
 
     return () => clearInterval(interval); // Cleanup on unmount
   }, []);
 
+  useEffect(() => {
+    if (uploadStatus) {
+      const timer = setTimeout(() => {
+        setUploadStatus("");
+        setUploadProgress(0);
+        setFile(null); // Clear the file after 8 seconds
+      }, 8000); // Hide after 8 seconds
 
+      return () => clearTimeout(timer); // Cleanup timer on unmount
+    }
+  }, [uploadStatus]);
+
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0]);
+    setUploadStatus(""); 
+    setUploadProgress(0); 
+  };
 
   const renderContent = () => {
     if (activeTab === "monitoring") {
       return (
         <div className={styles.dashboardContainer}>
+          <h2 className={styles.dashboardTitle}>Data Health Dashboard</h2>
           {/* Metrics Section */}
           <div className={styles.metricsRow}>
             {metrics ? (
@@ -124,7 +189,7 @@ const DataHealth = () => {
                   <h3>Duplicate Entries</h3>
                   <p>{metrics.duplicates}</p>
                 </div>
-                <div className={styles.metricCard}> 
+                <div className={styles.metricCard}>
                   <h3>Ingestion Latency</h3>
                   <p>{metrics.ingestionLatency ? `${metrics.ingestionLatency}s` : "N/A"}</p>
                 </div>
@@ -134,8 +199,7 @@ const DataHealth = () => {
             )}
           </div>
 
-          <div class={styles.secondRow}>
-
+          <div className={styles.secondRow}>
             {/* Chart Section */}
             <div className={styles.chartContainer}>
               <h2>API Success vs Failure</h2>
@@ -147,14 +211,15 @@ const DataHealth = () => {
               <div className={styles.logsSection}>
                 <h2>Pipeline Logs</h2>
                 <div className={styles.pipelineLogsBox}>
-                  {trafficLogs.length > 0 ? (
+                  {trafficLogs && trafficLogs.length > 0 ? (
                     trafficLogs.map((log, index) => (
                       <div key={index}>
-                      <p>Message: {log.message}</p>
-                      <p>Road Name: {log.roadName}</p>
-                      <p>Status: {log.status}</p>
-                      <p>Timestamp: {log.timestamp}</p>
-                      </div>))
+                        <p>Message: {log.message}</p>
+                        <p>Road Name: {log.roadName}</p>
+                        <p>Status: {log.status}</p>
+                        <p>Timestamp: {log.timestamp}</p>
+                      </div>
+                    ))
                   ) : (
                     <p>No traffic logs available.</p>
                   )}
@@ -162,10 +227,31 @@ const DataHealth = () => {
                 <button className={styles.pLbutton} onClick={fetchTrafficLogs}>
                   Refresh
                 </button>
-               
               </div>
+            </div>
           </div>
-        </div>
+
+          <div className={styles.thirdRow}>
+            {/* Pie Chart Section */}
+            <div className={styles.piechartContainer}>
+              <h2>Data Distribution</h2>
+              {pieChartData ? (
+                <Pie data={pieChartData} options={pieOptions} />
+              ) : (
+                <p>Loading pie chart data...</p>
+              )}
+            </div>
+
+            {/* Line Chart Section */}
+            <div className={styles.linechartContainer}>
+              <h2>API Calls Over Time</h2>
+              {lineChartData ? (
+                <Line data={lineChartData} options={lineChartOptions} />
+              ) : (
+                <p>Loading line chart data...</p>
+              )}
+            </div>
+          </div>
         </div>
       );
     } else if (activeTab === "operations") {
@@ -178,7 +264,7 @@ const DataHealth = () => {
                 type="file"
                 id="file-upload"
                 accept=".zip"
-                onChange={(e) => setFile(e.target.files[0])}
+                onChange={handleFileChange}
                 className={styles.fileInput}
               />
               <label htmlFor="file-upload" className={styles.uploadLabel}>
@@ -215,7 +301,7 @@ const DataHealth = () => {
             <div className={styles.card}>
               <h2>Logs</h2>
               <div className={styles.logsBox}>
-                {logs.length > 0 ? (
+                {logs && logs.length > 0 ? (
                   logs.map((log, index) => <p key={index}>{log}</p>)
                 ) : (
                   <p>No logs available.</p>
@@ -254,8 +340,6 @@ const DataHealth = () => {
       );
     }
   };
-
-
 
   return (
     <div className={styles.page}>

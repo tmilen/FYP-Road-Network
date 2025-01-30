@@ -7,21 +7,18 @@ const useDataHealthController = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [logs, setLogs] = useState([]);
   const [retrainStatus, setRetrainStatus] = useState("");
-  const [metrics, setMetrics] = useState(null); // Metrics for monitoring
-  const [trafficLogs, setTrafficLogs] = useState([]); // Logs specific to live traffic monitoring
+  const [metrics, setMetrics] = useState(null); 
+  const [trafficLogs, setTrafficLogs] = useState([]); 
 
   const API_URL = process.env.REACT_APP_API_URL;
 
   const uploadZip = async () => {
-    if (!file) {
-      setUploadStatus("Please select a .zip file to upload.");
-      return;
-    }
 
     const formData = new FormData();
     formData.append("file", file);
 
     try {
+      setUploadStatus("Uploading..."); // Show status when upload starts
       const response = await axios.post(`${API_URL}/upload-zip`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: (progressEvent) => {
@@ -34,7 +31,7 @@ const useDataHealthController = () => {
       setUploadStatus(response.data.message);
       setUploadProgress(0);
     } catch (error) {
-      setUploadStatus("Failed to upload zip file. Please try again.");
+      setUploadStatus(error.response?.data?.error || "Failed to upload zip file. Please try again.");
       setUploadProgress(0);
     }
   };
@@ -75,7 +72,7 @@ const useDataHealthController = () => {
     }
   };
 
-   // Fetch metrics from the backend
+  
   const fetchMetrics = async () => {
     try {
       const response = await axios.get(`${API_URL}/metrics`);
@@ -96,7 +93,44 @@ const useDataHealthController = () => {
     }
   };
 
-  // Poll for logs periodically
+  const fetchPieChartData = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/pie-chart-data`);
+      const data = response.data;
+      return {
+        labels: data.labels,
+        datasets: [
+          {
+            data: data.values,
+            backgroundColor: ["#006400", "#e74c3c"], 
+          },
+        ],
+      };
+    } catch (error) {
+      console.error("Error fetching pie chart data:", error);
+      return null;
+    }
+  };
+
+  const fetchLineChartData = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/line-chart-data`);
+      const data = response.data;
+      return {
+        labels: data.labels,
+        datasets: data.datasets.map((dataset) => ({
+          ...dataset,
+          borderColor: dataset.label === "Successful Calls" ? "#4caf50" : dataset.label === "Failed Calls" ? "#f44336" : "#ff9800",
+          backgroundColor: dataset.label === "Successful Calls" ? "rgba(76, 175, 80, 0.2)" : dataset.label === "Failed Calls" ? "rgba(244, 67, 54, 0.2)" : "rgba(255, 152, 0, 0.2)",
+          fill: true,
+        })),
+      };
+    } catch (error) {
+      console.error("Error fetching line chart data:", error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     fetchTrafficLogs();
 
@@ -107,8 +141,9 @@ const useDataHealthController = () => {
   return {
     file,
     uploadStatus,
+    setUploadStatus, 
     uploadProgress,
-    logs,
+    setUploadProgress, 
     retrainStatus,
     setFile,
     uploadZip,
@@ -118,6 +153,8 @@ const useDataHealthController = () => {
     trafficLogs,
     fetchMetrics,
     fetchTrafficLogs,
+    fetchPieChartData,
+    fetchLineChartData,
   };
 };
 

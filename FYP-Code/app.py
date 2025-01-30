@@ -2117,7 +2117,7 @@ def create_app(db_client=None):
 
         # Get the root folder of the extracted content
         root_folders = [os.path.join(extract_to, folder) for folder in os.listdir(extract_to)]
-        train_dir_folders = [folder for folder in root_folders if os.path.isdir(folder) and 'train_dir' in folder]
+        train_dir_folders = [folder for folder in root_folders if os.path.isdir(folder)]
 
         if len(train_dir_folders) == 1:
             nested_folder = train_dir_folders[0]
@@ -2129,14 +2129,8 @@ def create_app(db_client=None):
     #Handle ZIP file upload and extraction, ensuring proper directory structure.
     @app.route("/api/upload-zip", methods=["POST"])
     def upload_zip_file():
-       
-        if "file" not in request.files:
-            return jsonify({"error": "No file part in the request"}), 400
 
         file = request.files["file"]
-
-        if file.filename == "":
-            return jsonify({"error": "No file selected"}), 400
 
         # Validate file type
         if not file.filename.lower().endswith(".zip"):
@@ -2148,7 +2142,7 @@ def create_app(db_client=None):
 
         try:
             # Extract the ZIP file
-            extract_to = os.path.join(UPLOAD_FOLDER, "train_dir")
+            extract_to = os.path.join(UPLOAD_FOLDER)
             os.makedirs(extract_to, exist_ok=True)
 
             extract_zip(save_path, extract_to)
@@ -2190,8 +2184,7 @@ def create_app(db_client=None):
             log_message("Loading the model...")
             model = load_model(model_path)
 
-            # Assuming new data is uploaded to UPLOAD_FOLDER
-            dataset_path = os.path.join(UPLOAD_FOLDER, "train_dir")
+            dataset_path = os.path.join(UPLOAD_FOLDER)
             if not os.path.exists(dataset_path):
                 log_message("Error: No dataset found in the uploads folder.")
                 training_logs["trainingComplete"] = True
@@ -2223,7 +2216,6 @@ def create_app(db_client=None):
             # Calculate the starting epoch for retraining
             initial_epoch = model.optimizer.iterations.numpy() // len(train_generator)
 
-            # Retrain the model with live logging
             history = model.fit(
                 train_generator,
                 epochs=initial_epoch + 1,  
@@ -2250,19 +2242,14 @@ def create_app(db_client=None):
         finally:
             training_logs["trainingComplete"] = True
 
-    #Endpoint to retrain the model.
+
     @app.route("/api/retrain", methods=["POST"])
     def retrain_model():
         
         try:
             model_name = request.json.get("model")
-            if not model_name:
-                return jsonify({"error": "Model name not provided"}), 400
-
             model_path = os.path.join("./Models", model_name)
-            if not os.path.exists(model_path):
-                return jsonify({"error": f"Model '{model_name}' not found"}), 404
-
+            
             # Reset the training logs
             training_logs['logs']=[]
 
@@ -2276,46 +2263,41 @@ def create_app(db_client=None):
     # Flask endpoint to fetch live training logs
     @app.route("/api/logs", methods=["GET"])
     def get_training_logs():
-
-        print('Logs requested')
-        print(training_logs)
         return jsonify(training_logs), 200
     
     
     @app.route('/api/metrics', methods=['GET'])
     def get_metrics():
         try:
-            # Log the start of the function
-            print("Fetching metrics...")
-
+            
             # Total roads processed from the main traffic collection
             total_roads = current_traffic_data.count_documents({})
-            print(f"Total Roads: {total_roads}")
 
-            # Count of successful API calls (from traffic_logs)
+            # Count of successful API calls 
             successful_calls = traffic_logs.count_documents({"status": "success"})
-            print(f"Successful Calls: {successful_calls}")
 
             # Count of failed API calls
             failed_calls = traffic_logs.count_documents({"status": "failure"})
-            print(f"Failed Calls: {failed_calls}")
 
             # Count of duplicate records
             duplicates = traffic_logs.count_documents({"status": "duplicate"})
-            print(f"Duplicate Entries: {duplicates}")
-
+            
             # Calculate ingestion latency
-            recent_log = traffic_logs.find_one(sort=[("timestamp", -1)])
-            print(f"Recent Log: {recent_log}")
-            if recent_log and "timestamp" in recent_log:
-                # Make both datetimes offset-aware
-                naive_timestamp = recent_log["timestamp"]
-                aware_timestamp = naive_timestamp.replace(tzinfo=None).astimezone(SGT)
-                latency = (datetime.now(SGT) - aware_timestamp).total_seconds()
-                print(f"Latency: {latency}")
+            recent_log = traffic_logs.find_one(sort=[("date", -1), ("time", -1)])
+
+            if recent_log and "date" in recent_log and "time" in recent_log:
+                # Combine `date` and `time` fields into a single datetime object
+                log_date = datetime.strptime(recent_log["date"], "%d-%m-%Y")
+                log_time = datetime.strptime(recent_log["time"], "%H:%M").time()
+                log_datetime = datetime.combine(log_date, log_time).astimezone(SGT)
+
+                # Get current time in the same timezone
+                current_datetime = datetime.now(SGT)
+
+                # Calculate latency in seconds
+                latency = (current_datetime - log_datetime).total_seconds()
             else:
                 latency = None
-                print("Latency: None (no recent log)")
 
             # Prepare metrics
             metrics = {
@@ -2326,20 +2308,16 @@ def create_app(db_client=None):
                 "ingestionLatency": latency,
             }
 
-            print("Metrics successfully fetched:", metrics)
             return jsonify(metrics), 200
 
         except Exception as e:
-            # Log the error for debugging
-            print(f"Error fetching metrics: {str(e)}")
             return jsonify({"error": f"Failed to fetch metrics: {str(e)}"}), 500
-
 
 
     @app.route('/api/live-traffic-logs', methods=['GET'])
     def get_traffic_logs():
         try:
-            # Fetch the last 50 logs, sorted by timestamp
+
             logs_cursor = traffic_logs.find().sort("timestamp", -1).limit(50)
             logs = []
 
@@ -2357,7 +2335,7 @@ def create_app(db_client=None):
             return jsonify({"error": f"Failed to fetch logs: {str(e)}"}), 500
 
      
-    #Log traffic activity to the traffic_logs collection.
+    #Log traffic activity to the traffic_logs collection
     def log_traffic_activity(status, road_name, current_time, additional_info=None):
         
         log_entry = {
@@ -2372,6 +2350,61 @@ def create_app(db_client=None):
             traffic_logs.insert_one(log_entry)
         except Exception as e:
             print(f"[LOGGING ERROR] Failed to log activity for {road_name}: {str(e)}")
+            
+            
+    @app.route('/api/pie-chart-data', methods=['GET'])
+    def get_pie_chart_data():
+        try:
+            # Count the number of unique vs duplicate records
+            total_logs = traffic_logs.count_documents({})
+            duplicate_count = traffic_logs.count_documents({"status": "duplicate"})
+            unique_count = total_logs - duplicate_count
+
+            return jsonify({
+                "labels": ["Unique Entries", "Duplicate Entries"],
+                "values": [unique_count, duplicate_count],
+            }), 200
+        except Exception as e:
+            return jsonify({"error": f"Error fetching pie chart data: {str(e)}"}), 500
+
+    @app.route('/api/line-chart-data', methods=['GET'])
+    def get_line_chart_data():
+        try:
+            # Define time range (last 7 days)
+            end_date = datetime.now(SGT).date()
+            start_date = end_date - timedelta(days=7)
+
+            # Aggregate API calls by day using 'date' field
+            pipeline = [
+                {"$match": {"date": {"$gte": start_date.strftime("%d-%m-%Y"), "$lte": end_date.strftime("%d-%m-%Y")}}},
+                {"$group": {
+                    "_id": "$date",
+                    "successful": {"$sum": {"$cond": [{"$eq": ["$status", "success"]}, 1, 0]}},
+                    "failed": {"$sum": {"$cond": [{"$eq": ["$status", "failure"]}, 1, 0]}},
+                    "duplicates": {"$sum": {"$cond": [{"$eq": ["$status", "duplicate"]}, 1, 0]}}
+                }},
+                {"$sort": {"_id": 1}}  # Sort by date in ascending order
+            ]
+
+            results = list(traffic_logs.aggregate(pipeline))
+
+            labels = [entry["_id"] for entry in results]
+            successful = [entry["successful"] for entry in results]
+            failed = [entry["failed"] for entry in results]
+            duplicates = [entry["duplicates"] for entry in results]
+
+            return jsonify({
+                "labels": labels,
+                "datasets": [
+                    {"label": "Successful Calls", "data": successful},
+                    {"label": "Failed Calls", "data": failed},
+                    {"label": "Duplicate Calls", "data": duplicates},
+                ]
+            }), 200
+
+        except Exception as e:
+            return jsonify({"error": f"Error fetching line chart data: {str(e)}"}), 500
+
 
     @app.route('/api/route', methods=['POST'])
     def calculate_route():

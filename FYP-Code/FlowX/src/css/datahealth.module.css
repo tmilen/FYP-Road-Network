@@ -18,7 +18,7 @@
 }
 
 .mainContainer {
-  max-width: 1400px;  /* Increased from 1200px */
+  max-width: 1400px;  
   margin: 0 auto;
   position: relative;
   background-color: white;
@@ -30,8 +30,8 @@
   padding: 1.8rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   margin-bottom: 2rem;
-  max-width: 1000px;  /* Increased from 800px */
-  margin-left: auto;  /* Center the section */
+  max-width: 1000px; 
+  margin-left: auto;  
   margin-right: auto;
 }
 
@@ -60,7 +60,6 @@
   cursor: pointer;
 }
 
-/* File Input */
 .fileInput {
   display: none;
 }
@@ -84,10 +83,8 @@
   padding: 0.75rem;
   background-color: #f8f9fa;
   border-radius: 8px;
-  /*border-left: 4px solid #3498db;*/
 }
 
-/* Button Styling */
 .button {
   padding: 0.75rem 1.5rem;
   background: #c2c1c1;
@@ -116,8 +113,8 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 2rem;
   margin-top: 2rem;
-  max-width: 1200px;  /* Increased from 1000px */
-  margin-left: auto;  /* Center the grid */
+  max-width: 1200px;  
+  margin-left: auto;  
   margin-right: auto;
 }
 
@@ -248,11 +245,11 @@
 @media (max-width: 1024px) {
   .gridContainer {
     grid-template-columns: 1fr;
-    max-width: 800px;  /* Increased from 600px */
+    max-width: 800px;  
   }
   
   .section {
-    max-width: 800px;  /* Increased from 600px */
+    max-width: 800px;  
   }
   
   .page {
@@ -265,7 +262,7 @@
   }
 }
 
-/* Updated sidebar styles to match reports page */
+
 .sidebar {
     position: fixed;
     left: 0;
@@ -277,13 +274,13 @@
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
     z-index: 100;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    width: 60px;
+    width: 80px; 
     overflow: hidden;
-    height: auto; /* Remove fixed height */
+    height: auto; 
 }
 
 .sidebar:hover {
-    width: 280px;
+    width: 400px; 
     padding: 1rem;
     box-shadow: 4px 0 16px rgba(0, 0, 0, 0.15);
 }
@@ -332,14 +329,12 @@
     transform: scale(1.1);
 }
 
-/* Update content margin to match new sidebar */
 .content {
     margin-left: 80px;
     padding: 2rem;
     transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Add responsive adjustments */
 @media (max-width: 768px) {
     .sidebar {
         position: fixed;
@@ -376,7 +371,20 @@
         margin-left: 0;
         margin-bottom: 70px;
     }
+
+    .menuDescription {
+        display: none;
+    }
+    
+    .menuTitle {
+        font-size: 0.75rem;
+    }
+    
+    .sidebarItem {
+        min-height: auto;
+    }
 }
+
 
 /* Main container for the entire layout */
 .dashboardContainer {
@@ -384,7 +392,7 @@
   flex-direction: column;
   gap: 20px; /* Spacing between rows */
   padding: 20px;
-  background-color: #f7f7f7; /* Light background for dashboard */
+  background-color: #f7f7f7; 
 }
 
 /* First row for metrics */
@@ -423,31 +431,30 @@
   margin-top: 20px; /* Add some spacing above */
 }
 
-/* Chart container */
 
 .chartContainer {
-  flex: 2; /* Take more space for the chart */
+  flex: 2;
   padding: 16px;
   background-color: #ffffff;
   border-radius: 10px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-/* Logs container */
+
 .logsContainer {
-  flex: 1; /* Take less space for logs */
+  flex: 1; 
   padding: 16px;
   background-color: #ffffff;
   border-radius: 10px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  overflow-y: auto; /* Enable scrolling for overflow */
-  max-height: 600px; /* Optional: Limit the height of the logs container */
+  overflow-y: auto; 
+  max-height: 600px; 
 }
 
 .pipelineLogsBox{
   display: flex;
-  flex-direction: column; /* Arrange logs vertically */
-  gap: 10px; /* Add space between individual logs */
+  flex-direction: column; 
+  gap: 10px; 
   overflow-y: auto;
   border: 2px solid #e2e8f0;
   border-radius: 8px;
@@ -460,8 +467,7 @@
 .pLbutton {
   margin-top: 10px;
   padding: 10px 20px;
-  background-color: #007bff; /* Blue color for button */
-  color: #ffffff;
+  background-color: #007bff; 
   border: none;
   border-radius: 5px;
   cursor: pointer;
@@ -469,10 +475,10 @@
 }
 
 .pLbutton:hover {
-  background-color: #0056b3; /* Darker blue on hover */
+  background-color: #0056b3; 
 }
 
-/* New menu content styles */
+
 .menuContent {
     display: flex;
     flex-direction: column;
@@ -500,17 +506,44 @@
     transform: translateX(0);
 }
 
-/* Adjust mobile view */
-@media (max-width: 768px) {
-    .menuDescription {
-        display: none;
-    }
-    
-    .menuTitle {
-        font-size: 0.75rem;
-    }
-    
-    .sidebarItem {
-        min-height: auto;
-    }
+
+.thirdRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+.piechartContainer, .linechartContainer {
+  flex: 1;
+  min-width: 300px;
+  padding: 1rem;
+  background: #fff;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.piechartContainer h2 , .linechartContainer h2 {
+  margin-bottom: 1rem;
+  font-size: 1.25rem;
+}
+
+.linechartContainer {
+  flex: 1;
+  min-width: 300px;
+  padding: 1rem;
+  background: #fff;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.dashboardTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 1rem;
+  text-align: center;
 }

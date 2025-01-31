@@ -1,6 +1,5 @@
 Project Set up Instructions
 -------------------------------
-
 # 1. INSTALL REACT
 
    1. Install Node.js from https://nodejs.org/ (LTS version recommended)
@@ -61,12 +60,30 @@ Project Set up Instructions
 |-- FYPVenv
 
 
-
 RUNNING THE APPLICATION
 
 1. open command prompt in vscode, change directory to FYPvenv/Scripts, run `activate.bat`
 2. cd to FYP-Code, run `settings.bat` or run `flask run`
-3. open powershell, cd to flowx, run npm start
+
+        <!---- Optional Step : YOU CAN SKIP THIS IF YOU FACE NO ERRORS-----!>
+
+         If you face errors while running the application, the included `FYPvenv` virtual environment is not working properly. Here, you can create a new virtual environment manually. 
+
+         Follow these steps:
+         
+            1. Change directory to FYPvenv/Scripts in command prompt, run `deactivate.bat` to deactivate it.
+            2. Delete the current FYPvenv folder from your project.
+            3. Change the directory back to the root 'FYP-ROAD-NETWORK' in command prompt.      
+            4. Please make sure that you have the python version--3.9 in your device. Run the following command to create a virtual environment:
+               ```
+               C:\Users\<Name>\AppData\Local\Programs\Python\Python39\python.exe -m venv FYPvenv
+               ```
+               After this , the new virtual environment is created and its folder will be placed in your project. 
+            5. change directory to FYPvenv/Scripts, run `activate.bat` .
+           
+         In this case, the virtual environment will be activated and ready for use. Please repeat the step 2 again.
+
+3. open powershell, cd to Flowx, run `npm start`
 
 
 TO RUN unittest `tests' folder

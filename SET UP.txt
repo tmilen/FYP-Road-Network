@@ -1,44 +1,76 @@
-INSTALL REACT
+Project Set up Instructions
+-------------------------------
 
-1. Install Node.js from https://nodejs.org/ (LTS version recommended)
-2. Open command prompt and verify installation:
-   - node --version
-   - npm --version
-3. Create new React app:
-   - npx create-react-app flowx
-   OR if project exists:
-   - cd flowx
-   - npm install react react-dom
+# 1. INSTALL REACT
 
-CREATING ENVIRONMENT FILES
+   1. Install Node.js from https://nodejs.org/ (LTS version recommended)
+   2. Open command prompt and verify installation:
+      - node --version
+      - npm --version
+   3. Create new React app:
+      - npx create-react-app flowx
+      OR if project exists:
+      - cd flowx
+      - npm install react react-dom
 
-This project requires two `.env` files: one for the frontend and another for the backend. Follow the steps below to create these files:
+# 2. CREATE ENVIRONMENT FILES
 
-#### 1. Frontend Environment File
+      This project requires two `.env` files: one for the frontend and another for the backend. Follow the 
+      steps below to create these files:
 
-1. Navigate to the `FlowX` directory in your project.
-2. Create a file named `.env` in the `FlowX` directory (if it does not already exist).
-3. Add the following content to the file:
-   - REACT_APP_API_URL=http://127.0.0.1:5000/api
-   -create MONGODB_URI variable and set its value to the connection string.
-   -create TOMTOM_API_KEY variable and set its value to the connection string.
+      #### 1. Frontend Environment File
+      
+      1. Navigate to the `FlowX` directory in your project.
+      2. Create a file named `.env` in the `FlowX` directory (if it does not already exist).
+      3. Add the following content to the file:
+         - REACT_APP_API_URL=http://127.0.0.1:5000/api
+         -create MONGODB_URI variable and set its value to the connection string.
+         -create TOMTOM_API_KEY variable and set its value to the connection string.
+      
+      #### 2. Backend Environment File
+      
+      1. Navigate to the `FYP-Code` directory in your project.
+      2. Create a file named `.env` (if it does not already exist).
+      3. Add the following content to the file:
+         -create MONGODB_URI variable and set its value to the connection string.
+         -create TOMTOM_API_KEY variable and set its value to the connection string.
 
-#### 2. Backend Environment File
+# Make sure you have the following Folder Structure before running the application
 
-1. Navigate to the backend directory of your project.
-2. Create a file named `.env` (if it does not already exist).
-3. Add the following content to the file:
-   -create MONGODB_URI variable and set its value to the connection string.
-   -create TOMTOM_API_KEY variable and set its value to the connection string.
+   Project Folder: FYP-Code
+
+|-- FYP-Code
+    |-- FlowX (Frontend Folder)
+        |-- node_modules
+        |-- public
+        |-- src
+        |-- .env (Frontend Environment File)
+        |-- .gitignore
+        |-- bikini_bottom.xml
+        |-- package-lock.json
+        |-- package.json
+        |-- README.md
+
+    |-- Models
+    |-- tests
+    |-- .env (Backend Environment File)
+    |-- app.py
+    |-- requirements.txt
+    |-- settings.bat
+    |-- singapore_graph.pkl
+|-- FYPVenv
+
+
 
 RUNNING THE APPLICATION
 
-1. open command prompt in vscode, change directory to fypvenv/scripts, run activate
-2. cd to fyp-code, run settings.bat or run flask run
+1. open command prompt in vscode, change directory to FYPvenv/Scripts, run `activate.bat`
+2. cd to FYP-Code, run `settings.bat` or run `flask run`
 3. open powershell, cd to flowx, run npm start
 
 
-TO RUN TESTS
+TO RUN unittest `tests' folder
+
 1. cd to tests 
 2. run python "FILENAME".py
 3. Pass = success, Fail = fail

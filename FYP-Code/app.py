@@ -25,7 +25,7 @@ from reportlab.lib.pagesizes import letter, landscape
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.graphics.shapes import Drawing, Line
-from datetime import datetime
+from datetime import datetime,timezone
 import zipfile
 import threading
 import time
@@ -38,6 +38,7 @@ import osmnx as ox
 import networkx as nx
 import pickle
 import os
+from math import sqrt
 
 load_dotenv()
 def create_app(db_client=None):
@@ -45,12 +46,12 @@ def create_app(db_client=None):
     
     # Update CORS configuration to allow credentials
     CORS(app, 
-         supports_credentials=True, 
-         resources={r"/*": {
-             "origins": ["http://127.0.0.1:3000", "http://localhost:3000"],
-             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-             "allow_headers": ["Content-Type", "Authorization"]
-         }})
+        supports_credentials=True, 
+        resources={r"/*": {
+            "origins": ["http://127.0.0.1:3000", "http://localhost:3000"],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"]
+        }})
 
     client = db_client or MongoClient(os.getenv("MONGODB_URI"))
     app.secret_key = os.getenv('SECRET_KEY', 'fyp_key')
@@ -71,7 +72,7 @@ def create_app(db_client=None):
 
         # Add timezone configuration
     SGT = pytz.timezone('Asia/Singapore')
-
+    #SGT = timezone(timedelta(hours=8))
     def get_sgt_time():
         return datetime.now(SGT)
 
@@ -2510,7 +2511,6 @@ def create_app(db_client=None):
             dest_node = ox.nearest_nodes(G, dest_lng, dest_lat)
 
             # Calculate straight-line distance between points
-            from math import sqrt
             distance = sqrt((origin_lat - dest_lat)**2 + (origin_lng - dest_lng)**2)
             
             # If points are too close (less than ~50 meters)

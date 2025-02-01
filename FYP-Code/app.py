@@ -2370,21 +2370,67 @@ def create_app(db_client=None):
 
     @app.route('/api/line-chart-data', methods=['GET'])
     def get_line_chart_data():
-        try:
-            # Define time range (last 7 days)
-            end_date = datetime.now(SGT).date()
-            start_date = end_date - timedelta(days=7)
+        try:  
 
             # Aggregate API calls by day using 'date' field
             pipeline = [
-                {"$match": {"date": {"$gte": start_date.strftime("%d-%m-%Y"), "$lte": end_date.strftime("%d-%m-%Y")}}},
-                {"$group": {
-                    "_id": "$date",
-                    "successful": {"$sum": {"$cond": [{"$eq": ["$status", "success"]}, 1, 0]}},
-                    "failed": {"$sum": {"$cond": [{"$eq": ["$status", "failure"]}, 1, 0]}},
-                    "duplicates": {"$sum": {"$cond": [{"$eq": ["$status", "duplicate"]}, 1, 0]}}
-                }},
-                {"$sort": {"_id": 1}}  # Sort by date in ascending order
+                {
+                    # Add a `date` field if it's missing, extracted from `timestamp`
+                    "$addFields": {
+                        "date": {
+                            "$cond": {
+                                "if": { "$not": ["$date"] },  # Check if `date` is missing or null
+                                "then": {
+                                    "$dateToString": {
+                                        "format": "%d-%m-%Y",  # Extract date from `timestamp`
+                                        "date": "$timestamp"
+                                    }
+                                },
+                                "else": "$date"  # Use the existing `date` value if present
+                            }
+                        }
+                    }
+                },
+                {
+                    # Filter only documents with a valid `date` field
+                    "$match": {
+                        "date": { "$exists": True, "$ne": None },
+                    }
+                },
+                {
+                    # Group by `date` and calculate aggregates
+                    "$group": {
+                        "_id": "$date",
+                        "successful": {
+                            "$sum": { "$cond": [{ "$eq": ["$status", "success"] }, 1, 0] }
+                        },
+                        "failed": {
+                            "$sum": { "$cond": [{ "$eq": ["$status", "failure"] }, 1, 0] }
+                        },
+                        "duplicates": {
+                            "$sum": { "$cond": [{ "$eq": ["$status", "duplicate"] }, 1, 0] }
+                        }
+                    }
+                },
+                {
+                    # Convert `_id` (date string) to a `date` object for sorting
+                    "$addFields": {
+                        "parsedDate": {
+                            "$dateFromString": {
+                                "dateString": "$_id",
+                                "format": "%d-%m-%Y"
+                            }
+                        }
+                    }
+                },
+                {
+                    # Sort by the parsed `date` field in ascending order
+                    "$sort": { "parsedDate": 1 }
+                },
+                {
+                    # Remove the parsedDate field from output
+                    "$unset": "parsedDate"
+                }
             ]
 
             results = list(traffic_logs.aggregate(pipeline))

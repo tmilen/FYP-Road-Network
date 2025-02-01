@@ -89,5 +89,5 @@ RUNNING THE APPLICATION
 TO RUN unittest `tests' folder
 
 1. cd to tests 
-2. run python "FILENAME".py
+2. run python -m unittest FILENAME.py -v
 3. Pass = success, Fail = fail

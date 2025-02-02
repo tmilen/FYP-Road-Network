@@ -2527,139 +2527,156 @@ def create_app(db_client=None):
                 data['length'] = 1000  # Default length if missing
         
         return G
-
-    def calculate_route_with_alternatives(G, origin, destination, k=3):
-        """Calculate route with alternatives using networkx, considering both distance and congestion"""
-        try:
-            # ... existing validation code ...
-
-            # Update edge weights based on current traffic
-            update_edge_weights(G)
-
-            # Find k shortest paths considering both distance and congestion
-            routes = []
-            try:
-                print("\n=== Route Calculations ===")
-                route_counter = 1
-                
-                for path in nx.shortest_simple_paths(G, origin_node, dest_node, weight='weight'):
-                    if len(routes) >= k:
-                        break
-
-                    coordinates = []
-                    path_length = 0  # in meters
-                    total_time = 0   # in minutes
-                    congestion_level = 0
-                    total_weight = 0
-                    
-                    print(f"\nRoute {route_counter}:")
-                    print("-" * 50)
-                    
-                    for u, v in zip(path[:-1], path[1:]):
-                        lat = float(G.nodes[u]['y'])
-                        lng = float(G.nodes[u]['x'])
-                        coordinates.append([lat, lng])
-                        
-                        edge_data = G.get_edge_data(u, v)
-                        base_length = float(edge_data.get('length', 1000))  # in meters
-                        weight = float(edge_data.get('weight', base_length))
-                        
-                        path_length += base_length
-                        total_weight += weight
-                        congestion_factor = weight / base_length
-                        congestion_level = max(congestion_level, congestion_factor)
-                        
-                        # Calculate segment time with congestion factor
-                        speed_kmh = 35 * (1 / congestion_factor)  # speed in km/h
-                        segment_time = (base_length / 1000) / speed_kmh * 60  # Convert to minutes
-                        total_time += segment_time
-
-                    # Add final node coordinates
-                    coordinates.append([float(G.nodes[path[-1]]['y']), float(G.nodes[path[-1]]['x'])])
-                    
-                    routes.append({
-                        'coordinates': coordinates,
-                        'distance': path_length,
-                        'time': total_time,
-                        'congestion': (congestion_level - 1) / 2,
-                        'total_weight': total_weight
-                    })
-                    
-                    route_counter += 1
-
-                if not routes:
-                    return None
-
-                return {
-                    'coordinates': routes[0]['coordinates'],
-                    'distance': routes[0]['distance'],
-                    'time': routes[0]['time'],
-                    'congestion': routes[0]['congestion'],
-                    'total_weight': routes[0]['total_weight'],
-                    'alternatives': routes[1:]
-                }
-
-            except nx.NetworkXNoPath:
-                print("No path exists between the given points")
-                return None
-
-        except Exception as e:
-            print(f"Error in route calculation: {str(e)}")
-            return None
-
-# Add these new functions after the initialize_routing_graph() function:
-
-def get_road_congestion(current_speed, free_flow_speed):
-    """Calculate congestion factor based on current speed vs free flow speed"""
-    if free_flow_speed == 0:
-        return 1.0
-    ratio = current_speed / free_flow_speed
-    if ratio >= 0.8:
-        return 1.0  # Low congestion
-    elif ratio >= 0.5:
-        return 2.0  # Medium congestion
-    else:
-        return 3.0  # High congestion
-
-def update_edge_weights(G):
-    """Update graph edge weights based on current traffic conditions"""
-    try:
-        # Get current traffic data
-        traffic_data = list(current_traffic_data.find({}, {'_id': 0}))
+    
+    def get_road_congestion(current_speed, free_flow_speed):
+        """Calculate congestion factor based on current speed vs free flow speed"""
+        if free_flow_speed == 0:
+            return 3.0  # High congestion for unknown speed limits
         
-        # Create a mapping of coordinates to traffic data
-        traffic_map = {}
-        for data in traffic_data:
-            coords = (data['coordinates']['lat'], data['coordinates']['lng'])
-            traffic_map[coords] = data
+        ratio = current_speed / free_flow_speed
+        if ratio >= 0.8:
+            return 1.0  # Low congestion
+        elif ratio >= 0.5:
+            return 2.0  # Medium congestion
+        else:
+            return 3.0  # High congestion
 
-        # Update edge weights in the graph
+    def update_edge_weights(G, current_traffic_data):
+        """Update graph edge weights based on current traffic conditions"""
+        # Create a spatial index of traffic data points
+        traffic_points = {}
+        for data in current_traffic_data:
+            coords = (data['coordinates']['lat'], data['coordinates']['lng'])
+            traffic_points[coords] = data
+
+        # Update each edge in the graph
         for u, v, data in G.edges(data=True):
+            # Calculate midpoint of edge
             edge_lat = (G.nodes[u]['y'] + G.nodes[v]['y']) / 2
             edge_lng = (G.nodes[u]['x'] + G.nodes[v]['x']) / 2
-
+            
             # Find nearest traffic data point
             nearest_traffic = None
             min_distance = float('inf')
-            for coords, traffic in traffic_map.items():
+            
+            for coords, traffic in traffic_points.items():
                 dist = ((edge_lat - coords[0])**2 + (edge_lng - coords[1])**2)**0.5
                 if dist < min_distance:
                     min_distance = dist
                     nearest_traffic = traffic
 
+            # Calculate weight based on distance and traffic
+            base_length = data.get('length', 1000)
+            
             if nearest_traffic and min_distance < 0.01:  # Within ~1km
                 congestion_factor = get_road_congestion(
                     nearest_traffic.get('currentSpeed', 0),
-                    nearest_traffic.get('freeFlowSpeed', 0)
+                    nearest_traffic.get('freeFlowSpeed', 1)
                 )
+                # Consider incidents
+                if nearest_traffic.get('congestionCount', 0) > 0:
+                    congestion_factor *= 1.5
+                if nearest_traffic.get('accidentCount', 0) > 0:
+                    congestion_factor *= 2.0
             else:
-                congestion_factor = 1.0
+                congestion_factor = 1.5  # Default medium-high congestion for unknown areas
 
-            # Update edge weight combining distance and congestion
-            base_length = data.get('length', 1000)
+            # Final weight combines distance and traffic conditions
             data['weight'] = base_length * congestion_factor
+            
+            # Store additional metadata for route analysis
+            data['congestion_factor'] = congestion_factor
+            data['traffic_speed'] = nearest_traffic.get('currentSpeed', 0) if nearest_traffic else 0
 
-    except Exception as e:
-        print(f"Error updating edge weights: {e}")
+    def calculate_route_with_alternatives(G, origin, destination, k=3):
+        """Calculate route with alternatives considering distance and real-time traffic"""
+        try:
+            # Input validation (existing code...)
+            
+            # Get nearest nodes
+            origin_node = ox.nearest_nodes(G, origin_lng, origin_lat)
+            dest_node = ox.nearest_nodes(G, dest_lng, dest_lat)
+
+            # Handle very close points (existing code...)
+
+            # Update edge weights with current traffic conditions
+            update_edge_weights(G, list(current_traffic_data.find()))
+
+            # Find k shortest paths considering both distance and traffic
+            routes = []
+            total_paths = 0
+            
+            for path in nx.shortest_simple_paths(G, origin_node, dest_node, weight='weight'):
+                if len(routes) >= k or total_paths >= 10:  # Limit path exploration
+                    break
+                    
+                total_paths += 1
+                coordinates = []
+                path_length = 0
+                total_time = 0
+                avg_congestion = 0
+                incident_risk = 0
+                total_segments = 0
+                
+                for u, v in zip(path[:-1], path[1:]):
+                    lat = float(G.nodes[u]['y'])
+                    lng = float(G.nodes[u]['x'])
+                    coordinates.append([lat, lng])
+                    
+                    edge_data = G.get_edge_data(u, v)
+                    base_length = float(edge_data.get('length', 1000))
+                    congestion_factor = float(edge_data.get('congestion_factor', 1.5))
+                    traffic_speed = float(edge_data.get('traffic_speed', 35))  # Default 35 km/h
+                    
+                    # Accumulate metrics
+                    path_length += base_length
+                    avg_congestion += congestion_factor
+                    total_segments += 1
+                    
+                    # Calculate segment time based on traffic speed
+                    if traffic_speed > 0:
+                        segment_time = (base_length / 1000) / traffic_speed * 60  # Minutes
+                    else:
+                        segment_time = (base_length / 1000) / 35 * 60  # Default speed
+                    
+                    total_time += segment_time * congestion_factor  # Adjust time by congestion
+
+                # Add final node
+                coordinates.append([float(G.nodes[path[-1]]['y']), float(G.nodes[path[-1]]['x'])])
+                
+                # Calculate route metrics
+                avg_congestion = avg_congestion / total_segments if total_segments > 0 else 1.5
+                route_score = (path_length / 1000) * avg_congestion  # Lower is better
+                
+                routes.append({
+                    'coordinates': coordinates,
+                    'distance': path_length,
+                    'time': total_time,
+                    'congestion_level': avg_congestion,
+                    'score': route_score
+                })
+
+            if not routes:
+                return None
+
+            # Sort routes by score (balanced metric of distance and congestion)
+            routes.sort(key=lambda x: x['score'])
+            
+            return {
+                'coordinates': routes[0]['coordinates'],
+                'distance': routes[0]['distance'],
+                'time': routes[0]['time'],
+                'congestion_level': routes[0]['congestion_level'],
+                'alternatives': [{
+                    'coordinates': r['coordinates'],
+                    'distance': r['distance'],
+                    'time': r['time'],
+                    'congestion_level': r['congestion_level']
+                } for r in routes[1:]]
+            }
+
+        except Exception as e:
+            print(f"Error in route calculation: {str(e)}")
+            return None
 
     return app

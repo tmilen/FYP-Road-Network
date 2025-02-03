@@ -1,37 +1,65 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { toast, Bounce } from 'react-toastify';
 
 const useDataHealthController = () => {
+  // Toast configuration
+  const toastConfig = {
+    position: "top-right",
+    autoClose: 5000,
+    hideProgressBar: false,
+    closeOnClick: false,
+    pauseOnHover: true,
+    draggable: true,
+    progress: undefined,
+    theme: "light",
+    transition: Bounce,
+  };
+
+  // Remove status states that are no longer needed
   const [file, setFile] = useState(null);
-  const [uploadStatus, setUploadStatus] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [logs, setLogs] = useState([]);
-  const [retrainStatus, setRetrainStatus] = useState("");
   const [metrics, setMetrics] = useState(null); 
   const [trafficLogs, setTrafficLogs] = useState([]); 
+  const [storageMetrics, setStorageMetrics] = useState({
+    totalSize: 0,
+    usedSize: 0,
+    collections: []
+  });
+  const [selectedCollection, setSelectedCollection] = useState(null);
 
   const API_URL = process.env.REACT_APP_API_URL;
 
   const uploadZip = async () => {
+    if (!file) {
+      toast.error("Please select a file to upload", toastConfig);
+      return;
+    }
 
     const formData = new FormData();
     formData.append("file", file);
 
     try {
-      setUploadStatus("Uploading..."); // Show status when upload starts
+      toast.info("Uploading file...", { ...toastConfig, toastId: 'upload-progress' });
+      
       const response = await axios.post(`${API_URL}/upload-zip`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: (progressEvent) => {
-          const progress = Math.round(
-            (progressEvent.loaded / progressEvent.total) * 100
-          );
+          const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
           setUploadProgress(progress);
         },
       });
-      setUploadStatus(response.data.message);
+
+      toast.update('upload-progress', { 
+        render: response.data.message,
+        type: toast.TYPE.SUCCESS,
+        autoClose: 3000
+      });
       setUploadProgress(0);
+      setFile(null);
     } catch (error) {
-      setUploadStatus(error.response?.data?.error || "Failed to upload zip file. Please try again.");
+      toast.error(error.response?.data?.error || "Failed to upload file", toastConfig);
       setUploadProgress(0);
     }
   };
@@ -40,14 +68,16 @@ const useDataHealthController = () => {
     try {
       const response = await axios.get(`${API_URL}/logs`);
       setLogs(response.data.logs);
+      toast.success("Logs refreshed successfully", toastConfig);
     } catch (error) {
-      setLogs(["Error fetching logs. Please try again later."]);
+      toast.error("Error fetching logs", toastConfig);
+      setLogs([]);
     }
   };
 
   const retrainModel = async (selectedModel) => {
     if (!selectedModel) {
-      setRetrainStatus("Please select a model to retrain.");
+      toast.error("Please select a model to retrain", toastConfig);
       return;
     }
   
@@ -55,7 +85,8 @@ const useDataHealthController = () => {
       const response = await axios.post(`${API_URL}/retrain`, {
         model: selectedModel,
       });
-      setRetrainStatus("Retraining started. Fetching logs...");
+      
+      toast.info("Retraining started...", { ...toastConfig, toastId: 'retrain-status' });
   
       // Fetch logs periodically
       const intervalId = setInterval(async () => {
@@ -63,16 +94,19 @@ const useDataHealthController = () => {
         setLogs(logsResponse.data.logs);
   
         if (logsResponse.data.trainingComplete) {
-          clearInterval(intervalId); // Stop fetching logs when training is complete
-          setRetrainStatus("Retraining complete.");
+          clearInterval(intervalId);
+          toast.update('retrain-status', {
+            render: "Retraining completed successfully",
+            type: toast.TYPE.SUCCESS,
+            autoClose: 3000
+          });
         }
-      }, 2000); // Fetch logs every 2 seconds
+      }, 2000);
     } catch (error) {
-      setRetrainStatus("Error retraining the model. Please try again.");
+      toast.error("Error retraining model", toastConfig);
     }
   };
 
-  
   const fetchMetrics = async () => {
     try {
       const response = await axios.get(`${API_URL}/metrics`);
@@ -131,6 +165,38 @@ const useDataHealthController = () => {
     }
   };
 
+  // Format size helper function
+  const formatSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // Fetch storage metrics
+  const fetchStorageMetrics = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/storage-metrics`);
+      setStorageMetrics(response.data);
+    } catch (error) {
+      console.error("Error fetching storage metrics:", error);
+    }
+  };
+
+  // Collection data fetching
+  const fetchCollectionData = async (collectionName, page = 1) => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/collection-data?name=${collectionName}&page=${page}`
+      );
+      return response.data;
+    } catch (error) {
+      toast.error('Error fetching collection data', toastConfig);
+      return null;
+    }
+  };
+
   useEffect(() => {
     fetchTrafficLogs();
 
@@ -140,21 +206,24 @@ const useDataHealthController = () => {
 
   return {
     file,
-    uploadStatus,
-    setUploadStatus, 
-    uploadProgress,
-    setUploadProgress, 
-    retrainStatus,
+    uploadProgress, 
+    logs,
+    metrics,
+    trafficLogs,
     setFile,
     uploadZip,
     fetchLogs,
     retrainModel,
-    metrics,
-    trafficLogs,
     fetchMetrics,
     fetchTrafficLogs,
     fetchPieChartData,
     fetchLineChartData,
+    storageMetrics,
+    selectedCollection,
+    setSelectedCollection,
+    fetchStorageMetrics,
+    fetchCollectionData,
+    formatSize,
   };
 };
 

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import Navbar from "./navbar";
 import useDataHealthController from "../components/datahealth";
 import styles from "../css/datahealth.module.css";
-import { FaTachometerAlt, FaCog } from "react-icons/fa";
+import { FaTachometerAlt, FaCog, FaDatabase, FaServer, FaHdd, FaDatabase as FaDbIcon } from "react-icons/fa";
+import { RiDeleteBin6Line } from "react-icons/ri";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -16,8 +17,258 @@ import {
   LineElement,
 } from "chart.js";
 import { Bar, Pie, Line } from "react-chartjs-2";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement);
+
+const CollectionPopup = ({ collectionName, collectionSize, onClose }) => {
+  const [data, setData] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const { fetchCollectionData, formatSize } = useDataHealthController();
+
+  const calculateDocumentSize = (doc) => {
+    // Convert document to string and calculate size in bytes
+    const docString = JSON.stringify(doc);
+    const size = new Blob([docString]).size;
+    
+    // Format size
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      const result = await fetchCollectionData(collectionName, currentPage);
+      setData(result);
+      setLoading(false);
+    };
+    loadData();
+  }, [collectionName, currentPage]);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const handleDelete = async (documentId) => {
+    // Custom toast UI for confirmation
+    const toastId = toast(
+      <div>
+        <p className={styles.confirmMessage}>Are you sure you want to delete this record?</p>
+        <div className={styles.confirmButtons}>
+          <button
+            onClick={() => {
+              deleteDocument(documentId);
+              toast.dismiss(toastId);
+            }}
+            className={styles.confirmYes}
+          >
+            Yes, delete it
+          </button>
+          <button
+            onClick={() => toast.dismiss(toastId)}
+            className={styles.confirmNo}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>,
+      {
+        position: "top-center",
+        autoClose: false,
+        closeButton: false,
+        draggable: false,
+        closeOnClick: false,
+      }
+    );
+  };
+
+  const deleteDocument = async (documentId) => {
+    try {
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/collection-data/${collectionName}/${documentId}`,
+        { method: 'DELETE' }
+      );
+      if (response.ok) {
+        toast.success('Record deleted successfully');
+        // Refresh the data after deletion
+        const result = await fetchCollectionData(collectionName, currentPage);
+        setData(result);
+      } else {
+        toast.error('Failed to delete record');
+      }
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      toast.error('Error deleting record');
+    }
+  };
+
+  const renderTableHeaders = (document) => {
+    if (!document) return null;
+    return (
+      <>
+        {Object.keys(document).map(key => (
+          <th key={key}>{key}</th>
+        ))}
+        <th>Size</th>
+        <th>Actions</th>
+      </>
+    );
+  };
+
+  const renderTableRow = (document) => {
+    return (
+      <>
+        {Object.values(document).map((value, index) => (
+          <td key={index}>
+            {typeof value === 'object' ? JSON.stringify(value) : value}
+          </td>
+        ))}
+        <td>{calculateDocumentSize(document)}</td>
+        <td>
+          <button
+            className={styles.deleteButton}
+            onClick={() => handleDelete(document._id)}
+            title="Delete record"
+          >
+            <RiDeleteBin6Line />
+          </button>
+        </td>
+      </>
+    );
+  };
+
+  const renderPagination = (currentPage, totalPages) => {
+    const getPageNumbers = () => {
+      const pages = [];
+      const showEllipsis = totalPages > 7;
+  
+      if (showEllipsis) {
+        // Always show first page
+        pages.push(1);
+  
+        // Show pages around current page
+        let start = Math.max(2, currentPage - 2);
+        let end = Math.min(totalPages - 1, currentPage + 2);
+  
+        // Add ellipsis if needed
+        if (start > 2) pages.push('...');
+  
+        // Add pages
+        for (let i = start; i <= end; i++) {
+          pages.push(i);
+        }
+  
+        // Add ellipsis if needed
+        if (end < totalPages - 1) pages.push('...');
+  
+        // Always show last page
+        pages.push(totalPages);
+      } else {
+        // Show all pages if total is 7 or less
+        for (let i = 1; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      }
+  
+      return pages;
+    };
+  
+    return (
+      <div className={styles.pagination}>
+        <button
+          className={`${styles.pageButton} ${styles.navButton}`}
+          onClick={() => handlePageChange(1)}
+          disabled={currentPage === 1}
+        >
+          &laquo;
+        </button>
+        <button
+          className={`${styles.pageButton} ${styles.navButton}`}
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+        >
+          &lsaquo;
+        </button>
+  
+        {getPageNumbers().map((page, index) => (
+          <button
+            key={index}
+            className={`${styles.pageButton} ${page === currentPage ? styles.active : ''} ${page === '...' ? styles.ellipsis : ''}`}
+            onClick={() => page !== '...' && handlePageChange(page)}
+            disabled={page === '...'}
+          >
+            {page}
+          </button>
+        ))}
+  
+        <button
+          className={`${styles.pageButton} ${styles.navButton}`}
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+        >
+          &rsaquo;
+        </button>
+        <button
+          className={`${styles.pageButton} ${styles.navButton}`}
+          onClick={() => handlePageChange(totalPages)}
+          disabled={currentPage === totalPages}
+        >
+          &raquo;
+        </button>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <div className={styles.popupOverlay} onClick={onClose} />
+      <div className={styles.popup}>
+        <div className={styles.popupHeader}>
+          <div className={styles.collectionInfo}>
+            <h3 className={styles.popupTitle}>Collection: {collectionName}</h3>
+            <span className={styles.collectionSize}>
+              Size: {formatSize(collectionSize)}
+            </span>
+          </div>
+          <button className={styles.closeButton} onClick={onClose}>&times;</button>
+        </div>
+        
+        <div className={styles.collectionContent}>
+          {loading ? (
+            <p>Loading...</p>
+          ) : data?.documents?.length > 0 ? (
+            <>
+              <div className={styles.tableContainer}>
+                <table className={styles.dataTable}>
+                  <thead>
+                    <tr>
+                      {renderTableHeaders(data.documents[0])}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.documents.map((doc, index) => (
+                      <tr key={index}>
+                        {renderTableRow(doc)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {data.total_pages > 1 && renderPagination(currentPage, data.total_pages)}
+            </>
+          ) : (
+            <p className={styles.emptyMessage}>No data available in this collection</p>
+          )}
+        </div>
+      </div>
+      <ToastContainer />
+    </>
+  );
+};
 
 const DataHealth = () => {
   const {
@@ -38,6 +289,12 @@ const DataHealth = () => {
     fetchTrafficLogs,
     fetchPieChartData,
     fetchLineChartData,
+    storageMetrics,
+    selectedCollection,
+    setSelectedCollection,
+    fetchStorageMetrics,
+    fetchCollectionData,
+    formatSize,
   } = useDataHealthController();
 
   const [models, setModels] = useState([]);
@@ -164,6 +421,14 @@ const DataHealth = () => {
     setUploadProgress(0); 
   };
 
+  useEffect(() => {
+    if (activeTab === "storage") {
+      fetchStorageMetrics();
+      const interval = setInterval(fetchStorageMetrics, 300000); // Update every 5 minutes
+      return () => clearInterval(interval);
+    }
+  }, [activeTab]);
+
   const renderContent = () => {
     if (activeTab === "monitoring") {
       return (
@@ -277,8 +542,7 @@ const DataHealth = () => {
             <button className={styles.button} onClick={uploadZip}>
               Upload
             </button>
-            {uploadStatus && <p className={styles.status}>{uploadStatus}</p>}
-
+            
             {file && (
               <div className={styles.progressContainer}>
                 <div className={styles.progressInfo}>
@@ -333,9 +597,93 @@ const DataHealth = () => {
               <button className={styles.button} onClick={handleRetrain}>
                 Retrain
               </button>
-              {retrainStatus && <p className={styles.status}>{retrainStatus}</p>}
             </div>
           </div>
+        </div>
+      );
+    } else if (activeTab === "storage") {
+      const usedPercentage = (storageMetrics.usedSize / storageMetrics.totalSize) * 100;
+
+      return (
+        <div className={styles.storageContainer}>
+          <h2 className={styles.dashboardTitle}>Storage Dashboard</h2>
+          
+          {/* Main Storage Card */}
+          <div className={styles.storageCard}>
+            <div className={styles.storageHeader}>
+              <FaServer className={styles.storageIcon} />
+              <h3>Total Database Storage</h3>
+            </div>
+            <div className={styles.storageProgressContainer}>
+              <div 
+                className={styles.storageProgressBar}
+                style={{
+                  background: `linear-gradient(to right, 
+                    ${usedPercentage > 90 ? '#ff4444' : 
+                      usedPercentage > 70 ? '#ffa000' : '#00C853'} 
+                    ${usedPercentage}%, #e0e0e0 ${usedPercentage}%)`
+                }}
+              />
+              <div className={styles.storageLabels}>
+                <span>{formatSize(storageMetrics.usedSize)}</span>
+                <span>{formatSize(storageMetrics.totalSize)}</span>
+              </div>
+              <div className={styles.storagePercentage}>
+                {usedPercentage.toFixed(1)}% Used
+              </div>
+            </div>
+          </div>
+
+          {/* Collection Details */}
+          <div className={styles.collectionsGrid}>
+            {storageMetrics.databases?.map((database, dbIndex) => (
+              <div key={dbIndex} className={styles.databaseCard}>
+                <div className={styles.databaseHeader}>
+                  <FaDatabase className={styles.databaseIcon} />
+                  <h4>{database.name}</h4>
+                </div>
+                <div className={styles.databaseStats}>
+                  <div className={styles.statItem}>
+                    <span>Size:</span>
+                    <span>{formatSize(database.size)}</span>
+                  </div>
+                  <div className={styles.statItem}>
+                    <span>Collections:</span>
+                    <span>{database.collections.length}</span>
+                  </div>
+                </div>
+                <div className={styles.collectionsList}>
+                  {database.collections.map((collection, collIndex) => (
+                    <div key={collIndex} className={styles.collectionItem}>
+                      <div 
+                        className={styles.collectionName}
+                        onClick={() => setSelectedCollection({
+                          name: collection.name,
+                          size: collection.size
+                        })}
+                      >
+                        <span>{collection.name}</span>
+                        <span>{formatSize(collection.size)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div 
+                  className={styles.databaseProgress}
+                  style={{
+                    width: `${(database.size / storageMetrics.totalSize) * 100}%`
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          {selectedCollection && (
+            <CollectionPopup
+              collectionName={selectedCollection.name}
+              collectionSize={selectedCollection.size}
+              onClose={() => setSelectedCollection(null)}
+            />
+          )}
         </div>
       );
     }
@@ -343,6 +691,18 @@ const DataHealth = () => {
 
   return (
     <div className={styles.page}>
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick={false}
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
       <h1 className={styles.title}>FlowX</h1>
       <Navbar sticky={false} />
       <div className={styles.sidebar}>
@@ -368,6 +728,18 @@ const DataHealth = () => {
           <div className={styles.menuContent}>
             <span className={styles.menuTitle}>Operations</span>
             <p className={styles.menuDescription}>Manage data uploads and model retraining</p>
+          </div>
+        </div>
+        <div
+          className={`${styles.sidebarItem} ${
+            activeTab === "storage" ? styles.active : ""
+          }`}
+          onClick={() => setActiveTab("storage")}
+        >
+          <FaDatabase />
+          <div className={styles.menuContent}>
+            <span className={styles.menuTitle}>Data Storage</span>
+            <p className={styles.menuDescription}>Manage database storage</p>
           </div>
         </div>
       </div>

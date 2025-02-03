@@ -1,6 +1,20 @@
 import { useState, useEffect } from 'react';
-import { FaFilePdf, FaChartLine, FaChartBar, FaList } from 'react-icons/fa';
+import { FaFilePdf, FaChartLine, FaList } from 'react-icons/fa';
 import axios from 'axios';
+import { toast, Bounce } from 'react-toastify';
+
+// Toast configuration
+const toastConfig = {
+    position: "top-right",
+    autoClose: 5000,
+    hideProgressBar: false,
+    closeOnClick: false,
+    pauseOnHover: true,
+    draggable: true,
+    progress: undefined,
+    theme: "light",
+    transition: Bounce,
+};
 
 export const useReportsController = () => {
     const [selectedReport, setSelectedReport] = useState(null);
@@ -24,12 +38,6 @@ export const useReportsController = () => {
             title: 'Traffic Analysis', 
             icon: <FaChartLine />,
             description: 'Visualize traffic patterns and trends over time'
-        },
-        { 
-            id: 'congestion',
-            title: 'Congestion Reports', 
-            icon: <FaChartBar />,
-            description: 'Analysis of traffic congestion patterns and hotspots'
         }
     ];
 
@@ -56,7 +64,6 @@ export const useStandardReportController = () => {
         timeRange: { start: '', end: '' }
     });
     const [previewData, setPreviewData] = useState(null);
-    const [message, setMessage] = useState(null);
 
     const fetchAvailableRoads = async () => {
         try {
@@ -111,90 +118,68 @@ export const useStandardReportController = () => {
         );
     };
 
-    const validateInputs = () => {
-        const hasDateRange = dateRange.start || dateRange.end;
-        const hasTimeRange = timeRange.start || timeRange.end;
+    // New validation system
+    const validateField = (field, value) => {
+        switch (field) {
+            case 'dateRange':
+                if (!value.start && !value.end) return true; // Optional field
+                if (value.start && !value.end) return 'End date is required when start date is set';
+                if (!value.start && value.end) return 'Start date is required when end date is set';
+                if (value.start > value.end) return 'Start date cannot be after end date';
+                return true;
+
+            case 'timeRange':
+                if (!value.start && !value.end) return true; // Optional field
+                if (value.start && !value.end) return 'End time is required when start time is set';
+                if (!value.start && value.end) return 'Start time is required when end time is set';
+                if (value.start > value.end) return 'Start time cannot be after end time';
+                return true;
+
+            case 'selectedRoads':
+                if (!value.length) return true; // Optional field
+                if (value.length > 5) return 'Maximum 5 roads can be selected';
+                return true;
+
+            default:
+                return true;
+        }
+    };
+
+    const validateAllFields = () => {
+        const errors = [];
+
+        // Validate individual fields
+        const dateRangeValidation = validateField('dateRange', dateRange);
+        if (dateRangeValidation !== true) errors.push(dateRangeValidation);
+
+        const timeRangeValidation = validateField('timeRange', timeRange);
+        if (timeRangeValidation !== true) errors.push(timeRangeValidation);
+
+        const roadsValidation = validateField('selectedRoads', selectedRoads);
+        if (roadsValidation !== true) errors.push(roadsValidation);
+
+        // Validate field dependencies
+        const hasDateRange = dateRange.start && dateRange.end;
+        const hasTimeRange = timeRange.start && timeRange.end;
         const hasRoads = selectedRoads.length > 0;
-        const hasDataType = dataType !== '';
 
-        // At least one filter must be provided
         if (!hasDateRange && !hasTimeRange && !hasRoads) {
-            setMessage({
-                type: 'error',
-                text: 'Please provide at least one filter (Date, Time, or Roads)'
-            });
-            return false;
+            errors.push('At least one filter (Date Range, Time Range, or Roads) must be selected');
         }
 
-        // If date range is partially filled, require both start and end
-        if (hasDateRange && (!dateRange.start || !dateRange.end)) {
-            setMessage({
-                type: 'error',
-                text: 'Please provide both start and end dates'
-            });
-            return false;
+        if ((hasDateRange && !hasTimeRange) || (!hasDateRange && hasTimeRange)) {
+            errors.push('Both date range and time range must be set together');
         }
 
-        // If time range is partially filled, require both start and end
-        if (hasTimeRange && (!timeRange.start || !timeRange.end)) {
-            setMessage({
-                type: 'error',
-                text: 'Please provide both start and end times'
-            });
-            return false;
-        }
-
-        // Validate date order if both dates are provided
-        if (dateRange.start && dateRange.end && dateRange.start > dateRange.end) {
-            setMessage({
-                type: 'error',
-                text: 'Start date cannot be later than end date'
-            });
-            return false;
-        }
-
-        // Validate time order if both times are provided
-        if (timeRange.start && timeRange.end && timeRange.start > timeRange.end) {
-            setMessage({
-                type: 'error',
-                text: 'Start time cannot be later than end time'
-            });
-            return false;
-        }
-
-        // Validate that data type is selected
-        if (!hasDataType) {
-            setMessage({
-                type: 'error',
-                text: 'Please select a data type for the report'
-            });
-            return false;
-        }
-
-        // If a date range is provided, require a time range
-        if (hasDateRange && !hasTimeRange) {
-            setMessage({
-                type: 'error',
-                text: 'Please provide both time range when using date range'
-            });
-            return false;
-        }
-
-        // If a time range is provided, require a date range
-        if (hasTimeRange && !hasDateRange) {
-            setMessage({
-                type: 'error',
-                text: 'Please provide both date range when using time range'
-            });
-            return false;
-        }
-
-        setMessage(null);
-        return true;
+        return errors;
     };
 
     const handleGenerateReport = async () => {
-        if (!validateInputs()) return;
+        const validationErrors = validateAllFields();
+        if (validationErrors.length > 0) {
+            validationErrors.forEach(error => toast.error(error, toastConfig));
+            return false;
+        }
 
         setIsGenerating(true);
         try {
@@ -203,7 +188,7 @@ export const useStandardReportController = () => {
                 dateRange: dateRange.start && dateRange.end ? dateRange : null,
                 timeRange: timeRange.start && timeRange.end ? timeRange : null,
                 selectedRoads: selectedRoads.length > 0 ? selectedRoads : null,
-                includeIncidents: dataType === 'incidents' || dataType === 'comprehensive', // Only include incidents for relevant reports
+                includeIncidents: dataType === 'incidents' || dataType === 'comprehensive',
                 metadata: {
                     generatedAt: new Date().toISOString(),
                     reportType: 'standard'
@@ -214,16 +199,15 @@ export const useStandardReportController = () => {
                 `${process.env.REACT_APP_API_URL}/reports`, 
                 reportData,
                 {
-                    responseType: 'blob',  // Always PDF now
+                    responseType: 'blob',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    withCredentials: true  // Add this line to include credentials
+                    withCredentials: true
                 }
             );
 
             if (response.status === 200) {
-                // Handle PDF download
                 const blob = new Blob([response.data], { type: 'application/pdf' });
                 const url = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');
@@ -232,59 +216,21 @@ export const useStandardReportController = () => {
                 document.body.appendChild(link);
                 link.click();
                 link.remove();
+                window.URL.revokeObjectURL(url);
+                toast.success('Report generated successfully.', toastConfig);
+                return true;
             }
+            return false;
         } catch (error) {
-            console.error('Error generating report:', error);
-            let errorMessage = 'Error generating report. Please try again.';
-            if (error.response) {
-                if (error.response.status === 401) {
-                    errorMessage = 'Your session has expired. Please log in again.';
-                    // Optionally redirect to login page
-                    window.location.href = '/login';
-                } else {
-                    errorMessage = error.response.data.message || errorMessage;
-                }
-            }
-            alert(errorMessage);
-        } finally {
-            setIsGenerating(false);
-        }
-    };
-
-    const handleGenerateReportWithMessage = async () => {
-        try {
-            setMessage(null);
-            
-            if (!validateInputs()) {
-                return;
-            }
-
-            setIsGenerating(true);
-            await handleGenerateReport();
-            setMessage({
-                type: 'success',
-                text: 'Report generated successfully. You can find it in the View Reports section.'
-            });
-        } catch (error) {
-            let errorMessage = 'Error generating report. Please try again.';
-            if (error.response) {
-                if (error.response.status === 401) {
-                    errorMessage = 'Your session has expired. Please log in again.';
-                } else if (error.response.status === 404) {
-                    errorMessage = 'No data found for the selected criteria.';
-                } else {
-                    errorMessage = error.response.data.message || errorMessage;
-                }
-            }
-            setMessage({ type: 'error', text: errorMessage });
+            const errorMessage = error.response?.data?.message || 'Error generating report. Please try again.';
+            toast.error(errorMessage, toastConfig);
+            return false;
         } finally {
             setIsGenerating(false);
         }
     };
 
     const generatePreview = async () => {
-        if (!validateInputs()) return;  // Only basic validation for preview
-
         try {
             const response = await axios.post(
                 `${process.env.REACT_APP_API_URL}/reports/preview`, 
@@ -303,8 +249,8 @@ export const useStandardReportController = () => {
                 setPreviewData(response.data);
             }
         } catch (error) {
-            console.error('Error generating preview:', error);
             setPreviewData(null);
+            toast.error('Error generating preview', toastConfig);
         }
     };
 
@@ -382,16 +328,14 @@ export const useStandardReportController = () => {
         isGenerating,
         handleRoadToggle,
         handleGenerateReport,
-        handleGenerateReportWithMessage,
         getFilteredRoads,
         availableRanges,
         setAvailableRanges,
         previewData,
         generatePreview,
         formatColumnName,
-        message,
-        setMessage,
-        validateInputs,
+        validateField,
+        validateAllFields,
         handleTimeChange,
     };
 };
@@ -472,6 +416,7 @@ export const useViewReportsController = () => {
                 link.click();
                 link.remove();
                 window.URL.revokeObjectURL(url);
+                toast.success('Report downloaded successfully', toastConfig);
             }
         } catch (error) {
             console.error('Error downloading report:', error);
@@ -481,102 +426,101 @@ export const useViewReportsController = () => {
                 // Optionally redirect to login
                 window.location.href = '/login';
             }
-            alert(errorMessage);
-        }
-    };
-
-    const handleDownloadWithMessage = async (report) => {
-        try {
-            const response = await axios.get(
-                `${process.env.REACT_APP_API_URL}/reports/${report._id}/download`,
-                {
-                    responseType: 'blob',
-                    withCredentials: true
-                }
-            );
-
-            if (response.status === 200) {
-                const blob = new Blob([response.data], { type: 'application/pdf' });
-                const url = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.setAttribute('download', `traffic-report-${report._id}.pdf`);
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                window.URL.revokeObjectURL(url);
-                return { success: true, message: 'Report downloaded successfully' };
-            }
-        } catch (error) {
-            let errorMessage = 'Error downloading report. Please try again.';
-            if (error.response?.status === 401) {
-                errorMessage = 'Your session has expired. Please log in again.';
-            }
-            throw new Error(errorMessage);
+            toast.error(errorMessage, toastConfig);
         }
     };
 
     const handleDelete = async (reportId) => {
-        try {
-            if (!window.confirm('Are you sure you want to delete this report?')) {
-                return;
-            }
+        const confirmToastId = "confirm-delete-toast";
 
-            const response = await axios.delete(
-                `${process.env.REACT_APP_API_URL}/reports/${reportId}`,
-                { withCredentials: true }
-            );
-
-            if (response.status === 200) {
-                // Remove the deleted report from the local state
-                setReports(reports.filter(report => report._id !== reportId));
-                
-                // If the deleted report was selected, clear the selection and content
-                if (selectedReport?._id === reportId) {
-                    setSelectedReport(null);
-                    setReportContent(null);
-                    setIsLoadingContent(false); // Add this line to ensure loading state is reset
+        toast.warn(
+            <div style={{ width: '100%' }}>
+                <div style={{ marginBottom: '15px', textAlign: 'center' }}>
+                    Are you sure you want to delete this report?
+                </div>
+                <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    gap: '8px',
+                    width: '100%'
+                }}>
+                    <button 
+                        onClick={async () => {
+                            toast.dismiss(confirmToastId);
+                            try {
+                                const response = await axios.delete(
+                                    `${process.env.REACT_APP_API_URL}/reports/${reportId}`,
+                                    { withCredentials: true }
+                                );
+                                
+                                if (response.status === 200) {
+                                    // Update local state
+                                    setReports(prevReports => 
+                                        prevReports.filter(report => report._id !== reportId)
+                                    );
+                                    
+                                    // Clear selected report if it was deleted
+                                    if (selectedReport?._id === reportId) {
+                                        setSelectedReport(null);
+                                        setReportContent(null);
+                                        setIsLoadingContent(false);
+                                    }
+                                    
+                                    toast.success('Report deleted successfully', toastConfig);
+                                }
+                            } catch (error) {
+                                if (error.response?.status === 401) {
+                                    window.location.href = '/login';
+                                    toast.error('Session expired. Please log in again.', toastConfig);
+                                } else {
+                                    toast.error('Error deleting report', toastConfig);
+                                }
+                            }
+                        }}
+                        style={{
+                            padding: '6px 12px',
+                            backgroundColor: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            width: '80px'
+                        }}
+                    >
+                        Delete
+                    </button>
+                    <button 
+                        onClick={() => toast.dismiss(confirmToastId)}
+                        style={{
+                            padding: '6px 12px',
+                            backgroundColor: '#6c757d',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            width: '80px'
+                        }}
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>,
+            {
+                ...toastConfig,
+                position: "top-center", // Change position to top-center
+                toastId: confirmToastId,
+                autoClose: false,
+                closeOnClick: false,
+                closeButton: false,
+                style: {
+                    width: '300px',
+                    padding: '15px',
+                    margin: '0 auto' // Center horizontally
                 }
-                
-                alert('Report deleted successfully');
             }
-        } catch (error) {
-            console.error('Error deleting report:', error);
-            let errorMessage = 'Error deleting report. Please try again.';
-            if (error.response?.status === 401) {
-                errorMessage = 'Session expired. Please log in again.';
-                window.location.href = '/login';
-            }
-            alert(errorMessage);
-        }
-    };
-
-    const handleDeleteWithMessage = async (reportId) => {
-        try {
-            if (!window.confirm('Are you sure you want to delete this report?')) {
-                return;
-            }
-
-            const response = await axios.delete(
-                `${process.env.REACT_APP_API_URL}/reports/${reportId}`,
-                { withCredentials: true }
-            );
-
-            if (response.status === 200) {
-                setReports(reports.filter(report => report._id !== reportId));
-                if (selectedReport?._id === reportId) {
-                    setSelectedReport(null);
-                    setReportContent(null);
-                }
-                return { success: true, message: 'Report deleted successfully' };
-            }
-        } catch (error) {
-            let errorMessage = 'Error deleting report. Please try again.';
-            if (error.response?.status === 401) {
-                errorMessage = 'Your session has expired. Please log in again.';
-            }
-            throw new Error(errorMessage);
-        }
+        );
     };
 
     const handleSelectReport = async (report) => {
@@ -658,9 +602,7 @@ export const useViewReportsController = () => {
         selectedReport,
         setSelectedReport,
         handleDownload,
-        handleDownloadWithMessage,
         handleDelete,
-        handleDeleteWithMessage,
         reportContent,
         isLoadingContent,
         handleSelectReport,
@@ -722,9 +664,42 @@ export const useTrafficAnalysisController = () => {
         }
     };
 
+    const validateAnalysisInputs = () => {
+        // Date validation
+        if (!analysisDate) {
+            toast.error('Please select a date', toastConfig);
+            return false;
+        }
+
+        // Time range validation
+        if (!timeRange.start && !timeRange.end) {
+            toast.error('Please select both start and end time', toastConfig);
+            return false;
+        }
+        if (!timeRange.start) {
+            toast.error('Please select a start time', toastConfig);
+            return false;
+        }
+        if (!timeRange.end) {
+            toast.error('Please select an end time', toastConfig);
+            return false;
+        }
+        if (timeRange.start >= timeRange.end) {
+            toast.error('End time must be later than start time', toastConfig);
+            return false;
+        }
+
+        // Roads validation
+        if (selectedRoads.length === 0) {
+            toast.error('Please select at least one road', toastConfig);
+            return false;
+        }
+
+        return true;
+    };
+
     const fetchAnalysisData = async () => {
-        if (!analysisDate || !timeRange.start || !timeRange.end || selectedRoads.length === 0) {
-            setError('Please select all required filters');
+        if (!validateAnalysisInputs()) {
             return;
         }
 
@@ -745,10 +720,12 @@ export const useTrafficAnalysisController = () => {
 
             if (response.status === 200) {
                 setChartData(response.data);
+                toast.success('Analysis data loaded successfully', toastConfig);
             }
         } catch (error) {
             console.error('Error fetching analysis:', error);
             setError('Failed to fetch analysis data');
+            toast.error('Failed to fetch analysis data', toastConfig);
         } finally {
             setIsLoading(false);
         }
@@ -782,6 +759,7 @@ export const useTrafficAnalysisController = () => {
         setMetric('speed');
         setChartData(null);
         setError(null);
+        toast.info('All filters cleared', toastConfig);
     };
 
     const handleTimeChange = (type, value) => {
@@ -821,10 +799,6 @@ export const useTrafficAnalysisController = () => {
         availableRanges,
         clearAll,
         handleTimeChange,
+        validateAnalysisInputs,
     };
-};
-
-export const useCongestionReportController = () => {
-    // TODO: Implement congestion report logic
-    return {};
 };

@@ -7,6 +7,8 @@ import Navbar from './navbar';
 import { useReportsController, useStandardReportController, useViewReportsController, useTrafficAnalysisController } from '../components/reports';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import 'chartjs-adapter-date-fns'; // Add this import
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const Reports = () => {
     const navigate = useNavigate(); // Add this line
@@ -24,8 +26,6 @@ const Reports = () => {
                 return <ViewReports />;  // New component
             case 'traffic-analysis':
                 return <TrafficAnalysis />;
-            case 'congestion':
-                return <CongestionReport />;
             default:
                 return (
                     <div className={styles.welcomeMessage}>
@@ -37,7 +37,8 @@ const Reports = () => {
     };
 
     const ViewReports = () => {
-        const [message, setMessage] = useState(null);
+        // Remove message state
+        // const [message, setMessage] = useState(null);
         
         const {
             reports,
@@ -58,23 +59,14 @@ const Reports = () => {
 
         const handleDownloadWithMessage = async (report) => {
             try {
-                setMessage(null);
                 await handleDownload(report);
-                setMessage({ type: 'success', text: 'Report downloaded successfully' });
+                toast.success('Report downloaded successfully');
             } catch (error) {
-                setMessage({ type: 'error', text: error.message });
+                toast.error(error.message);
             }
         };
 
-        const handleDeleteWithMessage = async (reportId) => {
-            try {
-                setMessage(null);
-                await handleDelete(reportId);
-                setMessage({ type: 'success', text: 'Report deleted successfully' });
-            } catch (error) {
-                setMessage({ type: 'error', text: error.message });
-            }
-        };
+        // This function should be completely removed
 
         const renderContent = () => {
             const content = renderReportContent(reportContent, selectedReport, isLoadingContent, formatColumnName);
@@ -166,11 +158,7 @@ const Reports = () => {
                     {/* Reports List Panel */}
                     <div className={styles.reportsListPanel}>
                         {/* Show message if exists */}
-                        {message && (
-                            <div className={message.type === 'success' ? styles.successMessage : styles.errorMessage}>
-                                {message.text}
-                            </div>
-                        )}
+                        {/* Remove the message div here */}
                         
                         <h3>Generated Reports</h3>
                         <div className={styles.reportsFilter}>
@@ -223,7 +211,7 @@ const Reports = () => {
                                             </button>
                                             <button 
                                                 className={styles.actionButton}
-                                                onClick={() => handleDeleteWithMessage(report._id)}
+                                                onClick={() => handleDelete(report._id)} // Update this line
                                             >
                                                 <FaTrash /> Delete
                                             </button>
@@ -267,94 +255,142 @@ const Reports = () => {
             clearAll,
         } = useTrafficAnalysisController();
 
+        const handleRoadSelect = () => {
+            if (selectedRoads.length >= 5) {
+                toast.warning('Maximum 5 roads can be selected');
+                return;
+            }
+            setShowRoadSelector(true);
+        };
+
         const filteredRoads = getFilteredRoads();
 
+        // Add this debug function
+        const debugChartData = (data) => {
+            console.log('Raw Chart Data:', data);
+            if (data?.data) {
+                const sampleRoad = Object.keys(data.data)[0];
+                console.log('Sample Road Data:', {
+                    road: sampleRoad,
+                    times: data.data[sampleRoad]?.times?.length,
+                    values: data.data[sampleRoad]?.values?.length
+                });
+            }
+        };
+
         const renderChart = () => {
-            if (!chartData || !chartData.data || Object.keys(chartData.data).length === 0) {
-                return null;
+            // Debug logging
+            console.log('Raw Chart Data:', chartData);
+            
+            if (!chartData || !chartData.data) {
+                console.log('No chart data available');
+                return <p>No data available</p>;
             }
 
-            // Prepare data for Recharts
-            const times = Object.values(chartData.data)[0]?.times || [];
-            const chartPoints = times.map((time, index) => {
-                const point = { time };
-                Object.entries(chartData.data).forEach(([road, data]) => {
-                    point[road] = data.values[index];
+            try {
+                // Process the data
+                const roads = Object.keys(chartData.data);
+                if (roads.length === 0) {
+                    return <p>No roads data available</p>;
+                }
+
+                // Get data points
+                const firstRoad = chartData.data[roads[0]];
+                console.log('First road data:', firstRoad);
+
+                // Check if data format is correct
+                if (!Array.isArray(firstRoad?.times) || !Array.isArray(firstRoad?.values)) {
+                    console.error('Invalid data format:', firstRoad);
+                    return <p>Invalid data format received from server</p>;
+                }
+
+                // Check if we have any data points
+                if (firstRoad.times.length === 0 || firstRoad.values.length === 0) {
+                    toast.warning('No data points available for the selected time range');
+                    return <p>No data points available for the selected time range</p>;
+                }
+
+                // Create data points array
+                const dataPoints = firstRoad.times.map((time, index) => {
+                    const point = { time };
+                    roads.forEach(road => {
+                        const roadData = chartData.data[road];
+                        if (roadData && Array.isArray(roadData.values)) {
+                            point[road] = parseFloat(roadData.values[index]) || 0;
+                        }
+                    });
+                    return point;
                 });
-                return point;
-            });
 
-            const colors = [
-                '#3498db', '#e74c3c', '#2ecc71', '#f1c40f', '#9b59b6'
-            ];
+                console.log('Processed data points:', dataPoints);
 
-            return (
-                <div style={{ width: '100%', height: 'calc(100vh - 350px)', minHeight: '600px' }}>
-                    <ResponsiveContainer>
-                        <LineChart 
-                            data={chartPoints}
-                            margin={{
-                                top: 50,
-                                right: 30,
-                                left: 20,
-                                bottom: 85  // Increased from 65 to 85 to make more room
-                            }}
-                        >
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis 
-                                dataKey="time"
-                                label={{ 
-                                    value: 'Time', 
-                                    position: 'insideBottom', 
-                                    offset: -50  // Adjusted from -35 to -50 to position above road names
-                                }}
-                                tick={{
-                                    angle: -45,  // Angle the time labels
-                                    textAnchor: 'end',
-                                    dy: 20  // Increased from 10 to 20 to shift text down further
-                                }}
-                                height={80}  // Increased from 60 to 80 to accommodate longer road names
-                            />
-                            <YAxis
-                                label={{ 
-                                    value: metric === 'speed' ? 'Speed (km/h)' : 
-                                          metric === 'incidents' ? 'Number of Incidents' : 
-                                          'Congestion Level',
-                                    angle: -90,
-                                    position: 'insideLeft'
-                                }}
-                            />
-                            <Tooltip 
-                                contentStyle={{
-                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                    border: '1px solid #e2e8f0',
-                                    borderRadius: '6px',
-                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                                }}
-                            />
-                            <Legend 
-                                verticalAlign="top"
-                                height={36}
-                                wrapperStyle={{
-                                    paddingTop: '10px'
-                                }}
-                            />
-                            {Object.keys(chartData.data).map((road, index) => (
-                                <Line
-                                    key={road}
-                                    type="monotone"
-                                    dataKey={road}
-                                    name={road.length > 20 ? `${road.substring(0, 20)}...` : road}  // Truncate long road names
-                                    stroke={colors[index % colors.length]}
-                                    strokeWidth={2}
-                                    dot={{ r: 4 }}
-                                    activeDot={{ r: 6 }}
+                // Return chart only if we have data
+                if (dataPoints.length === 0) {
+                    return <p>No data points available</p>;
+                }
+
+                return (
+                    <div style={{ width: '100%', height: '500px', position: 'relative' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart 
+                                data={dataPoints}
+                                margin={{ top: 20, right: 30, left: 20, bottom: 70 }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis 
+                                    dataKey="time"
+                                    angle={-45}
+                                    textAnchor="end"
+                                    height={80}
+                                    interval={0}
                                 />
-                            ))}
-                        </LineChart>
-                    </ResponsiveContainer>
-                </div>
-            );
+                                <YAxis 
+                                    label={{ 
+                                        value: getYAxisLabel(), 
+                                        angle: -90, 
+                                        position: 'insideLeft',
+                                        offset: -5
+                                    }} 
+                                />
+                                <Tooltip />
+                                <Legend 
+                                    verticalAlign="top"
+                                    height={36}
+                                    wrapperStyle={{ paddingBottom: '20px' }}
+                                />
+                                {roads.map((road, index) => (
+                                    <Line
+                                        key={road}
+                                        type="monotone"
+                                        dataKey={road}
+                                        stroke={`hsl(${(index * 137.5) % 360}, 70%, 50%)`}
+                                        strokeWidth={2}
+                                        dot={true}
+                                        name={road}
+                                    />
+                                ))}
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                );
+            } catch (error) {
+                console.error('Chart rendering error:', error);
+                toast.error('Error rendering chart: ' + error.message);
+                return <p>Error rendering chart</p>;
+            }
+        };
+
+        const getYAxisLabel = () => {
+            switch (metric) {
+                case 'speed':
+                    return 'Speed (km/h)';
+                case 'incidents':
+                    return 'Number of Incidents';
+                case 'congestion':
+                    return 'Congestion Level';
+                default:
+                    return '';
+            }
         };
 
         return (
@@ -432,7 +468,7 @@ const Reports = () => {
                             <label>Compare Roads ({selectedRoads.length}/5)</label>
                             <button 
                                 className={styles.roadSelectorButton}
-                                onClick={() => setShowRoadSelector(true)}
+                                onClick={handleRoadSelect}
                             >
                                 <FaRoad /> Select Roads to Compare
                             </button>
@@ -457,7 +493,7 @@ const Reports = () => {
                                 onClick={fetchAnalysisData}
                                 disabled={isLoading}
                             >
-                                Display
+                                {isLoading ? 'Loading...' : 'Display'}
                             </button>
                             <button 
                                 className={styles.clearButton}
@@ -468,7 +504,8 @@ const Reports = () => {
                             </button>
                         </div>
 
-                        {error && <div className={styles.errorMessage}>{error}</div>}
+                        {/* Remove error display since we're using toast now */}
+                        {/* {error && <div className={styles.errorMessage}>{error}</div>} */}
                     </div>
 
                     {/* Chart Panel */}
@@ -477,8 +514,12 @@ const Reports = () => {
                         <div className={styles.chartContainer}>
                             {isLoading ? (
                                 <div className={styles.loadingMessage}>Loading analysis...</div>
+                            ) : error ? (
+                                <div className={styles.errorMessage}>{error}</div>
                             ) : chartData ? (
-                                renderChart()
+                                <div style={{ width: '100%', height: '100%', minHeight: '500px' }}>
+                                    {renderChart()}
+                                </div>
                             ) : (
                                 <p className={styles.placeholderText}>
                                     Select a date, time range, and roads to visualize traffic patterns
@@ -544,15 +585,20 @@ const Reports = () => {
         );
     };
 
-    const CongestionReport = () => (
-        <div className={styles.reportContent}>
-            <h2>Congestion Report</h2>
-            <p>Congestion analysis will be implemented here</p>
-        </div>
-    );
-
     return (
         <div className={styles.pageWrapper}>
+            <ToastContainer
+                position="top-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="light"
+            />
             <button 
                 className={styles.modernBackButton}
                 onClick={() => navigate('/traffic-management')}
@@ -595,7 +641,8 @@ const Reports = () => {
 };
 
 const StandardReport = () => {
-    const [message, setMessage] = useState(null);
+    // Remove the message state
+    // const [message, setMessage] = useState(null);
     
     const {
         dateRange,
@@ -616,36 +663,9 @@ const StandardReport = () => {
         getFilteredRoads,
         availableRanges,
         previewData,
-        formatColumnName  // Add this to destructuring
+        formatColumnName,  // Add this to destructuring
+        generatePreview
     } = useStandardReportController();
-
-    const validateFilters = () => {
-        const hasDateRange = dateRange.start || dateRange.end;
-        const hasTimeRange = timeRange.start || timeRange.end;
-        const hasRoads = selectedRoads.length > 0;
-
-        if (!hasDateRange && !hasTimeRange && !hasRoads) {
-            setMessage({ type: 'error', text: 'Please provide at least one filter (Date, Time, or Roads)' });
-            return false;
-        }
-        return true;
-    };
-
-    const handleGenerateReportWithMessage = async () => {
-        try {
-            setMessage(null);
-            
-            // First validate filters
-            if (!validateFilters()) {
-                return;
-            }
-
-            await handleGenerateReport();
-            setMessage({ type: 'success', text: 'Report generated successfully' });
-        } catch (error) {
-            setMessage({ type: 'error', text: error.message });
-        }
-    };
 
     const filteredRoads = getFilteredRoads();
 
@@ -688,16 +708,28 @@ const StandardReport = () => {
         );
     };
 
+    // Update the useEffect that calls generatePreview
+    useEffect(() => {
+        const debounceTimer = setTimeout(async () => {
+            if (dateRange.start || dateRange.end || timeRange.start || timeRange.end || selectedRoads.length > 0) {
+                try {
+                    await generatePreview();
+                } catch (error) {
+                    // Only show toast, prevent error from propagating to console
+                    toast.error(error.message);
+                }
+            }
+        }, 500);
+
+        return () => clearTimeout(debounceTimer);
+    }, [dateRange, timeRange, selectedRoads, dataType, generatePreview]);
+
     return (
         <div className={styles.reportContent}>
             <div className={styles.standardReportContainer}>
                 <div className={styles.filterPanel}>
                     {/* Show message if exists */}
-                    {message && (
-                        <div className={message.type === 'success' ? styles.successMessage : styles.errorMessage}>
-                            {message.text}
-                        </div>
-                    )}
+                    {/* Remove the message div here */}
                     
                     <h3>Report Settings</h3>
                     <p className={styles.filterNote}>
@@ -800,7 +832,7 @@ const StandardReport = () => {
 
                     <button 
                         className={styles.generateButton}
-                        onClick={handleGenerateReportWithMessage}
+                        onClick={handleGenerateReport}
                         disabled={isGenerating}
                     >
                         {isGenerating ? 'Generating...' : 'Generate Report'}

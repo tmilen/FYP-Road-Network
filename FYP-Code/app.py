@@ -63,12 +63,12 @@ def create_app(db_client=None):
     user_permissions_collection = db['user_permissions']
 
     # Create a GridFS instance for file storage
-    fs = gridfs.GridFS(client['TSUN-TESTING'], collection='maps-upload')
+    fs = gridfs.GridFS(client['traffic-data'], collection='maps-upload')
 
     # Add collection for historical traffic data
-    historical_traffic_data = client['TSUN-TESTING']['historical_traffic_data']
+    historical_traffic_data = client['traffic-data']['historical_traffic_data']
 
-    traffic_logs = client['TSUN-TESTING']['traffic_logs']
+    traffic_logs = client['traffic-data']['traffic_logs']
 
         # Add timezone configuration
     SGT = pytz.timezone('Asia/Singapore')
@@ -94,10 +94,10 @@ def create_app(db_client=None):
         SINGAPORE_ROADS = []  # Fallback to empty list if file read fails
 
     # Add new collection for current traffic data
-    current_traffic_data = client['TSUN-TESTING']['current_traffic_data']
+    current_traffic_data = client['traffic-data']['current_traffic_data']
 
     # Add new collection for traffic incidents
-    traffic_incidents = client['TSUN-TESTING']['traffic_incidents']
+    traffic_incidents = client['traffic-data']['traffic_incidents']
 
     def fetch_current_traffic():
         """Fetch current traffic data for all roads"""
@@ -1138,7 +1138,7 @@ def create_app(db_client=None):
     def get_maps_list():
         try:
             # Use the files collection directly to get metadata
-            files_collection = client['TSUN-TESTING']['maps-upload.files']
+            files_collection = client['traffic-data']['maps-upload.files']
             files = files_collection.find()
             
             maps_list = [{
@@ -1408,10 +1408,10 @@ def create_app(db_client=None):
             return jsonify({'message': 'Error fetching roads list'}), 500
 
     # Add new collection for reports
-    reports_collection = client['TSUN-TESTING']['reports']
+    reports_collection = client['traffic-data']['reports']
 
     # Add GridFS instance for reports
-    reports_fs = gridfs.GridFS(client['TSUN-TESTING'], collection='reports-files')
+    reports_fs = gridfs.GridFS(client['traffic-data'], collection='reports-files')
 
     def add_incident_data(records, query_date_range=None):
         """Add incident data to traffic records"""
@@ -2716,5 +2716,139 @@ def create_app(db_client=None):
         except Exception as e:
             print(f"Error in route calculation: {str(e)}")
             return None
+
+    @app.route('/api/storage-metrics', methods=['GET'])
+    def get_storage_metrics():
+        try:
+            print("\n=== Traffic Data Storage Debug ===")
+            
+            # Get cluster stats
+            cluster_stats = client.admin.command('listDatabases')
+            print(f"Raw cluster stats: {cluster_stats}")
+            
+            # Get max size from cluster info
+            # If maxSize is not set, fall back to 512MB (Free Tier default)
+            TOTAL_SIZE = cluster_stats.get('maxSize', 512 * 1024 * 1024)
+            
+            # Get stats for traffic-data database only
+            db = client['traffic-data']
+            db_stats = db.command('dbStats')
+            print(f"Raw dbStats for traffic-data: {db_stats}")
+            
+            # Calculate total size for database
+            total_size = db_stats['dataSize'] + db_stats['indexSize']
+            
+            # Get collections stats
+            collections = []
+            for collection_name in db.list_collection_names():
+                try:
+                    coll_stats = db.command('collStats', collection_name)
+                    collections.append({
+                        'name': collection_name,
+                        'size': coll_stats['size'] + coll_stats.get('totalIndexSize', 0),
+                        'documentCount': coll_stats['count']
+                    })
+                except Exception as e:
+                    print(f"Error getting stats for collection {collection_name}: {e}")
+                    continue
+            
+            database_stats = [{
+                'name': 'traffic-data',
+                'size': total_size,
+                'collections': collections
+            }]
+            
+            print(f"\n=== Final Calculations ===")
+            print(f"Cluster Max Size: {TOTAL_SIZE/1024/1024:.2f} MB")
+            print(f"Total Database Size: {total_size/1024/1024:.2f} MB")
+            print(f"Usage Percentage: {(total_size/TOTAL_SIZE)*100:.2f}%")
+            print(f"Collections count: {len(collections)}")
+            
+            return jsonify({
+                'totalSize': TOTAL_SIZE,
+                'usedSize': total_size,
+                'databases': database_stats,
+                'debug': {
+                    'totalSizeMB': total_size/1024/1024,
+                    'maxSizeMB': TOTAL_SIZE/1024/1024,
+                    'databaseCount': 1,
+                    'clusterName': cluster_stats.get('clustername', 'FlowX-Application')
+                }
+            })
+
+        except Exception as e:
+            print(f"Error fetching storage metrics: {str(e)}")
+            # Fall back to Free Tier limit if there's an error
+            TOTAL_SIZE = 512 * 1024 * 1024
+            return jsonify({
+                'totalSize': TOTAL_SIZE,
+                'usedSize': 0,
+                'databases': [],
+                'error': str(e),
+                'debug': {
+                    'maxSizeMB': TOTAL_SIZE/1024/1024,
+                    'error': 'Failed to fetch cluster stats, using default Free Tier limit'
+                }
+            }), 500
+
+    @app.route('/api/collection-data', methods=['GET'])
+    def get_collection_data():
+        try:
+            collection_name = request.args.get('name')
+            page = int(request.args.get('page', 1))
+            per_page = int(request.args.get('per_page', 10))
+            
+            if not collection_name:
+                return jsonify({'message': 'Collection name is required'}), 400
+
+            db = client['traffic-data']
+            collection = db[collection_name]
+            
+            # Get total count
+            total_documents = collection.count_documents({})
+            total_pages = (total_documents + per_page - 1) // per_page
+            
+            # Get paginated documents
+            documents = list(collection.find()
+                            .skip((page - 1) * per_page)
+                            .limit(per_page))
+            
+            # Convert ObjectId to string for JSON serialization
+            for doc in documents:
+                if '_id' in doc:
+                    doc['_id'] = str(doc['_id'])
+                # Convert datetime objects to string
+                for key, value in doc.items():
+                    if isinstance(value, datetime):
+                        doc[key] = value.isoformat()
+
+            return jsonify({
+                'documents': documents,
+                'total': total_documents,
+                'page': page,
+                'per_page': per_page,
+                'total_pages': total_pages
+            })
+
+        except Exception as e:
+            print(f"Error fetching collection data: {str(e)}")
+            return jsonify({'message': f'Error fetching collection data: {str(e)}'}), 500
+
+    @app.route('/api/collection-data/<collection_name>/<document_id>', methods=['DELETE'])
+    def delete_document(collection_name, document_id):
+        try:
+            db = client['traffic-data']
+            collection = db[collection_name]
+            
+            result = collection.delete_one({'_id': ObjectId(document_id)})
+            
+            if result.deleted_count > 0:
+                return jsonify({'message': 'Document deleted successfully'}), 200
+            else:
+                return jsonify({'message': 'Document not found'}), 404
+
+        except Exception as e:
+            print(f"Error deleting document: {str(e)}")
+            return jsonify({'message': f'Error deleting document: {str(e)}'}), 500
 
     return app

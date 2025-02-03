@@ -6,6 +6,8 @@ import 'react-calendar/dist/Calendar.css';
 import UserManagementController from '../components/usermanagement';  
 import { MdOutlineModeEdit, MdOutlineCancel, MdDeleteOutline } from "react-icons/md";
 import { FaRegSave } from "react-icons/fa";
+import { ToastContainer, Bounce } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const UserManagement = () => {
     const [activeView, setActiveView] = useState('users'); // Add this line at the top with other states
@@ -80,6 +82,19 @@ const UserManagement = () => {
 
     return (
         <div className={styles.pageContainer}>
+            <ToastContainer
+                position="top-right"
+                autoClose={5000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick={false}
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="light"
+                transition={Bounce}
+            />
             <h1 className={styles.title}>FlowX</h1>
             <Navbar sticky={false} />
             <div className={styles.usermanagementContainer}>

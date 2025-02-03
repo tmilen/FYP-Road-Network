@@ -1,8 +1,23 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { toast, Bounce } from 'react-toastify';
 
 const UserManagementController = () => {
+    // Toast configuration
+    const toastConfig = {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "light",
+        transition: Bounce,
+    };
+    const API_URL = process.env.REACT_APP_API_URL;
+    // Remove unnecessary message states
     const [users, setUsers] = useState([]);
     const [profiles, setProfiles] = useState([]);
     const [editUserId, setEditUserId] = useState(null);
@@ -27,19 +42,16 @@ const UserManagementController = () => {
     maxDate.setFullYear(maxDate.getFullYear() - 18);
     const [date, setDate] = useState(maxDate);
     const navigate = useNavigate();
-    const [errorMessage, setErrorMessage] = useState(null);
-    const [userErrorMessage, setUserErrorMessage] = useState(null);
-    const [profileErrorMessage, setProfileErrorMessage] = useState(null);
-    const [userSearchMessage, setUserSearchMessage] = useState(null);
-    const [profileSearchMessage, setProfileSearchMessage] = useState(null);
-    const [deleteProfileMessage, setDeleteProfileMessage] = useState(null);
-    const [createUserMessage, setCreateUserMessage] = useState(null);
-    const [allUsersMessage, setAllUsersMessage] = useState(null);
-    const [createProfileMessage, setCreateProfileMessage] = useState(null);
-    const [allProfilesMessage, setAllProfilesMessage] = useState(null);
+    const [features, setFeatures] = useState({
+        traffic_management: false,
+        data_health: false,
+        manage_users: false,
+        traffic_data: false,
+        live_map: false,
+        upload_map: false,
+        report: false
+    });
 
-    const API_URL = process.env.REACT_APP_API_URL;
-    
     useEffect(() => {
         axios.get(`${API_URL}/session`, { withCredentials: true })
             .then(response => {
@@ -70,26 +82,14 @@ const UserManagementController = () => {
     useEffect(() => {
         if (searchQuery === '') {
             setFilteredUsers([]);
-            setUserSearchMessage(null);
         }
     }, [searchQuery]);
 
     useEffect(() => {
         if (profileSearchQuery === '') {
             setFilteredProfiles([]);
-            setProfileSearchMessage(null);
         }
     }, [profileSearchQuery]);
-
-    const [features, setFeatures] = useState({
-        traffic_management: false,
-        data_health: false,
-        manage_users: false,
-        traffic_data: false,
-        live_map: false,
-        upload_map: false,
-        report: false
-    });
 
     const handleFeatureToggle = (feature) => {
         const updatedFeatures = {
@@ -124,38 +124,19 @@ const handleSaveProfile = (oldProfileName) => {
     // Check if the edited profile name already exists
     const existingProfile = profiles.find(profile => profile.user_profile === formattedNewProfileName && profile.user_profile !== formattedOldProfileName);
     if (existingProfile) {
-        setProfileErrorMessage("Profile name already exists");
-        clearMessageAfterTimeout(setProfileErrorMessage);
+        toast.error("Profile name already exists", toastConfig);
         return;
     }
 
     axios.put(`${API_URL}/profiles/${formattedOldProfileName}`, { user_profile: formattedNewProfileName }, { withCredentials: true })
         .then((response) => {
-            setAllProfilesMessage("Profile updated successfully"); // Ensure the message text matches the condition
+            toast.success("Profile updated successfully", toastConfig);
             setEditProfileId(null); // Exit edit mode
             setEditableProfileName('');
-            clearMessageAfterTimeout(setAllProfilesMessage);
-
-            // Update profiles and filteredProfiles
-            setProfiles(prevProfiles =>
-                prevProfiles.map(profile =>
-                    profile.user_profile === oldProfileName
-                        ? { ...profile, user_profile: formattedNewProfileName }
-                        : profile
-                )
-            );
-            // Also update filteredProfiles if a search is active
-            setFilteredProfiles(prevFilteredProfiles =>
-                prevFilteredProfiles.map(profile =>
-                    profile.user_profile === oldProfileName
-                        ? { ...profile, user_profile: formattedNewProfileName }
-                        : profile
-                )
-            );
+            fetchProfiles();
         })
         .catch(error => {
-            setProfileErrorMessage("Profile name already exists");
-            clearMessageAfterTimeout(setProfileErrorMessage);
+            toast.error("Error updating profile", toastConfig);
         });
 };
 
@@ -199,8 +180,7 @@ const handleSaveProfile = (oldProfileName) => {
     // Function to handle search input and filter users
     const handleUserSearch = async () => {
         if (!searchQuery.trim()) {
-            setUserSearchMessage("Search field can't be empty");
-            clearMessageAfterTimeout(setUserSearchMessage);
+            toast.warn("Search field can't be empty", toastConfig);
             return;
         }
     
@@ -211,13 +191,15 @@ const handleSaveProfile = (oldProfileName) => {
             });
             const filtered = response.data;
             setFilteredUsers(filtered);
-            setUserSearchMessage(filtered.length > 0 ? "User found" : "User not found");
-            clearMessageAfterTimeout(setUserSearchMessage);
+            if (filtered.length > 0) {
+                toast.success("User found", toastConfig);
+            } else {
+                toast.info("No users found", toastConfig);
+            }
             return filtered;
         } catch (error) {
             console.error("Error searching users:", error);
-            setUserSearchMessage("Error searching users");
-            clearMessageAfterTimeout(setUserSearchMessage);
+            toast.error("Error searching users", toastConfig);
             return [];
         }
     };
@@ -225,8 +207,7 @@ const handleSaveProfile = (oldProfileName) => {
     // Function to handle profile search
     const handleProfileSearch = async () => {
         if (!profileSearchQuery.trim()) {
-            setProfileSearchMessage("Search field can't be empty");
-            clearMessageAfterTimeout(setProfileSearchMessage);
+            toast.warn("Search field can't be empty", toastConfig);
             return;
         }
     
@@ -237,13 +218,15 @@ const handleSaveProfile = (oldProfileName) => {
             });
             const filtered = response.data;
             setFilteredProfiles(filtered);
-            setProfileSearchMessage(filtered.length > 0 ? "Profile found" : "Profile not found");
-            clearMessageAfterTimeout(setProfileSearchMessage);
+            if (filtered.length > 0) {
+                toast.success("Profile found", toastConfig);
+            } else {
+                toast.info("No profiles found", toastConfig);
+            }
             return filtered;
         } catch (error) {
             console.error("Error searching profiles:", error);
-            setProfileSearchMessage("Error searching profiles");
-            clearMessageAfterTimeout(setProfileSearchMessage);
+            toast.error("Error searching profiles", toastConfig);
             return [];
         }
     };
@@ -265,12 +248,6 @@ const handleSaveProfile = (oldProfileName) => {
         setNewUser({ ...newUser, date_of_birth: selectedDate.toISOString().split('T')[0] });
     };
 
-    const clearMessageAfterTimeout = (setMessageFunction) => {
-        setTimeout(() => {
-            setMessageFunction(null);
-        }, 7000);
-    };
-
     const handleSubmitUser = (event) => {
         event.preventDefault();
         
@@ -281,16 +258,14 @@ const handleSaveProfile = (oldProfileName) => {
         // Check if required fields are empty
         const requiredFields = ['username', 'password', 'email', 'first_name', 'last_name'];
         if (!requiredFields.every(field => userData[field])) {
-            setCreateUserMessage("All fields are required");
-            clearMessageAfterTimeout(setCreateUserMessage);
+            toast.error("All fields are required", toastConfig);
             return;
         }
     
         // Check if email format is valid
         const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailPattern.test(userData.email)) {
-            setCreateUserMessage("Invalid email format");
-            clearMessageAfterTimeout(setCreateUserMessage);
+            toast.error("Invalid email format", toastConfig);
             return;
         }
     
@@ -306,16 +281,11 @@ const handleSaveProfile = (oldProfileName) => {
                     date_of_birth: '',
                     user_profile: 'traffic_management_user'
                 });
-                setCreateUserMessage("User created successfully");
-                clearMessageAfterTimeout(setCreateUserMessage);
+                toast.success("User created successfully", toastConfig);
             })
             .catch(error => {
-                if (error.response && error.response.data && error.response.data.message) {
-                    setCreateUserMessage(error.response.data.message);
-                } else {
-                    setCreateUserMessage("Error creating user: " + (error.response?.data?.message || error.message));
-                }
-                clearMessageAfterTimeout(setCreateUserMessage);
+                const errorMessage = error.response?.data?.message || error.message;
+                toast.error(`Error creating user: ${errorMessage}`, toastConfig);
             });
     };
 
@@ -324,16 +294,12 @@ const handleSaveProfile = (oldProfileName) => {
         
         // Check if profile name is empty
         if (!newProfile) {
-            setCreateProfileMessage("Profile name is required");
-            clearMessageAfterTimeout(setCreateProfileMessage);
+            toast.error("Profile name is required", toastConfig);
             return;
         }
 
         // Convert profile name to lowercase and replace spaces with underscores
         const formattedProfileName = newProfile.trim().toLowerCase().replace(/\s+/g, '_');
-
-        // Clear delete profile message
-        setDeleteProfileMessage(null);
 
         // Include permissions in the profile creation
         const profileData = {
@@ -351,7 +317,7 @@ const handleSaveProfile = (oldProfileName) => {
 
         axios.post(`${API_URL}/profiles`, profileData, { withCredentials: true })
             .then((response) => {
-                setCreateProfileMessage(response.data.message || "Profile created successfully"); 
+                toast.success("Profile created successfully", toastConfig);
                 setNewProfile(''); 
                 // Reset features after creating profile
                 setFeatures({
@@ -364,30 +330,23 @@ const handleSaveProfile = (oldProfileName) => {
                     report: false
                 });
                 fetchProfiles(); 
-                clearMessageAfterTimeout(setCreateProfileMessage);
             })
             .catch(error => {
                 const errorMessage = error.response?.data?.message || error.message;
-                setCreateProfileMessage(errorMessage.includes("Profile already exists") ? errorMessage : "Error creating profile: " + errorMessage);
-                clearMessageAfterTimeout(setCreateProfileMessage);
+                toast.error(`Error creating profile: ${errorMessage}`, toastConfig);
             });
     };
 
     const deleteProfile = (profileName) => {
         const formattedProfileName = profileName.toLowerCase().replace(/\s+/g, '_');
 
-        // Clear create profile message
-        setProfileErrorMessage(null);
-
         axios.delete(`${API_URL}/profiles/${formattedProfileName}`, { withCredentials: true })
         .then((response) => {
-            setAllProfilesMessage(response.data.message || "Profile deleted successfully"); 
+            toast.success("Profile deleted successfully", toastConfig);
             fetchProfiles(); 
-            clearMessageAfterTimeout(setAllProfilesMessage);
         })
         .catch(error => {
-            setAllProfilesMessage("Error deleting profile: " + (error.response?.data?.message || error.message));
-            clearMessageAfterTimeout(setAllProfilesMessage);
+            toast.error(`Error deleting profile: ${error.response?.data?.message || error.message}`, toastConfig);
         });
     };
 
@@ -395,14 +354,12 @@ const handleSaveProfile = (oldProfileName) => {
         axios.delete(`${API_URL}/users/${userId}`, { withCredentials: true })
             .then((response) => {
                 if (response.status === 200) {
-                    setAllUsersMessage("User deleted successfully"); 
+                    toast.success("User deleted successfully", toastConfig);
                     fetchUsers();
-                    clearMessageAfterTimeout(setAllUsersMessage);
                 }
             })
             .catch(error => {
-                setAllUsersMessage("Failed to delete user");
-                clearMessageAfterTimeout(setAllUsersMessage);
+                toast.error("Failed to delete user", toastConfig);
             });
     };
 
@@ -433,7 +390,6 @@ const handleSaveProfile = (oldProfileName) => {
             upload_map: false,
             report: false
         });
-        setUserErrorMessage(null); // Clear the error message
     };
     
     const handleSaveClick = () => {
@@ -447,26 +403,26 @@ const handleSaveProfile = (oldProfileName) => {
         const existingUserByEmail = users.find(user => user.email === updatedUserData.email && user.id !== editUserId);
     
         if (existingUserByUsername) {
-            setUserErrorMessage("Username already exists");
+            toast.error("Username already exists", toastConfig);
             return;
         }
     
         if (existingUserByEmail) {
-            setUserErrorMessage("Email already exists");
+            toast.error("Email already exists", toastConfig);
             return;
         }
 
         // Check if email format is valid
         const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailPattern.test(updatedUserData.email)) {
-            setUserErrorMessage("Invalid email format");
+            toast.error("Invalid email format", toastConfig);
             return;
         }
     
         axios.put(`${API_URL}/users/${editUserId}`, updatedUserData, { withCredentials: true })
             .then((response) => {
                 if (response.status === 200) {
-                    setAllUsersMessage("User updated successfully"); 
+                    toast.success("User updated successfully", toastConfig);
                     fetchUsers();  
                     setEditUserId(null);
                     setEditableUser({});
@@ -479,7 +435,6 @@ const handleSaveProfile = (oldProfileName) => {
                         upload_map: false,
                         report: false
                     });
-                    clearMessageAfterTimeout(setAllUsersMessage); // Clear the message after a timeout
 
                     // Update users and filteredUsers to reflect the changes
                     setUsers(prevUsers => 
@@ -493,12 +448,12 @@ const handleSaveProfile = (oldProfileName) => {
                         )
                     );
                 } else {
-                    setUserErrorMessage("Failed to save changes: Unexpected response from server");
+                    toast.error("Failed to save changes: Unexpected response from server", toastConfig);
                 }
             })
             .catch(error => {
                 console.error("Error saving changes:", error); 
-                setUserErrorMessage("Failed to save changes: " + (error.response?.data?.message || error.message));
+                toast.error(`Failed to save changes: ${error.response?.data?.message || error.message}`, toastConfig);
             });
     };
     
@@ -564,18 +519,8 @@ const handleSaveProfile = (oldProfileName) => {
         editProfileId,
         editableProfileName,
         profileSearchQuery,
-        errorMessage,
-        userErrorMessage,
-        profileErrorMessage,
         clearUserFields,
         clearProfileFields,
-        userSearchMessage,
-        profileSearchMessage,
-        deleteProfileMessage,
-        createUserMessage,
-        allUsersMessage,
-        createProfileMessage,
-        allProfilesMessage
     };
 };
 

@@ -38,60 +38,43 @@ const useAccountManagementController = () => {
         setPasswords({ ...passwords, [name]: value });
     };
 
-    const handlePasswordSubmit = (e) => {
+    const handlePasswordSubmit = async (e) => {
         e.preventDefault();
 
         if (passwords.newPassword === passwords.currentPassword) {
-            setMessage('New password can\'t be the same as the old password');
-            setSuccess(false);
-            return;
+            return { success: false, message: 'New password can\'t be the same as the old password' };
         }
 
         if (passwords.newPassword !== passwords.confirmNewPassword) {
-            setMessage('New passwords do not match');
-            setSuccess(false);
-            return;
+            return { success: false, message: 'New passwords do not match' };
         }
 
-        axios.post(`${API_URL}/change-password`, {
-            currentPassword: passwords.currentPassword,
-            newPassword: passwords.newPassword
-        }, { withCredentials: true })
-            .then(response => {
-                setMessage(response.data.message);
-                if (response.status === 200) {
-                    setSuccess(true);
-                    setPasswords({
-                        currentPassword: '',
-                        newPassword: '',
-                        confirmNewPassword: ''
-                    });
-                } else {
-                    setSuccess(false);
-                }
-            })
-            .catch(error => {
-                if (error.response && error.response.data && error.response.data.message) {
-                    setMessage(error.response.data.message);
-                } else {
-                    setMessage('Error changing password.');
-                }
-                setSuccess(false);
-                console.error("Error changing password", error);
-            });
+        try {
+            const response = await axios.post(`${API_URL}/change-password`, {
+                currentPassword: passwords.currentPassword,
+                newPassword: passwords.newPassword
+            }, { withCredentials: true });
+
+            if (response.status === 200) {
+                return { success: true, message: response.data.message };
+            } else {
+                return { success: false, message: response.data.message };
+            }
+        } catch (error) {
+            const message = error.response?.data?.message || 'Error changing password.';
+            console.error("Error changing password", error);
+            return { success: false, message };
+        }
     };
 
     return {
         userData,
         showPasswordForm,
         passwords,
-        message,
-        success,
         setShowPasswordForm,
         handlePasswordChange,
         handlePasswordSubmit,
-        setPasswords, // Ensure setPasswords is returned
-        setMessage, // Ensure setMessage is returned
+        setPasswords,
     };
 };
 

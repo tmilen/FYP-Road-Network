@@ -9,9 +9,13 @@ import { GiAk47 } from "react-icons/gi";
 import { IoIosAirplane, IoIosBusiness } from "react-icons/io";
 import { FaCarSide } from 'react-icons/fa';
 import { FaRoad, FaTrash } from 'react-icons/fa';  // Add this import
-
+import { useNavigate } from 'react-router-dom';
+import { FaArrowLeftLong } from "react-icons/fa6";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 function UploadMap() {
+    const navigate = useNavigate();
     const {
         selectedFile,
         uploadMessage,
@@ -38,6 +42,13 @@ function UploadMap() {
 
     return (
         <div className={styles.pageContainer}>
+            <button 
+                className={styles.modernBackButton}
+                onClick={() => navigate('/traffic-management')}
+            >
+                <FaArrowLeftLong className={styles.backArrow} />
+                <span className={styles.backText}>Back to Traffic Management</span>
+            </button>
             <h1 className={styles.title}>FlowX</h1>
             <Navbar sticky={false} />
             <div className={styles.navbarGap}></div>
@@ -208,6 +219,18 @@ function UploadMap() {
                     </div>
                 </div>
             </div>
+            <ToastContainer 
+                position="top-center"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="light"
+            />
         </div>
     );
 }

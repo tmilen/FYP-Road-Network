@@ -1,23 +1,22 @@
 import React from 'react';
 import Navbar from './navbar';
-import { IoIosCloseCircleOutline } from "react-icons/io";  // Updated import
+import { IoIosCloseCircleOutline } from "react-icons/io";
 import { FaUser, FaEnvelope, FaCalendar, FaUserTag } from 'react-icons/fa';
-import useAccountManagementController from '../components/accountmanagement'; 
-import styles from '../css/accountmanagement.module.css'; 
+import useAccountManagementController from '../components/accountmanagement';
+import styles from '../css/accountmanagement.module.css';
+import { ToastContainer, toast } from 'react-toastify'; // Add this import
+import 'react-toastify/dist/ReactToastify.css'; // Add this import
 
 const AccountManagement = () => {
     const {
         userData,
         showPasswordForm,
         passwords,
-        message,
-        success,
         setShowPasswordForm,
         handlePasswordChange,
         handlePasswordSubmit,
         setPasswords,
-        setMessage,
-    } = useAccountManagementController(); 
+    } = useAccountManagementController();
 
     const handleClear = () => {
         setPasswords({
@@ -25,7 +24,19 @@ const AccountManagement = () => {
             newPassword: '',
             confirmNewPassword: ''
         });
-        setMessage(null); // Clear the error message
+    };
+
+    // Modified password submit handler
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const result = await handlePasswordSubmit(e);
+        if (result.success) {
+            toast.success(result.message);
+            setShowPasswordForm(false);
+            handleClear();
+        } else {
+            toast.error(result.message);
+        }
     };
 
     const formatRole = (role) => {
@@ -37,6 +48,7 @@ const AccountManagement = () => {
 
     return (
         <div className={styles.pageContainer}>
+            <ToastContainer /> {/* Add this */}
             <h1 className={styles.title}>FlowX</h1>
             <Navbar sticky={false} />
 
@@ -94,10 +106,10 @@ const AccountManagement = () => {
                         <div className={styles.passwordFormHeader}>
                             <h3>Change Password</h3>
                             <button onClick={() => setShowPasswordForm(false)} className={styles.closePasswordForm}>
-                                <IoIosCloseCircleOutline />  {/* Updated icon component */}
+                                <IoIosCloseCircleOutline />
                             </button>
                         </div>
-                        <form onSubmit={handlePasswordSubmit} className={styles.passwordForm}>
+                        <form onSubmit={handleSubmit} className={styles.passwordForm}>
                             <div className={styles.inputGroup}>
                                 <label>Current Password</label>
                                 <input
@@ -136,11 +148,6 @@ const AccountManagement = () => {
                                     Clear
                                 </button>
                             </div>
-                            {message && (
-                                <p className={success ? styles.successMessage : styles.errorMessage}>
-                                    {message}
-                                </p>
-                            )}
                         </form>
                     </div>
                 )}

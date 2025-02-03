@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { toast } from 'react-toastify';
 import styles from '../css/uploadmap.module.css';
 
 const useUploadMap = () => {
@@ -17,15 +18,6 @@ const useUploadMap = () => {
     const [drawingStart, setDrawingStart] = useState(null);
     const [tempRoad, setTempRoad] = useState(null);
 
-    const showTimedMessage = (message, isError = false) => {
-        setUploadMessage(message);
-        setTimeout(() => {
-            setUploadMessage('');
-        }, MESSAGE_TIMEOUT);
-    };
-
-    
-
     const fetchMapsList = async () => {
         try {
             console.log("Fetching maps list...");  // Debug log
@@ -33,8 +25,7 @@ const useUploadMap = () => {
             console.log("Maps received:", response.data);  // Debug log
             setMapsList(response.data);
         } catch (error) {
-            console.error("Error fetching maps:", error);
-            setUploadMessage('Error fetching maps list.');
+            toast.error('Error fetching maps list.');
         }
     };
 
@@ -44,13 +35,12 @@ const useUploadMap = () => {
             try {
                 const sessionResponse = await axios.get(`${API_URL}/session`, { withCredentials: true });
                 if (!sessionResponse.data.username) {
-                    setUploadMessage('You must be logged in to upload files.');
+                    toast.error('You must be logged in to upload files.');
                     return;
                 }
                 await fetchMapsList();
             } catch (error) {
-                console.error("Error during initialization:", error);
-                setUploadMessage('Error fetching session data. Please log in.');
+                toast.error('Error fetching session data. Please log in.');
             }
         };
 
@@ -64,7 +54,7 @@ const useUploadMap = () => {
             setUploadMessage('');
         } else {
             setSelectedFile(null);
-            showTimedMessage('Please select a valid XML file.', true);
+            toast.error('Please select a valid XML file.');
         }
     };
 
@@ -96,12 +86,11 @@ const useUploadMap = () => {
     const handleFileUpload = async (event) => {
         event.preventDefault();
         if (!selectedFile) {
-            showTimedMessage('Please select a file to upload.', true);
+            toast.error('Please select a file to upload.');
             return;
         }
 
         try {
-            // Create form data with original XML file (no processing needed)
             const formData = new FormData();
             formData.append('file', selectedFile);
 
@@ -113,15 +102,14 @@ const useUploadMap = () => {
                     withCredentials: true
                 });
                 
-                console.log('Upload response:', response.data);
-                showTimedMessage(response.data.message);
+                toast.success(response.data.message);
                 setSelectedFile(null);
                 fetchMapsList();
             } catch (error) {
-                showTimedMessage('Error uploading file: ' + (error.response?.data?.message || error.message), true);
+                toast.error('Error uploading file: ' + (error.response?.data?.message || error.message));
             }
         } catch (error) {
-            showTimedMessage('Error processing file: ' + error.message, true);
+            toast.error('Error processing file: ' + error.message);
         }
     };
 
@@ -276,33 +264,62 @@ const useUploadMap = () => {
                         fetchTrafficData();
                     }, 100);
                 }
-                showTimedMessage('Map displayed successfully.');
+                toast.success('Map displayed successfully');
             } else {
-                showTimedMessage('No SVG content found in the selected file.', true);
+                toast.error('No SVG content found in the selected file.');
             }
         } catch (error) {
             console.error("Error displaying map:", error);
-            showTimedMessage('Error displaying map.', true);
+            toast.error('Error displaying map.');
         }
     };
 
     const handleDeleteMap = async () => {
         if (!selectedMap) return;
 
-        try {
-            await axios.delete(`${API_URL}/files/${selectedMap}`, { withCredentials: true });
-            setSelectedMap('');
-            setUploadedData(null);
-            showTimedMessage('Map deleted successfully.');
-            await fetchMapsList();
-        } catch (error) {
-            console.error("Error deleting map:", error);
-            showTimedMessage('Error deleting map.', true);
-        }
+        // Show confirmation dialog using toast
+        const toastId = toast(
+            <div>
+                <p className={styles.confirmMessage}>Are you sure you want to delete this map?</p>
+                <div className={styles.confirmButtons}>
+                    <button
+                        onClick={async () => {
+                            try {
+                                await axios.delete(`${API_URL}/files/${selectedMap}`, { withCredentials: true });
+                                setSelectedMap('');
+                                setUploadedData(null);
+                                toast.success('Map deleted successfully');
+                                await fetchMapsList();
+                            } catch (error) {
+                                toast.error('Error deleting map: ' + error.message);
+                            }
+                            toast.dismiss(toastId);
+                        }}
+                        className={styles.confirmYes}
+                    >
+                        Yes, delete it
+                    </button>
+                    <button
+                        onClick={() => toast.dismiss(toastId)}
+                        className={styles.confirmNo}
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>,
+            {
+                position: "top-center",
+                autoClose: false,
+                closeButton: false,
+                draggable: false,
+                closeOnClick: false,
+            }
+        );
     };
 
     const handleClearMap = () => {
         setUploadedData(null);
+        toast.info('Map cleared');
     };
 
     const handleAddRoadClick = () => {
@@ -311,6 +328,9 @@ const useUploadMap = () => {
             const newValue = !prev;
             if (newValue) {
                 setIsRemovingMode(false); // Disable removing mode when drawing mode is enabled
+                toast.info('Drawing mode enabled. Click to start drawing a road.');
+            } else {
+                toast.info('Drawing mode disabled.');
             }
             console.log('Setting drawing mode to:', newValue); // Debug log
             return newValue;
@@ -328,6 +348,9 @@ const useUploadMap = () => {
             const newValue = !prev;
             if (newValue) {
                 setIsDrawingMode(false); // Disable drawing mode when removing mode is enabled
+                toast.info('Remove mode enabled. Click on a road to remove it.');
+            } else {
+                toast.info('Remove mode disabled.');
             }
             console.log('Setting removing mode to:', newValue);
             return newValue;
@@ -418,7 +441,7 @@ const useUploadMap = () => {
                 }
 
                 // Show feedback message
-                showTimedMessage('Road removed successfully');
+                toast.success('Road removed successfully');
             }
             return;
         }

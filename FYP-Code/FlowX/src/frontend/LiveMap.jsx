@@ -14,6 +14,24 @@ import { FaArrowLeftLong } from "react-icons/fa6";
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
+const createVehicles = (route, trafficData) => {
+    const congestion = trafficData?.congestion || 0;
+    
+    // Calculate number of vehicles
+    const minVehicles = 15;
+    const maxVehicles = 25;
+    const numberOfVehicles = Math.floor(
+        minVehicles + ((maxVehicles - minVehicles) * (congestion / 100))
+    );
+
+    // Reduce spacing between vehicles even more
+    return Array(numberOfVehicles).fill(null).map((_, index) => ({
+        id: `${route.routeId}-vehicle-${index}`,
+        initialOffset: (index * 5),  // Reduced from 10 to 5 for even closer spacing
+        startDelay: index * 25  // Reduced from 50 to 25 for even quicker follow-up
+    }));
+};
+
 const LiveMap = () => {
     const navigate = useNavigate();
     const [showHotspots, setShowHotspots] = useState(false);
@@ -221,15 +239,19 @@ const LiveMap = () => {
                                 const traffic = trafficData[connection.routeId];
                                 if (!route?.coordinates) return null;
                                 
-                                return (
+                                // Create multiple vehicles for each route
+                                const vehicles = createVehicles(route, traffic);
+                                
+                                return vehicles.map(vehicle => (
                                     <VehicleMarker
-                                        key={connection.routeId}
+                                        key={vehicle.id}
                                         map={mapInstanceRef.current}
                                         coordinates={route.coordinates}
                                         currentSpeed={traffic?.flow?.currentSpeed || 0}
                                         color={trafficServiceRef.current.getTrafficColor(traffic?.congestion || 0)}
+                                        initialOffset={vehicle.initialOffset}
                                     />
-                                );
+                                ));
                             })}
                         </div>
                     </div>
@@ -251,8 +273,16 @@ const LiveMap = () => {
                                     // Extract values with fallbacks
                                     const currentSpeed = traffic?.flow?.currentSpeed || 0;
                                     const congestion = traffic?.congestion || 0;
-                                    const distance = (route?.distance || 0) / 1000;
-                                    const duration = Math.ceil((route?.time || 0) / 60);
+                                    const distance = (route?.distance || 0) / 1000; // Convert to km
+                                    
+                                    // Calculate duration based on distance and current speed or average speed
+                                    let duration;
+                                    if (currentSpeed > 0) {
+                                        duration = Math.ceil((distance / currentSpeed) * 60); // Convert to minutes
+                                    } else {
+                                        const averageSpeed = 40; // Default average speed in km/h if no current speed
+                                        duration = Math.ceil((distance / averageSpeed) * 60);
+                                    }
                                     
                                     return (
                                         <div key={connection.routeId} className={styles.routeCard}>

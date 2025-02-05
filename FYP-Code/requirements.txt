@@ -46,3 +46,5 @@ XlsxWriter==3.0.9
 Werkzeug==2.0.3
 bcrypt==4.0.1
 reportlab==4.0.4
+pymongo[srv]
+gunicorn

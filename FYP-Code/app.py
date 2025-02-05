@@ -2813,17 +2813,23 @@ def create_app(db_client=None):
                             .skip((page - 1) * per_page)
                             .limit(per_page))
             
-            # Convert ObjectId to string for JSON serialization
+            # Convert MongoDB objects to JSON-serializable format
+            serialized_documents = []
             for doc in documents:
-                if '_id' in doc:
-                    doc['_id'] = str(doc['_id'])
-                # Convert datetime objects to string
+                serialized_doc = {}
                 for key, value in doc.items():
-                    if isinstance(value, datetime):
-                        doc[key] = value.isoformat()
+                    if isinstance(value, ObjectId):
+                        serialized_doc[key] = str(value)
+                    elif isinstance(value, datetime):
+                        serialized_doc[key] = value.isoformat()
+                    elif isinstance(value, (int, float, str, bool, dict, list)) or value is None:
+                        serialized_doc[key] = value
+                    else:
+                        serialized_doc[key] = str(value)  # Convert any other types to string
+                serialized_documents.append(serialized_doc)
 
             return jsonify({
-                'documents': documents,
+                'documents': serialized_documents,
                 'total': total_documents,
                 'page': page,
                 'per_page': per_page,

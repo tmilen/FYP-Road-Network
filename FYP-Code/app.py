@@ -44,6 +44,9 @@ load_dotenv()
 def create_app(db_client=None):
     app = Flask(__name__)
     
+    app.config['SESSION_COOKIE_SAMESITE'] = "None"
+    app.config['SESSION_COOKIE_SECURE'] = True
+    
     # Update CORS configuration to allow credentials
     CORS(app, 
         supports_credentials=True, 

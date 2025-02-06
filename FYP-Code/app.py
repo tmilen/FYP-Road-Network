@@ -48,7 +48,7 @@ def create_app(db_client=None):
     CORS(app, 
         supports_credentials=True, 
         resources={r"/*": {
-            "origins": ["*","http://127.0.0.1:3000", "http://localhost:3000"],
+            "origins": [os.getenv("FRONTEND_URL"),"http://127.0.0.1:3000", "http://localhost:3000"],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"]
         }})

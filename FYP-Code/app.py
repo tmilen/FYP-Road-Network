@@ -44,11 +44,14 @@ load_dotenv()
 def create_app(db_client=None):
     app = Flask(__name__)
     
+    app.config['SESSION_COOKIE_SAMESITE'] = "None"
+    app.config['SESSION_COOKIE_SECURE'] = True
+    
     # Update CORS configuration to allow credentials
     CORS(app, 
         supports_credentials=True, 
         resources={r"/*": {
-            "origins": ["http://127.0.0.1:3000", "http://localhost:3000"],
+            "origins": [os.getenv("FRONTEND_URL"),"http://127.0.0.1:3000", "http://localhost:3000"],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"]
         }})

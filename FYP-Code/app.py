@@ -75,9 +75,9 @@ def create_app(db_client=None):
 
         # Add timezone configuration
     SGT = pytz.timezone('Asia/Singapore')
-    #SGT = timezone(timedelta(hours=8))
+    
     def get_sgt_time():
-        return datetime.now(SGT)
+        return datetime.now(pytz.utc).astimezone(SGT)
 
     # Read roads from file and initialize SINGAPORE_ROADS
     SINGAPORE_ROADS = []
@@ -2290,13 +2290,15 @@ def create_app(db_client=None):
             recent_log = traffic_logs.find_one(sort=[("date", -1), ("time", -1)])
 
             if recent_log and "date" in recent_log and "time" in recent_log:
-                # Combine `date` and `time` fields into a single datetime object
                 log_date = datetime.strptime(recent_log["date"], "%d-%m-%Y")
                 log_time = datetime.strptime(recent_log["time"], "%H:%M").time()
-                log_datetime = datetime.combine(log_date, log_time).astimezone(SGT)
+                
+                # Combine log date and time in SGT (no conversion to UTC)
+                log_datetime = datetime.combine(log_date, log_time)
+                log_datetime = SGT.localize(log_datetime)  # Mark as Singapore Time
 
-                # Get current time in the same timezone
-                current_datetime = datetime.now(SGT)
+                # Get current time in Singapore Time
+                current_datetime = get_sgt_time()
 
                 # Calculate latency in seconds
                 latency = (current_datetime - log_datetime).total_seconds()

@@ -987,8 +987,14 @@ def create_app(db_client=None):
     @app.route('/api/search-profiles', methods=['GET'])
     def search_profiles():
         query = request.args.get('query', '')
+        # Convert query to lowercase and replace spaces with underscores
+        formatted_query = query.lower().replace(" ", "_")
+
         profiles = list(profiles_collection.find({
-            "user_profile": {"$regex": query, "$options": "i"}
+            "$or": [
+                {"user_profile": {"$regex": query, "$options": "i"}},
+                {"user_profile": {"$regex": formatted_query, "$options": "i"}}
+            ]
         }, {"_id": 0}))  
         return jsonify(profiles)
         

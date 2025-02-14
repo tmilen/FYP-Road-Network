@@ -2133,26 +2133,42 @@ def create_app(db_client=None):
         
         with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
             zip_ref.extractall(extract_to)
+            
+        print(f"[DEBUG] Extracted files in {extract_to}: {os.listdir(extract_to)}")
 
         # Get the root folder of the extracted content
-        root_folders = [os.path.join(extract_to, folder) for folder in os.listdir(extract_to)]
-        train_dir_folders = [folder for folder in root_folders if os.path.isdir(folder)]
-
+        #root_folders = [os.path.join(extract_to, folder) for folder in os.listdir(extract_to)]
+        #train_dir_folders = [folder for folder in root_folders if os.path.isdir(folder)]
+        '''
         if len(train_dir_folders) == 1:
             nested_folder = train_dir_folders[0]
             for item in os.listdir(nested_folder):
                 item_path = os.path.join(nested_folder, item)
                 shutil.move(item_path, extract_to)
-            shutil.rmtree(nested_folder)  # Remove the empty nested folder
+            shutil.rmtree(nested_folder) ''' # Remove the empty nested folder
+        
+        
+        extracted_items = os.listdir(extract_to)
+        nested_folders = [f for f in extracted_items if os.path.isdir(os.path.join(extract_to, f))]
+
+        
+        
+        if len(nested_folders) == 1:
+            nested_folder_path = os.path.join(extract_to, nested_folders[0])
+            for item in os.listdir(nested_folder_path):
+                shutil.move(os.path.join(nested_folder_path, item), extract_to)
+            shutil.rmtree(nested_folder_path)  # Remove empty nested folder
+
+        print(f"[DEBUG] Final extracted structure in {extract_to}: {os.listdir(extract_to)}")
 
     #Handle ZIP file upload and extraction, ensuring proper directory structure.
     @app.route("/api/upload-zip", methods=["POST"])
     def upload_zip_file():
 
-        file = request.files["file"]
+        file = request.files.get["file"]
 
         # Validate file type
-        if not file.filename.lower().endswith(".zip"):
+        if not file or not file.filename.lower().endswith(".zip"):
             return jsonify({"error": "Only ZIP files are allowed for folder uploads."}), 400
 
         # Save the uploaded file
@@ -2161,10 +2177,10 @@ def create_app(db_client=None):
 
         try:
             # Extract the ZIP file
-            extract_to = os.path.join(UPLOAD_FOLDER)
-            os.makedirs(extract_to, exist_ok=True)
+            #extract_to = os.path.join(UPLOAD_FOLDER)
+            #os.makedirs(extract_to, exist_ok=True)
 
-            extract_zip(save_path, extract_to)
+            extract_zip(save_path, UPLOAD_FOLDER)
 
             # Remove the uploaded ZIP file after extraction
             os.remove(save_path)

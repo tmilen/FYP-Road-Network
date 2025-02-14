@@ -150,11 +150,16 @@ export const useLiveMapLogic = () => {
             // Calculate route first
             const { route } = await routingServiceRef.current.calculateRoute(startLatLng, endLatLng);
             
-            // Store route details
+            // Calculate realistic duration based on distance and average speed
+            const distanceInKm = route.summary.totalDistance / 1000; // Convert to kilometers
+            const averageSpeedKmH = 40; // Average speed in Singapore (40 km/h)
+            const durationInMinutes = Math.ceil((distanceInKm / averageSpeedKmH) * 60);
+            
+            // Store route details with corrected duration
             routingServiceRef.current.routes.set(routeId, {
                 coordinates: route.coordinates,
                 distance: route.summary.totalDistance,
-                time: route.summary.totalTime
+                time: durationInMinutes * 60 // Store in seconds for consistency
             });
 
             if (showTrafficFlow) {

@@ -47,12 +47,14 @@ load_dotenv()
 
 def create_app(db_client=None):
     app = Flask(__name__)
+    app.config['SESSION_COOKIE_SAMESITE'] = "None"
+    app.config['SESSION_COOKIE_SECURE'] = True
 
     # Update CORS configuration to allow credentials
     CORS(app, 
         supports_credentials=True, 
         resources={r"/*": {
-            "origins": ["http://127.0.0.1:3000", "http://localhost:3000"],
+            "origins": [os.getenv("FRONTEND_URL"),"http://127.0.0.1:3000", "http://localhost:3000"],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"]
         }})
@@ -76,9 +78,9 @@ def create_app(db_client=None):
 
         # Add timezone configuration
     SGT = pytz.timezone('Asia/Singapore')
-    #SGT = timezone(timedelta(hours=8))
+    
     def get_sgt_time():
-        return datetime.now(SGT)
+        return datetime.now(pytz.utc).astimezone(SGT)
 
     # Read roads from file and initialize SINGAPORE_ROADS
     SINGAPORE_ROADS = []
@@ -917,8 +919,14 @@ def create_app(db_client=None):
     @app.route('/api/search-profiles', methods=['GET'])
     def search_profiles():
         query = request.args.get('query', '')
+        # Convert query to lowercase and replace spaces with underscores
+        formatted_query = query.lower().replace(" ", "_")
+
         profiles = list(profiles_collection.find({
-            "user_profile": {"$regex": query, "$options": "i"}
+            "$or": [
+                {"user_profile": {"$regex": query, "$options": "i"}},
+                {"user_profile": {"$regex": formatted_query, "$options": "i"}}
+            ]
         }, {"_id": 0}))  
         return jsonify(profiles)
         
@@ -2282,43 +2290,91 @@ def create_app(db_client=None):
             return jsonify({'message': f'Error fetching analysis: {str(e)}'}), 500
 
     MODEL_FOLDER = "./Models"
-    UPLOAD_FOLDER = "./uploads"
     
     training_logs = {"trainingComplete": False, "logs": []}
     
+    def get_upload_folder():
+
+        if os.getenv("RENDER"):  # If running on Render
+            return "/tmp/uploads"  # Use temporary storage in Render
+        return "./uploads"  # Use local folder for development
+
+    UPLOAD_FOLDER = get_upload_folder()
+
+    # Ensure the upload directory exists
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    print(f"[INFO] Upload folder set to: {UPLOAD_FOLDER}")
     
     def extract_zip(zip_file_path, extract_to):
-       
+        
         with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
             zip_ref.extractall(extract_to)
+            
+        print(f"[DEBUG] Extracted files in {extract_to}: {os.listdir(extract_to)}")
 
         root_folders = [os.path.join(extract_to, folder) for folder in os.listdir(extract_to)]
         train_dir_folders = [folder for folder in root_folders if os.path.isdir(folder)]
 
+        # Get the root folder of the extracted content
+        #root_folders = [os.path.join(extract_to, folder) for folder in os.listdir(extract_to)]
+        #train_dir_folders = [folder for folder in root_folders if os.path.isdir(folder)]
+        '''
         if len(train_dir_folders) == 1:
             nested_folder = train_dir_folders[0]
             for item in os.listdir(nested_folder):
                 item_path = os.path.join(nested_folder, item)
                 shutil.move(item_path, extract_to)
+
             shutil.rmtree(nested_folder)
+            shutil.rmtree(nested_folder) ''' # Remove the empty nested folder
+        
+        
+        extracted_items = os.listdir(extract_to)
+        nested_folders = [f for f in extracted_items if os.path.isdir(os.path.join(extract_to, f))]
+
+        
+        
+        if len(nested_folders) == 1:
+            nested_folder_path = os.path.join(extract_to, nested_folders[0])
+            for item in os.listdir(nested_folder_path):
+                shutil.move(os.path.join(nested_folder_path, item), extract_to)
+            shutil.rmtree(nested_folder_path)  # Remove empty nested folder
+
+        print(f"[DEBUG] Final extracted structure in {extract_to}: {os.listdir(extract_to)}")
 
     @app.route("/api/upload-zip", methods=["POST"])
     def upload_zip_file():
+        
+        print("[DEBUG] Upload request received.")
 
+        if "file" not in request.files:
+            print("[ERROR] No file found in request.")
+            return jsonify({"error": "No file provided."}), 400
+        
         file = request.files["file"]
 
+        if file.filename == "":
+            print("[ERROR] No selected file.")
+            return jsonify({"error": "No file selected."}), 400
+
+        print(f"[DEBUG] File received: {file.filename}")
+
+        # Validate file type
         if not file.filename.lower().endswith(".zip"):
-            return jsonify({"error": "Only ZIP files are allowed for folder uploads."}), 400
+            return jsonify({"error": "Only ZIP files are allowed."}), 400
 
         save_path = os.path.join(UPLOAD_FOLDER, file.filename)
+        print(f"[DEBUG] Saving file to: {save_path}")
         file.save(save_path)
 
         try:
             extract_to = os.path.join(UPLOAD_FOLDER)
             os.makedirs(extract_to, exist_ok=True)
+            # Extract the ZIP file
+            #extract_to = os.path.join(UPLOAD_FOLDER)
+            #os.makedirs(extract_to, exist_ok=True)
 
-            extract_zip(save_path, extract_to)
+            extract_zip(save_path, UPLOAD_FOLDER)
 
             os.remove(save_path)
 
@@ -2445,9 +2501,14 @@ def create_app(db_client=None):
             if recent_log and "date" in recent_log and "time" in recent_log:
                 log_date = datetime.strptime(recent_log["date"], "%d-%m-%Y")
                 log_time = datetime.strptime(recent_log["time"], "%H:%M").time()
-                log_datetime = datetime.combine(log_date, log_time).astimezone(SGT)
+                
+                # Combine log date and time in SGT (no conversion to UTC)
+                log_datetime = datetime.combine(log_date, log_time)
+                log_datetime = SGT.localize(log_datetime)  # Mark as Singapore Time
 
                 current_datetime = datetime.now(SGT)
+                # Get current time in Singapore Time
+                current_datetime = get_sgt_time()
 
                 latency = (current_datetime - log_datetime).total_seconds()
             else:

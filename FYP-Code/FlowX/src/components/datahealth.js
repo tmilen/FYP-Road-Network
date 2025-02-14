@@ -51,15 +51,39 @@ const useDataHealthController = () => {
         },
       });
 
-      toast.update('upload-progress', { 
-        render: response.data.message,
-        type: toast.TYPE.SUCCESS,
-        autoClose: 3000
-      });
+      console.log("Upload response received:", response);
+
+      if (response.status === 200 && response.data.message) {
+        toast.update('upload-progress', { 
+          render: response.data.message,
+          type: toast.TYPE.SUCCESS,
+          autoClose: 3000
+        });
+      } else {
+        toast.update('upload-progress', { 
+          render: "Upload completed, but response format is unexpected",
+          type: toast.TYPE.WARNING,
+          autoClose: 3000
+        });
+      }
+
       setUploadProgress(0);
       setFile(null);
     } catch (error) {
-      toast.error(error.response?.data?.error || "Failed to upload file", toastConfig);
+      console.error("Upload error:", error.response);
+
+      
+      let errorMessage = "Failed to upload file";
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;  // Show actual error from backend
+      }
+
+      toast.update('upload-progress', { 
+        render: errorMessage,
+        type: toast.TYPE.ERROR,
+        autoClose: 3000
+      });
+
       setUploadProgress(0);
     }
   };

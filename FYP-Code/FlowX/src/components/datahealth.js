@@ -41,8 +41,7 @@ const useDataHealthController = () => {
     formData.append("file", file);
 
     try {
-      toast.info("Uploading file...", { ...toastConfig, toastId: 'upload-progress' });
-      
+      const toastId = toast.info("Uploading file...", { ...toastConfig, toastId: 'upload-progress' });
       const response = await axios.post(`${API_URL}/upload-zip`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: (progressEvent) => {
@@ -54,17 +53,17 @@ const useDataHealthController = () => {
       console.log("Upload response received:", response);
 
       if (response.status === 200 && response.data.message) {
-        toast.update('upload-progress', { 
-          render: response.data.message,
-          type: toast.TYPE.SUCCESS,
-          autoClose: 3000
-        });
+          toast.update(toastId, { 
+              render: response.data.message,
+              type: toast.TYPE.SUCCESS,
+              autoClose: 3000
+          });
       } else {
-        toast.update('upload-progress', { 
-          render: "Upload completed, but response format is unexpected",
-          type: toast.TYPE.WARNING,
-          autoClose: 3000
-        });
+          toast.update(toastId, { 
+              render: "Upload completed, but response format is unexpected",
+              type: toast.TYPE.WARNING,
+              autoClose: 3000
+          });
       }
 
       setUploadProgress(0);
@@ -72,12 +71,12 @@ const useDataHealthController = () => {
     } catch (error) {
       console.error("Upload error:", error.response);
 
-      
       let errorMessage = "Failed to upload file";
       if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;  // Show actual error from backend
+        errorMessage = error.response.data.error;  // Show actual backend error
       }
 
+      // Ensure error toast updates the same notification
       toast.update('upload-progress', { 
         render: errorMessage,
         type: toast.TYPE.ERROR,

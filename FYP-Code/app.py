@@ -2117,16 +2117,14 @@ def create_app(db_client=None):
     training_logs = {"trainingComplete": False, "logs": []}
     
     def get_upload_folder():
-       
-        # If running in a cloud deployment 
-        if os.getenv("HOME") == "/home/render":
-            return "/tmp/uploads"  # Use temp folder in cloud environments
-        else:
-            return "./uploads"  # Use local folder in development
+
+        if os.getenv("RENDER"):  # If running on Render
+            return "/tmp/uploads"  # Use temporary storage in Render
+        return "./uploads"  # Use local folder for development
 
     UPLOAD_FOLDER = get_upload_folder()
 
-    # Ensure directory exists
+    # Ensure the upload directory exists
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     print(f"[INFO] Upload folder set to: {UPLOAD_FOLDER}")
     

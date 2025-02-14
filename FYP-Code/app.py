@@ -2112,16 +2112,27 @@ def create_app(db_client=None):
             return jsonify({'message': f'Error fetching analysis: {str(e)}'}), 500
 
     MODEL_FOLDER = "./Models"
-    UPLOAD_FOLDER = "./uploads"
     
     # Global variable to hold training logs
     training_logs = {"trainingComplete": False, "logs": []}
     
+    def get_upload_folder():
+       
+        # If running in a cloud deployment 
+        if os.getenv("HOME") == "/home/render":
+            return "/tmp/uploads"  # Use temp folder in cloud environments
+        else:
+            return "./uploads"  # Use local folder in development
+
+    UPLOAD_FOLDER = get_upload_folder()
+
+    # Ensure directory exists
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    print(f"[INFO] Upload folder set to: {UPLOAD_FOLDER}")
     
     #Extracts a zip file to a given directory and ensures no nested directories.
     def extract_zip(zip_file_path, extract_to):
-       
+        
         with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
             zip_ref.extractall(extract_to)
 

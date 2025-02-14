@@ -33,57 +33,61 @@ const useDataHealthController = () => {
 
   const uploadZip = async () => {
     if (!file) {
-      toast.error("Please select a file to upload", toastConfig);
-      return;
+        toast.error("Please select a file to upload", toastConfig);
+        return;
     }
 
     const formData = new FormData();
     formData.append("file", file);
 
+    let toastId = null;
+    
     try {
-      const toastId = toast.info("Uploading file...", { ...toastConfig, toastId: 'upload-progress' });
-      const response = await axios.post(`${API_URL}/upload-zip`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-        onUploadProgress: (progressEvent) => {
-          const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
-          setUploadProgress(progress);
-        },
-      });
+        // Store toastId
+        const toastId = toast.info("Uploading file...", { ...toastConfig });
 
-      console.log("Upload response received:", response);
+        const response = await axios.post(`${API_URL}/upload-zip`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+            onUploadProgress: (progressEvent) => {
+                const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+                setUploadProgress(progress);
+            },
+        });
 
-      if (response.status === 200 && response.data.message) {
-          toast.update(toastId, { 
-              render: response.data.message,
-              type: toast.TYPE.SUCCESS,
-              autoClose: 3000
-          });
-      } else {
-          toast.update(toastId, { 
-              render: "Upload completed, but response format is unexpected",
-              type: toast.TYPE.WARNING,
-              autoClose: 3000
-          });
-      }
+        console.log("Upload response received:", response);
 
-      setUploadProgress(0);
-      setFile(null);
+        if (response.status === 200 && response.data?.message) {
+            toast.update(toastId, { 
+                render: response.data.message,
+                type: toast.TYPE.SUCCESS,
+                autoClose: 3000
+            });
+        } else {
+            toast.update(toastId, { 
+                render: "Upload completed, but response format is unexpected",
+                type: toast.TYPE.WARNING,
+                autoClose: 3000
+            });
+        }
+
+        setUploadProgress(0);
+        setFile(null);
     } catch (error) {
-      console.error("Upload error:", error.response);
+        console.error("Upload error:", error.response);
 
-      let errorMessage = "Failed to upload file";
-      if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;  // Show actual backend error
-      }
+        let errorMessage = "Failed to upload file";
+        if (error.response?.data?.error) {
+            errorMessage = error.response.data.error; // Show actual backend error
+        }
 
-      // Ensure error toast updates the same notification
-      toast.update('upload-progress', { 
-        render: errorMessage,
-        type: toast.TYPE.ERROR,
-        autoClose: 3000
-      });
+        // Ensure error toast updates properly
+        toast.update(toastId, { 
+            render: errorMessage,
+            type: toast.TYPE.ERROR,
+            autoClose: 3000
+        });
 
-      setUploadProgress(0);
+        setUploadProgress(0);
     }
   };
 

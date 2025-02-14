@@ -269,20 +269,90 @@ body {
     border-radius: 8px;
     padding: 1rem;
     min-height: 500px;
+    max-height: 800px;
+    width: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
 }
 
 .svgContainer {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 500px;
+    background: #ffffff;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.svgContainer > div {
     width: 100%;
     height: 100%;
 }
 
-.svgContainer svg {
+.svgWrapper {
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    position: relative;
+}
+
+.svgWrapper svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+:global(.map-svg) {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+}
+
+:global(.map-svg path) {
+    stroke-width: 45;
+    stroke-linecap: round;
+    fill: none;
+}
+
+:global(.map-svg #roads path) {
+    stroke-width: 30;
+    stroke-linecap: round;
+    fill: none;
+    transition: all 0.3s ease;
+}
+
+:global(.map-svg #intersection-nodes circle) {
+    fill: #ffffff;
+    stroke: #2c3e50;
+    stroke-width: 2;
+    opacity: 0.9;
+    r: 6;
+    transition: all 0.3s ease;
+}
+
+:global(.map-svg #intersection-nodes circle:hover) {
+    fill: #f8f9fa;
+    r: 8;
+    stroke-width: 3;
+    cursor: pointer;
+}
+
+:global(.map-svg #intersection-nodes circle.entrance) {
+    fill: #2ecc71;  /* Green color for entrance nodes */
+    stroke: #27ae60;
+    stroke-width: 2;
+    r: 8;
+}
+
+:global(.map-svg #intersection-nodes circle.exit) {
+    fill: #e74c3c;  /* Red color for exit nodes */
+    stroke: #c0392b;
+    stroke-width: 2;
+    r: 8;
 }
 
 .placeholderMessage {
@@ -544,3 +614,530 @@ body {
 }
 
 /* ...existing styles... */
+
+.confirmYes {
+    padding: 10px 20px;
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 4px rgba(231, 76, 60, 0.2);
+}
+
+.confirmYes:hover {
+    background-color: #c0392b;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
+}
+
+.confirmNo {
+    padding: 10px 20px;
+    background-color: #f5f6fa;
+    color: #2d3436;
+    border: 1px solid #dcdde1;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.confirmNo:hover {
+    background-color: #dcdde1;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* ...existing code... */
+
+.confirmMessage {
+    padding: 15px 0;
+    font-size: 1.1rem;
+    text-align: center;
+    color: #2c3e50;
+    font-weight: 500;
+}
+
+.confirmButtons {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.confirmYes {
+    padding: 10px 20px;
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    min-width: 120px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(231, 76, 60, 0.2);
+}
+
+.confirmNo {
+    padding: 10px 20px;
+    background-color: #f8f9fa;
+    color: #2d3436;
+    border: 1px solid #dfe6e9;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    min-width: 120px;
+    transition: all 0.2s ease;
+}
+
+.confirmYes:hover {
+    background-color: #c0392b;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
+}
+
+.confirmNo:hover {
+    background-color: #dfe6e9;
+    transform: translateY(-1px);
+}
+
+/* Apply styles to the toast container */
+:global(.Toastify__toast) {
+    border-radius: 8px !important;
+    padding: 16px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+:global(.Toastify__toast--default) {
+    background: white !important;
+}
+
+/* Node Options Toast Styles */
+.nodeOptionsToast {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    min-width: 280px; /* Add minimum width for the toast */
+}
+
+.nodeOptionsToast h4 {
+    margin: 0 0 15px 0;
+    color: #2c3e50;
+    font-size: 1.1rem;
+    text-align: center;
+}
+
+.nodeOptionsButtons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap; /* Allow buttons to wrap on narrow screens */
+    padding: 0 10px; /* Add some padding on the sides */
+}
+
+.nodeOptionButton {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    min-width: 120px; /* Add minimum width for all buttons */
+    justify-content: center;
+    display: flex;
+    align-items: center;
+}
+
+.entranceButton {
+    background-color: #2ecc71;
+    color: white;
+}
+
+.entranceButton:hover {
+    background-color: #27ae60;
+}
+
+.exitButton {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.exitButton:hover {
+    background-color: #c0392b;
+}
+
+.cancelButton {
+    background-color: #95a5a6;
+    color: white;
+}
+
+.cancelButton:hover {
+    background-color: #7f8c8d;
+}
+
+
+
+.removeTypeButton {
+    background-color: #f39c12;  /* Orange color */
+    color: white;
+}
+
+.removeTypeButton:hover {
+    background-color: #d68910;
+}
+
+/* ...rest of existing code... */
+
+/* ...existing styles... */
+
+.mapControlButton.addSignal {
+    background-color: #f1c40f;
+    color: white;
+}
+
+.mapControlButton.addSignal:hover {
+    background-color: #f39c12;
+}
+
+.mapControlButton.addSignal.active {
+    background-color: #d35400;
+}
+
+
+/* Add styles for traffic signals in SVG */
+:global(.traffic-signal circle) {
+    transition: all 0.3s ease;
+    r: 8;
+    stroke-width: 2;
+}
+
+:global(.traffic-signal:hover circle) {
+    r: 10;
+    stroke-width: 3;
+    cursor: pointer;
+    filter: brightness(1.2);
+}
+
+/* Enhanced styles for traffic signals */
+:global(.traffic-signal) {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+:global(.traffic-signal:hover) {
+    r: 8;
+    stroke-width: 3;
+    filter: brightness(1.2);
+}
+
+.baseModelUpload {
+    margin-top: 2rem;
+    padding: 1rem;
+    border-top: 2px solid #ecf0f1;
+}
+
+.baseModelUpload h3 {
+    font-size: 1.1rem;
+    color: #34495e;
+    margin-bottom: 1rem;
+}
+
+
+.uploadSection h3 {
+    margin-top: 1.5rem;
+    font-size: 1.1rem;
+    color: #34495e;
+    margin-bottom: 1rem;
+}
+
+.uploadSection h3:first-child {
+    margin-top: 0;
+}
+
+.modelUploadCard {
+    margin-top: 1rem;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    padding: 2rem;
+    transition: all 0.3s ease;
+}
+
+.modelUploadCard h2 {
+    color: #2c3e50;  /* Changed to match map controls color */
+}
+
+
+.modelSelectionContainer {
+    margin-top: 1rem;
+    width: 100%;
+}
+
+.modelSelect {
+    width: 100%;
+    padding: 8px;
+    height: 38px;
+    border: 2px solid #ecf0f1;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: #2c3e50;
+    background-color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.modelSelect:hover {
+    border-color: #bdc3c7;
+}
+
+.modelSelect:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* ...existing code... */
+
+.editButton {
+    background-color: #6366f1; /* Modern indigo color */
+    color: white;
+    transition: all 0.2s ease;
+}
+
+.editButton:hover:not(:disabled) {
+    background-color: #4f46e5; /* Darker indigo on hover */
+    transform: translateY(-1px);
+}
+
+.editButton:disabled {
+    background-color: #e2e8f0;
+    color: #94a3b8;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ...existing code... */
+
+.editButton.active {
+    background-color: #4f46e5; /* Darker indigo when active */
+    color: white;
+}
+
+.svgWrapper.editMode {
+    cursor: pointer;
+}
+
+.svgWrapper.editMode :global(.intersection-nodes circle:hover) {
+    fill: #f8f9fa;
+    r: 8;
+    stroke-width: 3;
+    cursor: pointer;
+}
+
+/* ...existing code... */
+
+/* ...existing code... */
+
+.modelMergerContainer,
+.modelMergerTitle,
+.modelMergerSection,
+.modelMergerLabel,
+.modelMergerSelect,
+.modelMergerInput,
+.modelMergerError,
+.modelMergerButton,
+.modelMergerStatus,
+.modelMergeContainer,
+.modelSelectGroup,
+.modelNameGroup,
+.modelSelectWrapper,
+.modelNameWrapper,
+.modelIcon,
+.modelSelect,
+.modelNameInput,
+.modelNameHint,
+.mergeButton {
+    display: none;
+}
+
+/* ...existing code... */
+
+/* ...existing code... */
+
+.mapControls .modelSelect {
+    height: 38px;
+    padding: 0 8px;
+    margin-right: 10px;
+    border: 2px solid #ecf0f1;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: #2c3e50;
+    background-color: white;
+    cursor: pointer;
+    min-width: 150px;
+    transition: all 0.2s ease;
+}
+
+.mapControls .modelSelect:hover:not(:disabled) {
+    border-color: #bdc3c7;
+}
+
+.mapControls .modelSelect:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.mapControls .modelSelect:disabled {
+    background-color: #f5f6fa;
+    color: #95a5a6;
+    cursor: not-allowed;
+    border-color: #ecf0f1;
+}
+
+/* ...existing code... */
+
+/* ...existing code... */
+
+.simulationButton {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.simulationButton:hover:not(:disabled) {
+    background-color: #45a049;
+}
+
+.simulationButton.active {
+    background-color: #f44336;
+}
+
+.simulationButton.active:hover:not(:disabled) {
+    background-color: #da190b;
+}
+
+.vehicle {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    margin-left: -12px;
+    margin-top: -12px;
+    color: #2c3e50;
+    transition: all 0.05s linear;
+    z-index: 100;
+    pointer-events: none;
+    transform-origin: center center;
+}
+
+.traffic-signal circle {
+    transition: all 0.3s ease;
+}
+
+.signalSimulationButton {
+    background-color: #f1c40f;
+    color: white;
+}
+
+.signalSimulationButton:hover:not(:disabled) {
+    background-color: #f39c12;
+}
+
+.signalSimulationButton.active {
+    background-color: #d35400;
+}
+
+.vehicleSimulationButton {
+    background-color: #3498db;
+    color: white;
+}
+
+.vehicleSimulationButton:hover:not(:disabled) {
+    background-color: #2980b9;
+}
+
+.vehicleSimulationButton.active {
+    background-color: #2c3e50;
+}
+
+.simulationControlCard {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    padding: 1.5rem;
+    margin-top: 1rem;
+    transition: all 0.3s ease;
+}
+
+.simulationControlCard h3 {
+    font-size: 1.1rem;
+    color: #34495e;
+    margin: 0 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #ecf0f1;
+}
+
+.simulationControls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.simulationButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.simulationButton:hover:not(:disabled) {
+    background-color: #45a049;
+    transform: translateY(-1px);
+}
+
+.simulationButton.active {
+    background-color: #f44336;
+}
+
+.simulationButton.active:hover:not(:disabled) {
+    background-color: #d32f2f;
+}
+
+.simulationButton:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.simulationStatus {
+    font-size: 0.9rem;
+    color: #666;
+    margin-left: 0.5rem;
+}
+
+:global(.vehicle) {
+    pointer-events: none;
+}
+
+:global(.vehicle circle) {
+    transition: transform 0.1s ease;
+}
+
+:global(.vehicle:hover circle) {
+    transform: scale(1.2);
+}

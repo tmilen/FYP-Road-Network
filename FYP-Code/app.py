@@ -2164,15 +2164,28 @@ def create_app(db_client=None):
     #Handle ZIP file upload and extraction, ensuring proper directory structure.
     @app.route("/api/upload-zip", methods=["POST"])
     def upload_zip_file():
+        
+        print("[DEBUG] Upload request received.")
 
-        file = request.files.get["file"]
+        if "file" not in request.files:
+            print("[ERROR] No file found in request.")
+            return jsonify({"error": "No file provided."}), 400
+        
+        file = request.files["file"]
+
+        if file.filename == "":
+            print("[ERROR] No selected file.")
+            return jsonify({"error": "No file selected."}), 400
+
+        print(f"[DEBUG] File received: {file.filename}")
 
         # Validate file type
-        if not file or not file.filename.lower().endswith(".zip"):
-            return jsonify({"error": "Only ZIP files are allowed for folder uploads."}), 400
+        if not file.filename.lower().endswith(".zip"):
+            return jsonify({"error": "Only ZIP files are allowed."}), 400
 
         # Save the uploaded file
         save_path = os.path.join(UPLOAD_FOLDER, file.filename)
+        print(f"[DEBUG] Saving file to: {save_path}")
         file.save(save_path)
 
         try:

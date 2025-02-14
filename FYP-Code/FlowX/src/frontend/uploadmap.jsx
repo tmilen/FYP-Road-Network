@@ -4,15 +4,20 @@ import styles from '../css/uploadmap.module.css';
 import useUploadMap from '../components/uploadmap';
 import { RiFileUploadLine } from "react-icons/ri";
 import { BsFiletypeXml } from "react-icons/bs";
-import { FaPlaystation, FaCog } from "react-icons/fa";
-import { GiAk47 } from "react-icons/gi";
-import { IoIosAirplane, IoIosBusiness } from "react-icons/io";
 import { FaCarSide } from 'react-icons/fa';
 import { FaRoad, FaTrash } from 'react-icons/fa';  // Add this import
 import { useNavigate } from 'react-router-dom';
 import { FaArrowLeftLong } from "react-icons/fa6";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { FaTrafficLight } from 'react-icons/fa'; // Add this import
+import { FaFileUpload } from "react-icons/fa";
+import { BsFiletypePy } from "react-icons/bs"; // Add this import or modify existing BsFiletypeXml import
+import { MdOutlineCleaningServices } from "react-icons/md";
+import { MdOutlineSmartDisplay } from "react-icons/md";
+import { MdDeleteOutline } from "react-icons/md";
+import { VscEdit } from "react-icons/vsc";  // Add this import at the top with other imports
+import { FaPlay, FaStop } from 'react-icons/fa'; // Add to imports
 
 function UploadMap() {
     const navigate = useNavigate();
@@ -28,16 +33,19 @@ function UploadMap() {
         handleDisplayMap,
         handleDeleteMap,
         handleClearMap,
-        isTrafficVisible,
-        handleToggleTraffic,
         isDrawingMode,
         handleAddRoadClick,
         handleMapClick,
         handleMapMouseMove,
         tempRoad,
-        // Add these two lines
         isRemovingMode,
         handleRemoveRoadClick,
+        isSignalMode,
+        handleAddSignalClick,
+        isEditMode,
+        handleEditModeClick,
+        isSimulating,
+        toggleTrafficSimulation,
     } = useUploadMap();
 
     return (
@@ -55,6 +63,7 @@ function UploadMap() {
             
             <div className={styles.mainContainer}>
                 <div className={styles.controlPanel}>
+                    {/* Map Upload Container */}
                     <div className={styles.controlCard}>
                         <h2>Map Controls</h2>
                         <div className={styles.uploadSection}>
@@ -105,16 +114,18 @@ function UploadMap() {
                                     onClick={handleDisplayMap}
                                     disabled={!selectedMap}
                                 >
-                                    <FaPlaystation className={styles.displayIcon} />
+                                    < MdOutlineSmartDisplay className={styles.displayIcon} />
                                 </button>
                                 <button 
                                     className={`${styles.displayButton} ${styles.deleteButton}`}
                                     onClick={handleDeleteMap}
                                     disabled={!selectedMap}
                                 >
-                                    <GiAk47 className={styles.displayIcon} />
+                                    <MdDeleteOutline className={styles.displayIcon} />
                                 </button>
                             </div>
+                            
+                            
                         </div>
 
                         {uploadMessage && (
@@ -122,6 +133,26 @@ function UploadMap() {
                                 {uploadMessage}
                             </div>
                         )}
+                    </div>
+
+                    {/* Add new simulation control box */}
+                    <div className={styles.simulationControlCard}>
+                        <h3>Simulation Controls</h3>
+                        <div className={styles.simulationControls}>
+                            <button
+                                className={`${styles.simulationButton} ${isSimulating ? styles.active : ''}`}
+                                onClick={toggleTrafficSimulation}
+                                disabled={!selectedMap}
+                            >
+                                <i className="fas fa-play"></i>
+                                {isSimulating ? 'Stop Simulation' : 'Start Simulation'}
+                            </button>
+                            {isSimulating && (
+                                <span className={styles.simulationStatus}>
+                                    Simulation running...
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -138,44 +169,51 @@ function UploadMap() {
                             </div>
                             <div className={styles.mapControls}>
                                 <button 
+                                    className={`${styles.mapControlButton} ${styles.editButton} ${isEditMode ? styles.active : ''}`}
+                                    onClick={handleEditModeClick}
+                                    disabled={!uploadedData}
+                                >
+                                    <VscEdit />
+                                </button>
+                                {/* Only show these buttons when edit mode is active */}
+                                {isEditMode && (
+                                    <>
+                                        <button
+                                            className={`${styles.mapControlButton} ${styles.addSignal} ${isSignalMode ? styles.active : ''}`}
+                                            onClick={handleAddSignalClick}
+                                            disabled={!isEditMode}
+                                            title="Add Traffic Signal"
+                                        >
+                                            <FaTrafficLight />
+                                        </button>
+                                        <button 
+                                            className={`${styles.mapControlButton} ${styles.addRoad} ${isDrawingMode ? styles.active : ''}`}
+                                            onClick={handleAddRoadClick}
+                                            disabled={!uploadedData}
+                                            title="Add Road"
+                                        >
+                                            <FaRoad />
+                                        </button>
+                                        <button 
+                                            className={`${styles.mapControlButton} ${styles.removeRoad} ${isRemovingMode ? styles.active : ''}`}
+                                            onClick={handleRemoveRoadClick}
+                                            disabled={!uploadedData}
+                                            title="Remove Road"
+                                        >
+                                            <FaTrash />
+                                        </button>
+                                    </>
+                                )}
+                                <button 
                                     className={`${styles.mapControlButton} ${styles.clearButton}`}
                                     onClick={handleClearMap}
                                     disabled={!uploadedData}
                                 >
-                                    <IoIosAirplane />
-                                </button>
-                                <button 
-                                    className={`${styles.mapControlButton} ${styles.addRoad} ${isDrawingMode ? styles.active : ''}`}
-                                    onClick={handleAddRoadClick}
-                                    disabled={!uploadedData}
-                                >
-                                    <FaRoad />
-                                </button>
-                                <button 
-                                    className={`${styles.mapControlButton} ${styles.removeRoad} ${isRemovingMode ? styles.active : ''}`}
-                                    onClick={handleRemoveRoadClick}
-                                    disabled={!uploadedData}
-                                >
-                                    <FaTrash />
-                                </button>
-                                <button className={styles.mapControlButton}>
-                                    <IoIosBusiness />
-                                </button>
-                                <button className={styles.mapControlButton}>
-                                    <IoIosBusiness />
-                                </button>
-                                <button className={styles.mapControlButton}>
-                                    <FaCog />
-                                </button>
-                                <button 
-                                    className={`${styles.mapControlButton} ${isTrafficVisible ? styles.active : ''}`}
-                                    onClick={handleToggleTraffic}
-                                    disabled={!uploadedData}
-                                >
-                                    <FaCarSide />
+                                    <MdOutlineCleaningServices />
                                 </button>
                             </div>
                         </div>
+                        
                         <div className={styles.mapContainer}>
                         {uploadedData ? (
                             <div className={styles.svgContainer}>
@@ -187,28 +225,6 @@ function UploadMap() {
                                     onMouseMove={handleMapMouseMove}
                                     dangerouslySetInnerHTML={{ __html: uploadedData.svgContent }} 
                                 />
-                                {tempRoad && (
-                                    <svg 
-                                        style={{ 
-                                            position: 'absolute', 
-                                            top: 0, 
-                                            left: 0, 
-                                            width: '100%', 
-                                            height: '100%', 
-                                            pointerEvents: 'none' 
-                                        }}
-                                        viewBox="0 0 1600 1200"
-                                    >
-                                        <path
-                                            d={`M${tempRoad.start.x},${tempRoad.start.y} L${tempRoad.end.x},${tempRoad.end.y}`}
-                                            stroke="#2c3e50"
-                                            strokeWidth="45"
-                                            strokeLinecap="round"
-                                            fill="none"
-                                            opacity="0.5"
-                                        />
-                                    </svg>
-                                )}
                             </div>
                         ) : (
                             <div className={styles.placeholderMessage}>

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<town>
+    <map width="800" height="600">
+        <routes>
+            <!-- Main Roads -->
+            <route id="main-road" type="horizontal" y="300">
+                <start x="50" />
+                <end x="750" />
+                <intersections>
+                    <point x="200" />
+                    <point x="600" />
+                </intersections>
+            </route>
+            <route id="connector-north" type="horizontal" y="100">
+                <start x="200" />
+                <end x="600" />
+            </route>
+            <route id="connector-south" type="horizontal" y="550">
+                <start x="200" />
+                <end x="600" />
+            </route>
+
+            <!-- Vertical Roads -->
+            <route id="west-avenue" type="vertical" x="200">
+                <start y="50" />
+                <end y="550" />
+                <intersections>
+                    <point y="100" />
+                    <point y="300" />
+                    <point y="550" />
+                </intersections>
+            </route>
+            <route id="east-avenue" type="vertical" x="600">
+                <start y="50" />
+                <end y="550" />
+                <intersections>
+                    <point y="100" />
+                    <point y="300" />
+                    <point y="550" />
+                </intersections>
+            </route>
+
+            <!-- Middle vertical road without diagonal intersection -->
+            <route id="middle-avenue" type="vertical" x="400">
+                <start y="100" />
+                <end y="550" />
+                <intersections>
+                    <point y="300" />
+                </intersections>
+            </route>
+        </routes>
+
+        <svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+            <rect id="background" width="800" height="600" fill="#f0f4f8"/>
+            
+            <!-- Background Elements -->
+            <g id="districts" fill="#e5e9ef" opacity="0.5">
+                <rect id="district-1" x="250" y="150" width="120" height="100" rx="10"/>
+                <rect id="district-2" x="430" y="350" width="140" height="120" rx="10"/>
+                <rect id="district-3" x="250" y="350" width="120" height="100" rx="10"/>
+                <rect id="district-4" x="430" y="150" width="140" height="100" rx="10"/>
+            </g>
+
+            <g id="roads" fill="none" stroke="#2c3e50" stroke-width="30" stroke-linejoin="round">
+                <!-- Horizontal Roads -->
+                <path id="road_1" d="M50,300 L750,300" stroke-linecap="round"/>
+                <path id="road_2" d="M200,100 L600,100" stroke-linecap="round"/>
+                <path id="road_3" d="M200,550 L600,550" stroke-linecap="round"/>
+                
+                <!-- Vertical Roads -->
+                <path id="road_4" d="M200,50 L200,550" stroke-linecap="round"/>
+                <path id="road_5" d="M600,50 L600,550" stroke-linecap="round"/>
+                
+                <!-- Middle vertical road -->
+                <path id="road_6" d="M400,100 L400,550" stroke-linecap="round"/>
+            </g>
+
+            <!-- Intersections -->
+            <g id="intersection-nodes">
+                <circle id="node_1" cx="200" cy="100" r="4"/>
+                <circle id="node_2" cx="200" cy="300" r="4"/>
+                <circle id="node_3" cx="200" cy="550" r="4"/>
+                <circle id="node_4" cx="600" cy="100" r="4"/>
+                <circle id="node_5" cx="600" cy="300" r="4"/>
+                <circle id="node_6" cx="600" cy="550" r="4"/>
+                <circle id="node_7" cx="400" cy="300" r="4"/>
+            </g>
+        </svg>
+    </map>
+</town>

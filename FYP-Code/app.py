@@ -37,16 +37,19 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import osmnx as ox
 import networkx as nx
 import pickle
-import os
+import torch
 from math import sqrt
+import traceback
+import re 
+from bs4 import BeautifulSoup
 
 load_dotenv()
+
 def create_app(db_client=None):
     app = Flask(__name__)
-    
     app.config['SESSION_COOKIE_SAMESITE'] = "None"
     app.config['SESSION_COOKIE_SECURE'] = True
-    
+
     # Update CORS configuration to allow credentials
     CORS(app, 
         supports_credentials=True, 
@@ -256,11 +259,10 @@ def create_app(db_client=None):
                 
                 for road in SINGAPORE_ROADS:
                     try:
-                        road_id = f"road_{SINGAPORE_ROADS.index(road) + 1}"  # Generate road_id
+                        road_id = f"road_{SINGAPORE_ROADS.index(road) + 1}"
                         
-                        # Check if the record already exists
                         existing_record = historical_traffic_data.find_one({
-                            'road_id': road_id,  # Use road_id instead of road_name
+                            'road_id': road_id,
                             'timestamp': timestamp
                         })
                         
@@ -288,7 +290,7 @@ def create_app(db_client=None):
                                 intensity = 'high'
                             
                             historical_record = {
-                                'road_id': road_id,  # Add road_id
+                                'road_id': road_id,
                                 'streetName': road['name'],
                                 'coordinates': {
                                     'lat': road['lat'],
@@ -314,10 +316,8 @@ def create_app(db_client=None):
                         continue
 
             if bulk_inserts:
-                # Insert historical records
                 result = historical_traffic_data.insert_many(bulk_inserts)
                 
-                # Insert incidents if any
                 if bulk_incidents:
                     traffic_incidents.insert_many(bulk_incidents)
                 
@@ -351,7 +351,7 @@ def create_app(db_client=None):
             return False
         except Exception as e:
             print(f"[API CHECK ERROR] {str(e)}")
-            return True  # Return True as a precaution if we can't check
+            return True
 
      # Initialize the scheduler
     scheduler = BackgroundScheduler(timezone="Asia/Singapore")
@@ -394,7 +394,6 @@ def create_app(db_client=None):
             current_time = get_sgt_time()
             print(f"[SCHEDULER DEBUG] Starting one-time historical data fetch at {current_time}")
             
-            # Only fetch historical data if collection is empty
             if historical_traffic_data.count_documents({}) == 0:
                 fetch_historical_traffic()
             else:
@@ -404,7 +403,6 @@ def create_app(db_client=None):
         except Exception as e:
             print(f"[SCHEDULER ERROR] Error in historical fetch: {e}")
 
-    # Schedule jobs
     schedule_one_time_historical_fetch()
     scheduler.print_jobs()
     pending_jobs = len(scheduler.get_jobs())
@@ -417,22 +415,9 @@ def create_app(db_client=None):
             next_run = 'Not scheduled'
         print(f"- {job.id}: Next run at {next_run}")
     
-    # Start the scheduler
     scheduler.start()
     print("[SCHEDULER] Scheduler started successfully")
 
-    # Remove the immediate initialization check
-    # if historical_traffic_data.count_documents({}) == 0:
-    #     print("[INIT] No historical traffic data found. Checking API quota before fetching...")
-    #     if not check_api_quota():
-    #         if fetch_historical_traffic():
-    #             print("[INIT] Successfully initialized historical traffic data")
-    #         else:
-    #             print("[INIT ERROR] Failed to initialize historical traffic data")
-    #     else:
-    #         print("[INIT ERROR] Cannot initialize data - API quota exceeded")
-
-    # Keep only the current traffic data initialization check if needed
     if current_traffic_data.count_documents({}) == 0:
         print("[INIT] No current traffic data found. Checking API quota before fetching...")
         if not check_api_quota():
@@ -443,7 +428,6 @@ def create_app(db_client=None):
         else:
             print("[INIT ERROR] Cannot initialize data - API quota exceeded")
 
-    # Function to create default profiles if they don't exist
     def create_profiles():
         profiles = {
             'system_admin': {
@@ -514,14 +498,12 @@ def create_app(db_client=None):
                 profiles_collection.insert_one(profile_data)
         print("Default profiles created or verified.")
 
-    # Helper function to get the next user ID
     def get_next_user_id():
         last_user = users_collection.find_one(sort=[("id", -1)])
         if last_user and 'id' in last_user:
             return last_user['id'] + 1
         return 1 
 
-    # Function to create an admin user
     def create_admin_user():
         username = 'admin'
         password = 'admin123'
@@ -548,7 +530,6 @@ def create_app(db_client=None):
         })
         print("Admin user created successfully.")
 
-        # Set admin permissions to all True
         user_permissions_collection.insert_one({
             'user_id': 1,
             'traffic_management': True,
@@ -563,14 +544,12 @@ def create_app(db_client=None):
     create_profiles()
     create_admin_user()
 
-    # Credentials
     def check_credentials(username, password):
         user = users_collection.find_one({"username": username})
         if user and bcrypt.checkpw(password.encode('utf-8'), user['password']):
             return user
         return None
 
-    # Login
     @app.route('/api/login', methods=['POST'])
     def login():
         data = request.json
@@ -587,7 +566,6 @@ def create_app(db_client=None):
             return jsonify({'status': 'error', 'message': 'Username or Password does not match'}), 401
 
 
-    # Logout
     @app.route('/api/logout', methods=['GET'])
     def logout():
         session.pop('username', None)
@@ -597,19 +575,16 @@ def create_app(db_client=None):
     @app.route('/api/session', methods=['GET'])
     def get_session():
         if 'username' in session and 'role' in session:
-            # Retrieve the user document
             user = users_collection.find_one(
                 {"username": session['username']},
                 {"_id": 0, "password": 0}
             )
             if user:
-                # Get permissions from the user's profile instead of user_permissions
                 profile = profiles_collection.find_one(
                     {"user_profile": user["user_profile"]},
                     {"_id": 0}
                 )
                 
-                # Get permissions from profile, default to empty dict if not found
                 permissions = profile.get('permissions', {}) if profile else {}
 
                 print(f"Debug: User session active - Username: {user['username']}, Role: {user['user_profile']}, Permissions: {permissions}")
@@ -621,7 +596,7 @@ def create_app(db_client=None):
                     'last_name': user.get('last_name', ''),
                     'email': user.get('email', ''),
                     'date_of_birth': user.get('date_of_birth', ''),
-                    'permissions': permissions  # Include retrieved permissions
+                    'permissions': permissions
                 })
             else:
                 print("Debug: User not found in the database")
@@ -630,7 +605,6 @@ def create_app(db_client=None):
             print("Debug: No active session")
             return jsonify({'message': 'No active session'}), 401
 
-    # Change password
     @app.route('/api/change-password', methods=['POST'])
     def change_password():
         if 'username' not in session:
@@ -640,7 +614,6 @@ def create_app(db_client=None):
         current_password = data.get('currentPassword')
         new_password = data.get('newPassword')
 
-        # Find the user in the database
         user = users_collection.find_one({'username': session['username']})
         if not user or not bcrypt.checkpw(current_password.encode('utf-8'), user['password']):
             return jsonify({'message': 'Current password does not match'}), 401
@@ -648,14 +621,12 @@ def create_app(db_client=None):
         if bcrypt.checkpw(new_password.encode('utf-8'), user['password']):
             return jsonify({'message': 'New password cannot be the same as the current password'}), 400
 
-        # Update the password
         hashed_new_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
         users_collection.update_one({'username': session['username']}, {'$set': {'password': hashed_new_password}})
 
         return jsonify({'message': 'Password updated successfully'}), 200
 
 
-    # Get all users
     @app.route('/api/users', methods=['GET'])
     def get_all_users():
         query = request.args.get('query', '')
@@ -668,10 +639,8 @@ def create_app(db_client=None):
             ]
         }
         
-        # Get users without password and _id
         users = list(users_collection.find(base_query, {"_id": 0, "password": 0}))
         
-        # Add profile permissions for each user
         for user in users:
             profile = profiles_collection.find_one(
                 {"user_profile": user["user_profile"]},
@@ -684,46 +653,37 @@ def create_app(db_client=None):
         
         return jsonify(users)
 
-    # Add a new user
     @app.route('/api/users', methods=['POST'])
     def add_user():
         if 'username' not in session:
             return jsonify({'message': 'Unauthorized'}), 403
 
-        # Get the user's profile and check manage_users permission
         user = users_collection.find_one({"username": session['username']})
         if not user:
             return jsonify({'message': 'User not found'}), 404
 
-        # Get permissions from user's profile
         profile = profiles_collection.find_one({"user_profile": user["user_profile"]})
         if not profile or not profile.get('permissions', {}).get('manage_users', False):
             return jsonify({'message': 'Insufficient permissions'}), 403
 
         data = request.json
 
-        # Validate required fields
         required_fields = ['username', 'password', 'email', 'first_name', 'last_name', 'date_of_birth', 'user_profile']
         if not all(field in data for field in required_fields):
             return jsonify({'message': 'Missing required fields'}), 400
 
-        # Check if username or email already exists
         if users_collection.find_one({'username': data['username']}):
             return jsonify({'message': 'Username already exists'}), 400
         if users_collection.find_one({'email': data['email']}):
             return jsonify({'message': 'Email already exists'}), 400
 
         try:
-            # Get the next available user ID
             user_id = get_next_user_id()
 
-            # Format the user profile name
             formatted_profile = data['user_profile'].lower().replace(' ', '_')
 
-            # Hash password
             hashed_password = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt())
 
-            # Create user document
             new_user = {
                 'id': user_id,
                 'username': data['username'],
@@ -732,13 +692,11 @@ def create_app(db_client=None):
                 'first_name': data['first_name'].capitalize(),
                 'last_name': data['last_name'].capitalize(),
                 'date_of_birth': data['date_of_birth'],
-                'user_profile': formatted_profile  # Use formatted profile name
+                'user_profile': formatted_profile
             }
 
-            # Insert the new user
             result = users_collection.insert_one(new_user)
 
-            # Create response object without password
             response_user = {
                 'id': user_id,
                 'username': new_user['username'],
@@ -758,7 +716,6 @@ def create_app(db_client=None):
             print(f"Error creating user: {e}")
             return jsonify({'message': 'Error creating user'}), 500
 
-    # Get all profiles with optional search query
     @app.route('/api/profiles', methods=['GET'])
     def get_all_profiles():
         query = request.args.get('query', '')
@@ -768,18 +725,15 @@ def create_app(db_client=None):
         ))  
         return jsonify(profiles)
 
-    # Add a new profile
     @app.route('/api/profiles', methods=['POST'])
     def add_profile():
         if 'username' not in session:
             return jsonify({'message': 'Unauthorized'}), 403
 
-        # Get the user's profile and check manage_users permission
         user = users_collection.find_one({"username": session['username']})
         if not user:
             return jsonify({'message': 'User not found'}), 404
 
-        # Get permissions from user's profile
         profile = profiles_collection.find_one({"user_profile": user["user_profile"]})
         if not profile or not profile.get('permissions', {}).get('manage_users', False):
             return jsonify({'message': 'Insufficient permissions'}), 403
@@ -788,22 +742,17 @@ def create_app(db_client=None):
         profile_name = data.get('user_profile')
         permissions = data.get('permissions', {})
 
-        # Check if profile name is empty
         if not profile_name:
             return jsonify({'message': 'Profile name is required'}), 400
 
-        # Format profile name (lowercase and underscores)
         formatted_profile_name = profile_name.lower().replace(' ', '_')
 
-        # Check if profile already exists
         if profiles_collection.find_one({'user_profile': formatted_profile_name}):
             return jsonify({'message': 'Profile already exists'}), 400
 
-        # Create profile document with permissions
         profile_data = {
-            'user_profile': formatted_profile_name,  # The profile name (e.g., 'traffic_analyst')
+            'user_profile': formatted_profile_name,
             'permissions': {
-                # Each permission is a boolean flag that controls access to different features
                 'traffic_management': permissions.get('traffic_management', False),
                 'data_health': permissions.get('data_health', False),
                 'manage_users': permissions.get('manage_users', False),
@@ -821,18 +770,15 @@ def create_app(db_client=None):
             print(f"Error creating profile: {e}")
             return jsonify({'message': 'Error creating profile'}), 500
 
-    # DELETE endpoint for users
     @app.route('/api/users/<int:user_id>', methods=['DELETE'])
     def delete_user(user_id):
         if 'username' not in session:
             return jsonify({'message': 'Unauthorized'}), 403
 
-        # Get the current user's profile and check manage_users permission
         user = users_collection.find_one({"username": session['username']})
         if not user:
             return jsonify({'message': 'User not found'}), 404
 
-        # Get permissions from user's profile
         profile = profiles_collection.find_one({"user_profile": user["user_profile"]})
         if not profile or not profile.get('permissions', {}).get('manage_users', False):
             return jsonify({'message': 'Insufficient permissions'}), 403
@@ -845,18 +791,15 @@ def create_app(db_client=None):
         else:
             return jsonify({'message': 'User not found'}), 404
 
-    # DELETE endpoint for profiles
     @app.route('/api/profiles/<string:profile_name>', methods=['DELETE'])
     def delete_profile(profile_name):
         if 'username' not in session:
             return jsonify({'message': 'Unauthorized'}), 403
 
-        # Get the user's profile and check manage_users permission
         user = users_collection.find_one({"username": session['username']})
         if not user:
             return jsonify({'message': 'User not found'}), 404
 
-        # Get permissions from user's profile
         profile = profiles_collection.find_one({"user_profile": user["user_profile"]})
         if not profile or not profile.get('permissions', {}).get('manage_users', False):
             return jsonify({'message': 'Insufficient permissions'}), 403
@@ -874,12 +817,10 @@ def create_app(db_client=None):
         if 'username' not in session:
             return jsonify({'message': 'Unauthorized'}), 403
 
-        # Get the user's profile and check manage_users permission
         user = users_collection.find_one({"username": session['username']})
         if not user:
             return jsonify({'message': 'User not found'}), 404
 
-        # Get permissions from user's profile
         profile = profiles_collection.find_one({"user_profile": user["user_profile"]})
         if not profile or not profile.get('permissions', {}).get('manage_users', False):
             return jsonify({'message': 'Insufficient permissions'}), 403
@@ -888,7 +829,6 @@ def create_app(db_client=None):
         user_update = {}
         permissions_update = {}
 
-        # Update user details if provided
         if 'username' in data:
             user_update['username'] = data['username']
         if 'email' in data:
@@ -903,15 +843,12 @@ def create_app(db_client=None):
             user_update['user_profile'] = data['user_profile']
 
         
-        # Update permissions if provided
         for permission in ['traffic_management', 'data_health', 'manage_users', 'urban_planning']:
             if permission in data:
                 permissions_update[permission] = data[permission]
 
-        # Update the user details in the main collection
         result = users_collection.update_one({"id": user_id}, {"$set": user_update})
         
-        # Update permissions if there are changes in the permissions update dictionary
         if permissions_update:
             user_permissions_collection.update_one(
                 {"user_id": user_id},
@@ -928,12 +865,10 @@ def create_app(db_client=None):
         if 'username' not in session:
             return jsonify({'message': 'Unauthorized'}), 403
 
-        # Get the user's profile and check manage_users permission
         user = users_collection.find_one({"username": session['username']})
         if not user:
             return jsonify({'message': 'User not found'}), 404
 
-        # Get permissions from user's profile
         profile = profiles_collection.find_one({"user_profile": user["user_profile"]})
         if not profile or not profile.get('permissions', {}).get('manage_users', False):
             return jsonify({'message': 'Insufficient permissions'}), 403
@@ -944,11 +879,9 @@ def create_app(db_client=None):
         if not new_profile_name:
             return jsonify({'message': 'Invalid profile name'}), 400
 
-        # Check if the new name already exists
         if profiles_collection.find_one({'user_profile': new_profile_name}):
             return jsonify({'message': 'Profile name already exists'}), 400
 
-        # Update the profile name
         result = profiles_collection.update_one(
             {'user_profile': old_profile_name},
             {'$set': {'user_profile': new_profile_name}}
@@ -971,7 +904,6 @@ def create_app(db_client=None):
             ]
         }, {"_id": 0, "password": 0}))
 
-        # Add profile permissions for each user
         for user in users:
             profile = profiles_collection.find_one(
                 {"user_profile": user["user_profile"]},
@@ -998,91 +930,355 @@ def create_app(db_client=None):
         }, {"_id": 0}))  
         return jsonify(profiles)
         
-    def validate_map_xml(xml_content):
+    def find_intersections(paths):
+        """Find intersection points between SVG paths"""
+        print("\n=== Finding Intersections ===")
+        intersections = []
+        
+        def line_segments_intersect(x1, y1, x2, y2, x3, y3, x4, y4):
+            """Helper function to check if two line segments intersect"""
+            def ccw(A, B, C):
+                return (C[1] - A[1]) * (B[0] - A[0]) > (B[1] - A[1]) * (C[0] - A[0])
+
+            A = (x1, y1)
+            B = (x2, y2)
+            C = (x3, y3)
+            D = (x4, y4)
+
+            return ccw(A, C, D) != ccw(B, C, D) and ccw(A, B, C) != ccw(A, B, D)
+
+        def get_intersection_point(x1, y1, x2, y2, x3, y3, x4, y4):
+            """Calculate the intersection point of two lines"""
+            denominator = ((x2 - x1) * (y4 - y3) - (y2 - y1) * (x4 - x3))
+            if abs(denominator) < 1e-10:
+                return None
+
+            ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denominator
+            if not (0 <= ua <= 1):
+                return None
+
+            ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denominator
+            if not (0 <= ub <= 1):
+                return None
+
+            x = x1 + ua * (x2 - x1)
+            y = y1 + ua * (y2 - y1)
+            return (x, y)
+
+        for i, path1 in enumerate(paths):
+            d1 = path1.get('d', '').strip()
+            if not d1.startswith('M') or 'L' not in d1:
+                continue
+
+            try:
+                coords1_str = d1.replace('M', '').replace('L', ' ').strip().split()
+                start1 = tuple(map(float, coords1_str[0].split(',')))
+                end1 = tuple(map(float, coords1_str[1].split(',')))
+                
+                intersections.append(start1)
+                intersections.append(end1)
+                
+                x1, y1 = start1
+                x2, y2 = end1
+
+                for j, path2 in enumerate(paths):
+                    if i == j:
+                        continue
+
+                    d2 = path2.get('d', '').strip()
+                    if not d2.startswith('M') or 'L' not in d2:
+                        continue
+
+                    coords2_str = d2.replace('M', '').replace('L', ' ').strip().split()
+                    start2 = tuple(map(float, coords2_str[0].split(',')))
+                    end2 = tuple(map(float, coords2_str[1].split(',')))
+                    
+                    x3, y3 = start2
+                    x4, y4 = end2
+
+                    if line_segments_intersect(x1, y1, x2, y2, x3, y3, x4, y4):
+                        intersection_point = get_intersection_point(x1, y1, x2, y2, x3, y3, x4, y4)
+                        if intersection_point:
+                            intersections.append(intersection_point)
+                            print(f"Found intersection between paths {i+1} and {j+1} at {intersection_point}")
+
+            except Exception as e:
+                print(f"Error processing path {i+1}: {e}")
+                continue
+
+        unique_intersections = []
+        seen = set()
+        for point in intersections:
+            rounded_point = (round(point[0], 4), round(point[1], 4))
+            if rounded_point not in seen:
+                seen.add(rounded_point)
+                unique_intersections.append(list(point))
+
+        print(f"Total unique intersections found: {len(unique_intersections)}")
+        return unique_intersections
+
+    def add_intersection_nodes(xml_content):
+        """Add nodes at road intersections in the SVG"""
+        print("\n=== Adding Intersection Nodes ===")
         try:
-            # Parse XML content
+            if isinstance(xml_content, bytes):
+                xml_content = xml_content.decode('utf-8')
+                print("Decoded XML content from bytes")
+                
             root = ET.fromstring(xml_content)
+            print("XML successfully parsed")
             
-            # Register the SVG namespace
             ns = {'svg': 'http://www.w3.org/2000/svg'}
             
-            # Check basic structure
-            if root.tag != 'town':
-                return False, "Root element must be 'town'", 0
-
-            map_elem = root.find('map')
-            if map_elem is None:
-                return False, "Missing 'map' element", 0
-
-            # Check for required attributes
-            if 'width' not in map_elem.attrib or 'height' not in map_elem.attrib:
-                return False, "Map must have width and height attributes", 0
-
-            # Check for routes section
-            routes = map_elem.find('routes')
-            if routes is None:
-                return False, "Missing 'routes' section", 0
-
-            # Count all routes
-            road_count = len(routes.findall('route'))
-            
-            # Check for SVG element
-            svg = map_elem.find('svg:svg', namespaces=ns) or map_elem.find('svg')
+            svg = root.find('.//svg:svg', namespaces=ns) or root.find('.//svg')
             if svg is None:
-                return False, "Missing SVG element", 0
-
-            # Validate route elements
-            for route in routes.findall('route'):
-                if 'id' not in route.attrib or 'type' not in route.attrib:
-                    return False, "Each route must have id and type attributes", 0
-                if route.find('start') is None or route.find('end') is None:
-                    return False, "Each route must have start and end points", 0
-
-            return True, f"Valid map format with {road_count} roads", road_count
-
-        except ET.ParseError as e:
-            return False, f"Invalid XML format: {str(e)}", 0
+                print("ERROR: No SVG element found")
+                return xml_content
+            print("Found SVG element")
+                
+            roads_group = svg.find('.//g[@id="roads"]')
+            if roads_group is None:
+                print("ERROR: No roads group found")
+                return xml_content
+            print("Found roads group")
+                
+            paths = roads_group.findall('.//path')
+            print(f"Found {len(paths)} paths")
+            
+            intersections = find_intersections(paths)
+            print(f"Processing {len(intersections)} intersections")
+            
+            nodes_group = svg.find('.//g[@id="intersection-nodes"]')
+            if nodes_group is not None:
+                print("Removing existing nodes group")
+                svg.remove(nodes_group)
+            nodes_group = ET.SubElement(svg, 'g', {'id': 'intersection-nodes'})
+            print("Created new nodes group")
+            
+            for i, (x, y) in enumerate(intersections):
+                circle = ET.SubElement(nodes_group, 'circle', {
+                    'id': f'node_{i+1}',
+                    'cx': str(x),
+                    'cy': str(y),
+                    'r': '8',
+                    'fill': '#e74c3c',
+                    'stroke': '#c0392b',
+                    'stroke-width': '2',
+                    'opacity': '0.8'
+                })
+                print(f"Added node {i+1} at ({x},{y})")
+            
+            result = ET.tostring(root, encoding='unicode', method='xml')
+            print("Successfully generated final XML")
+            return result
+                
         except Exception as e:
-            return False, f"Validation error: {str(e)}", 0
+            print(f"ERROR in add_intersection_nodes: {str(e)}")
+            return xml_content
+
+    def validate_map_xml(xml_content):
+        try:
+            # Parse with BeautifulSoup using lxml parser
+            soup = BeautifulSoup(xml_content, 'xml')
+            
+            # Basic structure validation
+            if not soup.find('town'):
+                return False, "Root element must be 'town'", 0, None
+                
+            map_elem = soup.find('map')
+            if not map_elem:
+                return False, "Missing 'map' element", 0, None
+                
+            if not map_elem.get('width') or not map_elem.get('height'):
+                return False, "Map must have width and height attributes", 0, None
+                
+            # Validate and count routes
+            routes = soup.find('routes')
+            if not routes:
+                return False, "Missing 'routes' section", 0, None
+                
+            road_count = len([r for r in routes.find_all('route') 
+                             if r.get('type') not in ['signal', 'entrance', 'exit']])
+                
+            # Validate SVG content
+            svg = soup.find('svg')
+            if not svg:
+                return False, "Missing SVG element", 0, None
+                
+            processed_xml = str(soup)
+            return True, f"Valid map format with {road_count} roads", road_count, processed_xml
+
+        except Exception as e:
+            print(f"Validation error: {str(e)}")
+            return False, f"Validation error: {str(e)}", 0, None
 
     def get_route_path_mapping(xml_content):
         try:
             root = ET.fromstring(xml_content)
             ns = {'svg': 'http://www.w3.org/2000/svg'}
             
-            # Get all routes and their IDs
             routes = root.find('map/routes')
             route_ids = [route.get('id') for route in routes.findall('route')]
             
-            # Get all paths from SVG
             svg = root.find('map/svg:svg', namespaces=ns) or root.find('map/svg')
             paths = svg.findall('.//svg:path', namespaces=ns) or svg.findall('.//path')
+            nodes = svg.findall('.//g[@id="intersection-nodes"]/circle')
             
-            # Create mapping dictionary
-            mapping = {}
+            mapping = {
+                'roads': {},
+                'nodes': []
+            }
+            
             for i, (route_id, path) in enumerate(zip(route_ids, paths)):
                 road_id = f'road_{i+1}'
-                mapping[road_id] = {
+                mapping['roads'][road_id] = {
                     'route_id': route_id,
                     'path_id': path.get('id')
                 }
             
-            return mapping, len(mapping)
+            for node in nodes:
+                mapping['nodes'].append({
+                    'id': node.get('id'),
+                    'x': node.get('cx'),
+                    'y': node.get('cy')
+                })
+            
+            print(f"Found {len(mapping['roads'])} roads and {len(mapping['nodes'])} nodes")
+            return mapping, len(mapping['roads'])
         except Exception as e:
             print(f"Error creating route-path mapping: {e}")
             return None, 0
 
+    road_networks = client['traffic-data']['road_networks']
+
+    def process_road_network(xml_content, filename):
+        """Process XML content into road network data"""
+        try:
+            root = ET.fromstring(xml_content)
+            
+            road_segments = []
+            intersections = set()
+            
+            for route in root.findall(".//route"):
+                try:
+                    route_type = route.get('type', '')
+                    route_id = route.get('id', '')
+                    
+                    if route_type == 'horizontal':
+                        y = float(route.get('y', 0))
+                        start = route.find('start')
+                        end = route.find('end')
+                        if start is not None and end is not None:
+                            start_x = float(start.get('x', 0))
+                            end_x = float(end.get('x', 0))
+                            start_y = end_y = y
+                    elif route_type == 'vertical':
+                        x = float(route.get('x', 0))
+                        start = route.find('start')
+                        end = route.find('end')
+                        if start is not None and end is not None:
+                            start_y = float(start.get('y', 0))
+                            end_y = float(end.get('y', 0))
+                            start_x = end_x = x
+                    else:
+                        start = route.find('start')
+                        end = route.find('end')
+                        if start is not None and end is not None:
+                            start_x = float(start.get('x', 0))
+                            start_y = float(start.get('y', 0))
+                            end_x = float(end.get('x', 0))
+                            end_y = float(end.get('y', 0))
+
+                    road_segments.append({
+                        'id': route_id,
+                        'type': route_type,
+                        'start': [start_x, start_y],
+                        'end': [end_x, end_y]
+                    })
+                    
+                    intersections_elem = route.find('intersections')
+                    if intersections_elem is not None:
+                        for point in intersections_elem.findall('point'):
+                            if route_type == 'horizontal':
+                                x = float(point.get('x', 0))
+                                intersections.add((x, y))
+                            elif route_type == 'vertical':
+                                y = float(point.get('y', 0))
+                                intersections.add((x, y))
+                    
+                    intersections.add((start_x, start_y))
+                    intersections.add((end_x, end_y))
+                    
+                    print(f"Processed route {route_id} with {len(intersections)} intersections")
+                    
+                except Exception as e:
+                    print(f"Error processing route: {e}")
+                    continue
+            
+            for i, road1 in enumerate(road_segments):
+                for j, road2 in enumerate(road_segments[i+1:], i+1):
+                    try:
+                        intersection = find_segment_intersection(
+                            road1['start'], road1['end'],
+                            road2['start'], road2['end']
+                        )
+                        if intersection:
+                            intersections.add(tuple(intersection))
+                    except Exception as e:
+                        print(f"Error finding intersection between roads {i} and {j}: {e}")
+                        continue
+            
+            print(f"Processed {len(road_segments)} road segments")
+            print(f"Found {len(intersections)} total intersections")
+            
+            network_data = {
+                'metadata': {
+                    'map_width': 800,
+                    'map_height': 600,
+                    'road_width': 30,
+                    'speed_limit': 2,
+                    'min_distance': 30,
+                    'original_file': filename,
+                    'output_file': filename.rsplit('.', 1)[0] + '.pth'
+                },
+                'road_segments': road_segments,
+                'intersections': list(intersections),
+                'entrances': [],
+                'exits': []
+            }
+            
+            return network_data
+                
+        except Exception as e:
+            print(f"Error processing road network: {e}")
+            return None
+
+    def find_segment_intersection(start1, end1, start2, end2):
+        """Find intersection point between two line segments"""
+        x1, y1 = start1
+        x2, y2 = end1
+        x3, y3 = start2
+        x4, y4 = end2
+        
+        denominator = ((x2 - x1) * (y4 - y3) - (y2 - y1) * (x4 - x3))
+        if abs(denominator) < 1e-10:
+            return None
+            
+        ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denominator
+        ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denominator
+        
+        if 0 <= ua <= 1 and 0 <= ub <= 1:
+            x = x1 + ua * (x2 - x1)
+            y = y1 + ua * (y2 - y1)
+            return [x, y]
+            
+        return None
+
+    pth_fs = gridfs.GridFS(client['traffic-data'], collection='pth-files')
+
     @app.route('/api/upload', methods=['POST'])
     def upload_file():
         if 'username' not in session:
-            return jsonify({'message': 'Unauthorized'}), 403
-
-        if 'file' not in request.files:
-            return jsonify({'message': 'No file part'}), 400
-
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'message': 'No selected file'}), 400
             return jsonify({'message': 'Unauthorized'}), 403
 
         if 'file' not in request.files:
@@ -1097,56 +1293,130 @@ def create_app(db_client=None):
 
         try:
             file_content = file.read()
-            is_valid, message, _ = validate_map_xml(file_content)
+            filename = secure_filename(file.filename)
             
+            is_valid, message, road_count, processed_xml = validate_map_xml(file_content)
             if not is_valid:
                 return jsonify({'message': message}), 400
 
-            # Create route-to-path mapping
-            mapping, road_count = get_route_path_mapping(file_content)
-            if not mapping:
-                return jsonify({'message': 'Error processing road mappings'}), 400
-
-            # Store in GridFS with metadata
-            filename = secure_filename(file.filename)
+            # Store original file in GridFS
             file_id = fs.put(
-                file_content,
+                processed_xml.encode('utf-8'),
                 filename=filename,
                 content_type='text/xml',
-                username=session['username'],
-                road_count=road_count,
-                route_mapping=mapping  # Store the mapping in metadata
+                username=session['username']
             )
-            
-            return jsonify({
-                'message': 'File uploaded successfully',
-                'file_id': str(file_id)
-            }), 200  # Add success response
+
+            # Process road network and initialize with empty arrays for features
+            network_data = process_road_network(processed_xml, filename)
+            if network_data:
+                # Initialize empty arrays for features that will be added later
+                network_data.update({
+                    'file_id': str(file_id),
+                    'filename': filename,
+                    'username': session['username'],
+                    'uploaded_at': datetime.now(SGT),
+                    'entrances': [],
+                    'exits': [],
+                    'traffic_signals': []
+                })
+                
+                # Store in road_networks collection
+                road_networks.insert_one(network_data)
+                
+                return jsonify({
+                    'message': 'File uploaded and processed successfully',
+                    'file_id': str(file_id)
+                }), 200
+            else:
+                fs.delete(file_id)
+                return jsonify({'message': 'Error processing road network'}), 500
 
         except Exception as e:
             print(f"Error uploading file: {e}")
             return jsonify({'message': f'Error uploading file: {str(e)}'}), 500
 
-    # Modify the get_uploaded_file endpoint to include the mapping
+    @app.route('/api/pth-files/<file_id>', methods=['GET'])
+    def get_pth_file(file_id):
+        try:
+            pth_file = pth_fs.get(ObjectId(file_id))
+            return send_file(
+                BytesIO(pth_file.read()),
+                download_name=pth_file.filename,
+                mimetype='application/x-torch'
+            )
+        except Exception as e:
+            print(f"Error fetching .pth file: {e}")
+            return jsonify({'message': 'Error fetching .pth file'}), 500
+
+    @app.route('/api/road-network/<file_id>', methods=['GET'])
+    def get_road_network(file_id):
+        try:
+            network = road_networks.find_one({'file_id': file_id})
+            if network:
+                network['_id'] = str(network['_id'])
+                return jsonify(network)
+            return jsonify({'message': 'Road network not found'}), 404
+        except Exception as e:
+            print(f"Error fetching road network: {e}")
+            return jsonify({'message': 'Error fetching road network'}), 500
+
     @app.route('/api/files/<file_id>', methods=['GET'])
     def get_uploaded_file(file_id):
         try:
             file = fs.get(ObjectId(file_id))
             file_data = file.read()
+            
+            # Get the road network data to include signals
+            network = road_networks.find_one({'file_id': file_id})
+            
+            features = {}
+            if network:
+                # Convert traffic_signals positions from tuple/array to x,y format
+                traffic_signals = []
+                for signal in network.get('traffic_signals', []):
+                    if isinstance(signal, dict):
+                        if 'position' in signal:
+                            # Handle position array/tuple format
+                            pos = signal['position']
+                            traffic_signals.append({
+                                'id': signal.get('id', f'signal_{len(traffic_signals)+1}'),
+                                'x': float(pos[0]) if isinstance(pos, (list, tuple)) else float(signal.get('x', pos)),
+                                'y': float(pos[1]) if isinstance(pos, (list, tuple)) else float(signal.get('y', pos)),
+                                'cycleTime': signal.get('cycle_time', 8.0),
+                                'offset': signal.get('offset', 0.0)
+                            })
+                        else:
+                            # Handle direct x,y format
+                            traffic_signals.append({
+                                'id': signal.get('id', f'signal_{len(traffic_signals)+1}'),
+                                'x': float(signal.get('x', 0)),
+                                'y': float(signal.get('y', 0)),
+                                'cycleTime': signal.get('cycleTime', signal.get('cycle_time', 8.0)),
+                                'offset': signal.get('offset', 0.0)
+                            })
+                
+                features = {
+                    'traffic_signals': traffic_signals,
+                    'entrances': network.get('entrances', []),
+                    'exits': network.get('exits', [])
+                }
+            
             return jsonify({
                 'file_id': file_id,
                 'data': file_data.decode('utf-8'),
                 'filename': file.filename,
-                'route_mapping': file.route_mapping if hasattr(file, 'route_mapping') else {}
+                'features': features
             }), 200
+            
         except Exception as e:
             print(f"Error fetching file: {e}")
+            traceback.print_exc()
             return jsonify({'message': 'Error fetching file'}), 500
 
     @app.route('/api/maps', methods=['GET'])
     def get_maps_list():
         try:
-            # Use the files collection directly to get metadata
             files_collection = client['traffic-data']['maps-upload.files']
             files = files_collection.find()
             
@@ -1157,40 +1427,39 @@ def create_app(db_client=None):
                 'username': file.get('username', 'unknown')
             } for file in files]
             
-            print("Debug: Found maps:", maps_list)  # Debug print
+            print("Debug: Found maps:", maps_list)
             return jsonify(maps_list)
         except Exception as e:
             print(f"Error fetching maps list: {e}")
             return jsonify({'message': 'Error fetching maps list'}), 500
 
-    # Add this new endpoint for deleting maps
     @app.route('/api/files/<file_id>', methods=['DELETE'])
     def delete_map(file_id):
         try:
-            # Check if user is logged in
             if 'username' not in session:
                 return jsonify({'message': 'Unauthorized'}), 403
 
-            # Delete file from GridFS
+            # Delete from GridFS
             fs.delete(ObjectId(file_id))
             
+            # Delete corresponding data from road_networks collection
+            road_networks.delete_one({'file_id': file_id})
+            
             return jsonify({
-                'message': 'Map deleted successfully',
+                'message': 'Map and associated data deleted successfully',
                 'file_id': file_id
             }), 200
         except Exception as e:
             print(f"Error deleting map: {e}")
-            return jsonify({'message': 'Error deleting map'}), 500
+            return jsonify({'message': f'Error deleting map: {str(e)}'}), 500
 
     def get_incident_counts(road_id, time_range=None):
         """Get accident and congestion counts for a road"""
         query = {'road_id': road_id}
         
-        # Add time range filter if provided
         if time_range:
             query['recorded_at'] = time_range
         
-        # Aggregate incidents by type
         pipeline = [
             {'$match': query},
             {'$group': {
@@ -1218,23 +1487,19 @@ def create_app(db_client=None):
             end_date = request.args.get('endDate')
             start_time = request.args.get('startTime')
             end_time = request.args.get('endTime')
-            conditions = request.args.getlist('conditions')  # Add this line
+            conditions = request.args.getlist('conditions')
 
             query = {}
 
-            # Apply search filter if search term exists
             if search_term:
                 query['streetName'] = {'$regex': search_term, '$options': 'i'}
 
-            # Handle date filtering
             if start_date or end_date:
                 if start_date:
-                    # Convert YYYY-MM-DD to DD-MM-YYYY
                     date_obj = datetime.strptime(start_date, '%Y-%m-%d')
                     formatted_start_date = date_obj.strftime('%d-%m-%Y')
                     query['date'] = {'$gte': formatted_start_date}
                 if end_date:
-                    # Convert YYYY-MM-DD to DD-MM-YYYY
                     date_obj = datetime.strptime(end_date, '%Y-%m-%d')
                     formatted_end_date = date_obj.strftime('%d-%m-%Y')
                     if 'date' in query:
@@ -1242,7 +1507,6 @@ def create_app(db_client=None):
                     else:
                         query['date'] = {'$lte': formatted_end_date}
 
-            # Handle time filtering
             if start_time or end_time:
                 if start_time:
                     query['time'] = {'$gte': start_time}
@@ -1252,17 +1516,14 @@ def create_app(db_client=None):
                     else:
                         query['time'] = {'$lte': end_time}
 
-            # Add condition filtering
             if conditions:
                 query['intensity'] = {'$in': conditions}
 
             print(f"[DEBUG] Traffic query: {query}")
 
-            # Get current traffic data with filters
             current_data = list(current_traffic_data.find(query, {'_id': 0}))
             print(f"[DEBUG] Found {len(current_data)} records")
             
-            # Add incident counts to each record
             for data in current_data:
                 accident_count, congestion_count = get_incident_counts(data['road_id'])
                 data['accidentCount'] = accident_count
@@ -1277,15 +1538,12 @@ def create_app(db_client=None):
     def build_historical_query(road_id, start_date, end_date, start_time, end_time, conditions):
         query = {'road_id': road_id}
 
-        # Handle date filtering
         if start_date or end_date:
             if start_date:
                 try:
-                    # First, try to parse as YYYY-MM-DD
                     date_obj = datetime.strptime(start_date, '%Y-%m-%d')
                 except ValueError:
                     try:
-                        # If that fails, try DD-MM-YYYY
                         date_obj = datetime.strptime(start_date, '%d-%m-%Y')
                     except ValueError:
                         print(f"Invalid start date format: {start_date}")
@@ -1295,11 +1553,9 @@ def create_app(db_client=None):
                 
             if end_date:
                 try:
-                    # First, try to parse as YYYY-MM-DD
                     date_obj = datetime.strptime(end_date, '%Y-%m-%d')
                 except ValueError:
                     try:
-                        # If that fails, try DD-MM-YYYY
                         date_obj = datetime.strptime(end_date, '%d-%m-%Y')
                     except ValueError:
                         print(f"Invalid end date format: {end_date}")
@@ -1310,7 +1566,6 @@ def create_app(db_client=None):
                 else:
                     query['date'] = {'$lte': formatted_end_date}
 
-        # Handle time filtering
         if start_time or end_time:
             if start_time:
                 query['time'] = {'$gte': start_time}
@@ -1320,7 +1575,6 @@ def create_app(db_client=None):
                 else:
                     query['time'] = {'$lte': end_time}
 
-        # Add condition filtering
         if conditions:
             query['intensity'] = {'$in': conditions}
 
@@ -1333,13 +1587,11 @@ def create_app(db_client=None):
             if not road_id:
                 return jsonify({'message': 'Road ID is required'}), 400
 
-            # Validate time range
             start_time = request.args.get('startTime')
             end_time = request.args.get('endTime')
             if start_time and end_time and end_time < start_time:
                 return jsonify({'message': 'End time cannot be earlier than start time'}), 400
 
-            # Build query from request parameters
             query = build_historical_query(
                 road_id,
                 request.args.get('startDate'),
@@ -1351,20 +1603,16 @@ def create_app(db_client=None):
 
             print(f"[DEBUG] Historical query: {query}")
 
-            # Get historical data for specific road with filters
             historical_data = list(historical_traffic_data.find(query, {'_id': 0}).sort([('timestamp', -1)]))
 
             print(f"[DEBUG] Found {len(historical_data)} records")
 
-            # Process incidents in batch for better performance
             if historical_data:
-                # Get all timestamps
                 timestamps = [datetime.strptime(f"{record['date']} {record['time']}", '%d-%m-%Y %H:%M') 
                             for record in historical_data]
                 min_time = min(timestamps)
                 max_time = max(timestamps)
 
-                # Get all incidents for this road within the entire time range
                 all_incidents = list(traffic_incidents.find({
                     'road_id': road_id,
                     'start_time': {
@@ -1374,7 +1622,6 @@ def create_app(db_client=None):
                     'status': 'HISTORICAL'
                 }))
 
-                # Create a map of hour-based timestamps to incident counts
                 incident_counts = {}
                 for incident in all_incidents:
                     hour_key = incident['start_time'].replace(minute=0, second=0, microsecond=0)
@@ -1382,7 +1629,6 @@ def create_app(db_client=None):
                         incident_counts[hour_key] = {'ACCIDENT': 0, 'CONGESTION': 0}
                     incident_counts[hour_key][incident['type']] += 1
 
-                # Add incident counts to historical records
                 for record in historical_data:
                     record_time = datetime.strptime(f"{record['date']} {record['time']}", '%d-%m-%Y %H:%M')
                     hour_key = record_time.replace(minute=0, second=0, microsecond=0)
@@ -1390,7 +1636,6 @@ def create_app(db_client=None):
                     record['accidentCount'] = counts['ACCIDENT']
                     record['congestionCount'] = counts['CONGESTION']
 
-            # Calculate total incidents
             total_incidents = traffic_incidents.count_documents({
                 'road_id': road_id,
                 'status': 'HISTORICAL'
@@ -1408,7 +1653,6 @@ def create_app(db_client=None):
     @app.route('/api/traffic/roads', methods=['GET'])
     def get_unique_roads():
         try:
-            # Get unique road names from historical data
             unique_roads = historical_traffic_data.distinct('streetName')
             sorted_roads = sorted(unique_roads)
             return jsonify(sorted_roads)
@@ -1416,10 +1660,8 @@ def create_app(db_client=None):
             print(f"Error fetching unique roads: {e}")
             return jsonify({'message': 'Error fetching roads list'}), 500
 
-    # Add new collection for reports
     reports_collection = client['traffic-data']['reports']
 
-    # Add GridFS instance for reports
     reports_fs = gridfs.GridFS(client['traffic-data'], collection='reports-files')
 
     def add_incident_data(records, query_date_range=None):
@@ -1427,23 +1669,19 @@ def create_app(db_client=None):
         enhanced_records = []
         
         for record in records:
-            # Convert date and time to datetime for comparison
             record_date = datetime.strptime(f"{record['date']} {record['time']}", '%d-%m-%Y %H:%M')
             
-            # Build incident query
             incident_query = {
                 'road_id': record.get('road_id'),
                 'start_time': {
-                    '$lte': record_date + timedelta(minutes=30),  # Include incidents within 30 minutes
+                    '$lte': record_date + timedelta(minutes=30),
                     '$gte': record_date - timedelta(minutes=30)
                 }
             }
             
-            # Add date range if provided
             if query_date_range:
                 incident_query['start_time'].update(query_date_range)
 
-            # Count incidents by type
             accident_count = traffic_incidents.count_documents({
                 **incident_query,
                 'type': 'ACCIDENT'
@@ -1454,7 +1692,6 @@ def create_app(db_client=None):
                 'type': 'CONGESTION'
             })
             
-            # Add counts to record
             record['accidentCount'] = accident_count
             record['congestionCount'] = congestion_count
             record['incidentCount'] = accident_count + congestion_count
@@ -1469,10 +1706,8 @@ def create_app(db_client=None):
             if 'username' not in session:
                 return jsonify({'message': 'Unauthorized - Please log in'}), 401
 
-            # Get the username from session
             username = session.get('username', 'unknown_user')
 
-            # Build query for traffic data
             data = request.json
             query = {}
             query_date_range = None
@@ -1489,11 +1724,10 @@ def create_app(db_client=None):
                     else:
                         query['date'] = {'$lte': end_date.strftime('%d-%m-%Y')}
                         
-                # Create date range for incidents query
                 if date_range.get('start') and date_range.get('end'):
                     query_date_range = {
                         '$gte': start_date,
-                        '$lte': end_date + timedelta(days=1)  # Include full last day
+                        '$lte': end_date + timedelta(days=1)
                     }
 
             if data.get('timeRange'):
@@ -1509,15 +1743,13 @@ def create_app(db_client=None):
             if data.get('selectedRoads'):
                 query['streetName'] = {'$in': data['selectedRoads']}
 
-            # Modified query to sort by date and time
             traffic_data = list(historical_traffic_data.find(query, {'_id': 0}).sort([
-                ('date', 1),  # 1 for ascending order
+                ('date', 1),
                 ('time', 1)
             ]))
 
-            # Store report metadata
             report_entry = {
-                'reportFormat': 'pdf',  # Always PDF now
+                'reportFormat': 'pdf',
                 'dataType': data.get('dataType'),
                 'dateRange': data.get('dateRange'),
                 'timeRange': data.get('timeRange'),
@@ -1529,34 +1761,28 @@ def create_app(db_client=None):
                 }
             }
             
-            # Insert report metadata
             report_id = reports_collection.insert_one(report_entry).inserted_id
 
             if not traffic_data:
                 return jsonify({'message': 'No data found for the selected criteria'}), 404
 
-            # Add incident data if needed for incidents, comprehensive, or congestion data types
             if data['dataType'] in ['incidents', 'comprehensive', 'congestion']:
                 traffic_data = add_incident_data(traffic_data, query_date_range)
 
-            # Create DataFrame from traffic data
             df = pd.DataFrame(traffic_data)
             
-            # Select columns based on dataType
             if data['dataType'] == 'traffic':
                 columns = ['streetName', 'date', 'time', 'currentSpeed', 'freeFlowSpeed', 'intensity']
             elif data['dataType'] == 'incidents':
                 columns = ['streetName', 'date', 'time', 'accidentCount', 'congestionCount', 'incidentCount']
             elif data['dataType'] == 'congestion':
                 columns = ['streetName', 'date', 'time', 'intensity', 'currentSpeed', 'congestionCount']
-            else:  # comprehensive
+            else:
                 columns = ['streetName', 'date', 'time', 'currentSpeed', 'freeFlowSpeed', 
                           'intensity', 'accidentCount', 'congestionCount', 'incidentCount']
 
             df = df[columns]
 
-            # Generate report in requested format
-            # Create PDF using ReportLab with modern styling
             buffer = BytesIO()
             doc = SimpleDocTemplate(
                 buffer,
@@ -1568,7 +1794,6 @@ def create_app(db_client=None):
             )
             elements = []
 
-            # Custom styles
             styles = getSampleStyleSheet()
             styles.add(ParagraphStyle(
                 name='CustomTitle',
@@ -1588,7 +1813,6 @@ def create_app(db_client=None):
                 spaceAfter=20
             ))
 
-            # Header
             title = Paragraph(f"Traffic Report", styles['CustomTitle'])
             subtitle = Paragraph(
                 f"Generated on {datetime.now(SGT).strftime('%B %d, %Y at %H:%M')}",
@@ -1596,7 +1820,6 @@ def create_app(db_client=None):
             )
             elements.extend([title, subtitle])
 
-            # Add report metadata
             metadata_style = ParagraphStyle(
                 name='MetadataStyle',
                 parent=styles['Normal'],
@@ -1605,7 +1828,6 @@ def create_app(db_client=None):
                 spaceAfter=5
             )
 
-            # Report details section
             details = [
                 f"Report Type: {data['dataType'].title()}",
                 f"Generated By: {username}",
@@ -1627,11 +1849,9 @@ def create_app(db_client=None):
 
             elements.append(Spacer(1, 20))
 
-            # Table with modern styling
             table_data = [columns] + df.values.tolist()
             table = Table(table_data, repeatRows=1)
             table.setStyle(TableStyle([
-                # Header styling
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -1640,7 +1860,6 @@ def create_app(db_client=None):
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
                 ('TOPPADDING', (0, 0), (-1, 0), 12),
                 
-                # Content styling
                 ('BACKGROUND', (0, 1), (-1, -1), colors.white),
                 ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#2c3e50')),
                 ('ALIGN', (0, 1), (-1, -1), 'CENTER'),
@@ -1649,17 +1868,14 @@ def create_app(db_client=None):
                 ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
                 ('TOPPADDING', (0, 1), (-1, -1), 8),
                 
-                # Grid styling
                 ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#ecf0f1')),
                 ('LINEBELOW', (0, 0), (-1, 0), 2, colors.HexColor('#2980b9')),
                 
-                # Zebra striping
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')])
             ]))
             
             elements.append(table)
 
-            # Footer
             footer_style = ParagraphStyle(
                 name='FooterStyle',
                 parent=styles['Normal'],
@@ -1674,12 +1890,10 @@ def create_app(db_client=None):
             )
             elements.append(footer)
 
-            # Build PDF
             doc.build(elements)
             buffer.seek(0)
             pdf_data = buffer.getvalue()
 
-            # Store PDF file in GridFS with reference to report metadata
             file_id = reports_fs.put(
                 pdf_data,
                 filename=f'traffic-report-{report_id}.pdf',
@@ -1687,13 +1901,11 @@ def create_app(db_client=None):
                 reportId=report_id
             )
 
-            # Update report metadata with file reference
             reports_collection.update_one(
                 {'_id': report_id},
                 {'$set': {'fileId': file_id}}
             )
 
-            # Return the PDF to user
             return send_file(
                 BytesIO(pdf_data),
                 download_name=f'traffic-report-{datetime.now(SGT).strftime("%Y%m%d-%H%M")}.pdf',
@@ -1713,12 +1925,10 @@ def create_app(db_client=None):
             if 'username' not in session:
                 return jsonify({'message': 'Unauthorized - Please log in'}), 401
 
-            # Find the report metadata
             report = reports_collection.find_one({'_id': ObjectId(report_id)})
             if not report:
                 return jsonify({'message': 'Report not found'}), 404
 
-            # Get the PDF file from GridFS
             if 'fileId' not in report:
                 return jsonify({'message': 'Report file not found'}), 404
 
@@ -1737,7 +1947,6 @@ def create_app(db_client=None):
     @app.route('/api/traffic/available-ranges', methods=['GET'])
     def get_available_ranges():
         try:
-            # Get min and max dates
             date_range = historical_traffic_data.aggregate([
                 {
                     '$group': {
@@ -1789,12 +1998,11 @@ def create_app(db_client=None):
                     else:
                         query['date'] = {'$lte': end_date.strftime('%d-%m-%Y')}
                         
-                # Create date range for incidents query
                 query_date_range = None
                 if date_range.get('start') and date_range.get('end'):
                     query_date_range = {
                         '$gte': start_date,
-                        '$lte': end_date + timedelta(days=1)  # Include full last day
+                        '$lte': end_date + timedelta(days=1)
                     }
 
             if data.get('timeRange'):
@@ -1810,10 +2018,9 @@ def create_app(db_client=None):
             if data.get('selectedRoads'):
                 query['streetName'] = {'$in': data['selectedRoads']}
 
-            # Modified query to sort by date and time and limit to 10 records
             traffic_data = list(historical_traffic_data.find(query, {'_id': 0})
                 .sort([
-                    ('date', 1),  # 1 for ascending order
+                    ('date', 1),
                     ('time', 1)
                 ])
                 .limit(10))
@@ -1821,22 +2028,19 @@ def create_app(db_client=None):
             if not traffic_data:
                 return jsonify({'message': 'No data found for the selected criteria'}), 404
 
-            # Add incident data if needed for incidents, comprehensive, or congestion data types
             if data['dataType'] in ['incidents', 'comprehensive', 'congestion']:
                 traffic_data = add_incident_data(traffic_data, query_date_range)
 
-            # Select columns based on dataType
             if data['dataType'] == 'traffic':
                 columns = ['streetName', 'date', 'time', 'currentSpeed', 'freeFlowSpeed', 'intensity']
             elif data['dataType'] == 'incidents':
                 columns = ['streetName', 'date', 'time', 'accidentCount', 'congestionCount', 'incidentCount']
             elif data['dataType'] == 'congestion':
                 columns = ['streetName', 'date', 'time', 'intensity', 'currentSpeed', 'congestionCount']
-            else:  # comprehensive
+            else:
                 columns = ['streetName', 'date', 'time', 'currentSpeed', 'freeFlowSpeed', 
                           'intensity', 'accidentCount', 'congestionCount', 'incidentCount']
 
-            # Filter the data to only include selected columns
             preview_data = []
             for record in traffic_data:
                 preview_record = {col: record.get(col) for col in columns}
@@ -1857,25 +2061,20 @@ def create_app(db_client=None):
             if 'username' not in session:
                 return jsonify({'message': 'Unauthorized - Please log in'}), 401
 
-            # Get query parameters for filtering
             search_term = request.args.get('search', '').lower()
             report_type = request.args.get('type', 'all')
 
-            # Build the query
             query = {}
             
-            # Add search filter if search term exists
             if search_term:
                 query['$or'] = [
                     {'dataType': {'$regex': search_term, '$options': 'i'}},
                     {'metadata.generatedBy': {'$regex': search_term, '$options': 'i'}}
                 ]
 
-            # Add type filter if specific type is requested
             if report_type != 'all':
                 query['dataType'] = report_type
 
-            # Fetch reports with filters and sort by generation date
             reports = list(reports_collection.find(
                 query,
                 {
@@ -1887,14 +2086,11 @@ def create_app(db_client=None):
                     'selectedRoads': 1,
                     'metadata': 1
                 }
-            ).sort('metadata.generatedAt', -1))  # Sort by newest first
+            ).sort('metadata.generatedAt', -1))
 
-            # Convert ObjectId to string for JSON serialization
             for report in reports:
                 report['_id'] = str(report['_id'])
-                # Format the generated date for display
                 if 'metadata' in report and 'generatedAt' in report['metadata']:
-                    # Convert ISO string to datetime for formatting
                     generated_at = datetime.fromisoformat(str(report['metadata']['generatedAt']).replace('Z', '+00:00'))
                     report['metadata']['generatedAt'] = generated_at.strftime('%Y-%m-%d %H:%M:%S')
 
@@ -1913,18 +2109,14 @@ def create_app(db_client=None):
             if 'username' not in session:
                 return jsonify({'message': 'Unauthorized - Please log in'}), 401
 
-            # Get format parameter from query string
             format_type = request.args.get('format', 'data')
 
-            # Find the report metadata
             report = reports_collection.find_one({'_id': ObjectId(report_id)})
             if not report:
                 return jsonify({'message': 'Report not found'}), 404
 
-            # Return PDF file if format=pdf
             if format_type == 'pdf' and 'fileId' in report:
                 try:
-                    # Get the PDF file from GridFS
                     grid_out = reports_fs.get(report['fileId'])
                     return send_file(
                         BytesIO(grid_out.read()),
@@ -1934,13 +2126,10 @@ def create_app(db_client=None):
                     print(f"Error retrieving PDF: {str(e)}")
                     return jsonify({'message': 'Error retrieving PDF file'}), 500
 
-            # Return data format (existing code)
-            # Find the report metadata
             report = reports_collection.find_one({'_id': ObjectId(report_id)})
             if not report:
                 return jsonify({'message': 'Report not found'}), 404
 
-            # Build query for historical data based on report filters
             query = {}
 
             if report.get('dateRange'):
@@ -1966,24 +2155,21 @@ def create_app(db_client=None):
             if report.get('selectedRoads'):
                 query['streetName'] = {'$in': report['selectedRoads']}
 
-            # Get the data
             data = list(historical_traffic_data.find(query, {'_id': 0}).sort([
                 ('date', 1),
                 ('time', 1)
             ]))
 
-            # Determine columns based on report type
             if report['dataType'] == 'traffic':
                 columns = ['streetName', 'date', 'time', 'currentSpeed', 'freeFlowSpeed', 'intensity']
             elif report['dataType'] == 'incidents':
                 columns = ['streetName', 'date', 'time', 'accidentCount', 'congestionCount', 'incidentCount']
             elif report['dataType'] == 'congestion':
                 columns = ['streetName', 'date', 'time', 'intensity', 'currentSpeed', 'congestionCount']
-            else:  # comprehensive
+            else:
                 columns = ['streetName', 'date', 'time', 'currentSpeed', 'freeFlowSpeed', 
                           'intensity', 'accidentCount', 'congestionCount', 'incidentCount']
 
-            # Filter data to include only selected columns
             filtered_data = []
             for record in data:
                 filtered_record = {col: record.get(col) for col in columns}
@@ -2015,19 +2201,16 @@ def create_app(db_client=None):
             if 'username' not in session:
                 return jsonify({'message': 'Unauthorized'}), 401
 
-            # Find the report
             report = reports_collection.find_one({'_id': ObjectId(report_id)})
             if not report:
                 return jsonify({'message': 'Report not found'}), 404
 
-            # Delete associated PDF file if it exists
             if 'fileId' in report:
                 try:
                     reports_fs.delete(report['fileId'])
                 except Exception as e:
                     print(f"Error deleting PDF file: {e}")
 
-            # Delete the report metadata
             result = reports_collection.delete_one({'_id': ObjectId(report_id)})
             
             if result.deleted_count > 0:
@@ -2042,9 +2225,8 @@ def create_app(db_client=None):
     @app.route('/api/traffic/analysis', methods=['GET'])
     def get_traffic_analysis():
         try:
-            # Get parameters
             roads = request.args.getlist('roads')
-            input_date = request.args.get('date')  # This will be in YYYY-MM-DD format
+            input_date = request.args.get('date')
             start_time = request.args.get('startTime')
             end_time = request.args.get('endTime')
             metric = request.args.get('metric', 'speed')
@@ -2052,7 +2234,6 @@ def create_app(db_client=None):
             if not roads or not input_date:
                 return jsonify({'message': 'Roads and date are required'}), 400
 
-            # Convert YYYY-MM-DD to DD-MM-YYYY for database query
             date_obj = datetime.strptime(input_date, '%Y-%m-%d')
             formatted_date = date_obj.strftime('%d-%m-%Y')
 
@@ -2067,18 +2248,16 @@ def create_app(db_client=None):
                     '$lte': end_time
                 }
 
-            # Get data sorted by time
             data = list(historical_traffic_data.find(
                 query,
                 {'_id': 0, 'streetName': 1, 'time': 1, 'currentSpeed': 1, 'intensity': 1, 'road_id': 1}
             ).sort([('time', 1)]))
 
-            # Get incidents if needed
             if metric == 'incidents':
                 for record in data:
                     record_time = datetime.strptime(f"{formatted_date} {record['time']}", '%d-%m-%Y %H:%M')
                     incidents = traffic_incidents.count_documents({
-                        'road_id': record.get('road_id'),  # Use road_id for more accurate matching
+                        'road_id': record.get('road_id'),
                         'start_time': {
                             '$gte': record_time - timedelta(minutes=30),
                             '$lt': record_time + timedelta(minutes=30)
@@ -2086,7 +2265,6 @@ def create_app(db_client=None):
                     })
                     record['incidents'] = incidents
 
-            # Organize data by road
             analysis_data = {}
             for road in roads:
                 road_data = [d for d in data if d['streetName'] == road]
@@ -2113,7 +2291,6 @@ def create_app(db_client=None):
 
     MODEL_FOLDER = "./Models"
     
-    # Global variable to hold training logs
     training_logs = {"trainingComplete": False, "logs": []}
     
     def get_upload_folder():
@@ -2128,13 +2305,15 @@ def create_app(db_client=None):
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     print(f"[INFO] Upload folder set to: {UPLOAD_FOLDER}")
     
-    #Extracts a zip file to a given directory and ensures no nested directories.
     def extract_zip(zip_file_path, extract_to):
         
         with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
             zip_ref.extractall(extract_to)
             
         print(f"[DEBUG] Extracted files in {extract_to}: {os.listdir(extract_to)}")
+
+        root_folders = [os.path.join(extract_to, folder) for folder in os.listdir(extract_to)]
+        train_dir_folders = [folder for folder in root_folders if os.path.isdir(folder)]
 
         # Get the root folder of the extracted content
         #root_folders = [os.path.join(extract_to, folder) for folder in os.listdir(extract_to)]
@@ -2145,6 +2324,8 @@ def create_app(db_client=None):
             for item in os.listdir(nested_folder):
                 item_path = os.path.join(nested_folder, item)
                 shutil.move(item_path, extract_to)
+
+            shutil.rmtree(nested_folder)
             shutil.rmtree(nested_folder) ''' # Remove the empty nested folder
         
         
@@ -2161,7 +2342,6 @@ def create_app(db_client=None):
 
         print(f"[DEBUG] Final extracted structure in {extract_to}: {os.listdir(extract_to)}")
 
-    #Handle ZIP file upload and extraction, ensuring proper directory structure.
     @app.route("/api/upload-zip", methods=["POST"])
     def upload_zip_file():
         
@@ -2183,19 +2363,19 @@ def create_app(db_client=None):
         if not file.filename.lower().endswith(".zip"):
             return jsonify({"error": "Only ZIP files are allowed."}), 400
 
-        # Save the uploaded file
         save_path = os.path.join(UPLOAD_FOLDER, file.filename)
         print(f"[DEBUG] Saving file to: {save_path}")
         file.save(save_path)
 
         try:
+            extract_to = os.path.join(UPLOAD_FOLDER)
+            os.makedirs(extract_to, exist_ok=True)
             # Extract the ZIP file
             #extract_to = os.path.join(UPLOAD_FOLDER)
             #os.makedirs(extract_to, exist_ok=True)
 
             extract_zip(save_path, UPLOAD_FOLDER)
 
-            # Remove the uploaded ZIP file after extraction
             os.remove(save_path)
 
             return jsonify({"message": "File uploaded and extracted successfully."}), 200
@@ -2203,15 +2383,13 @@ def create_app(db_client=None):
         except Exception as e:
             return jsonify({"error": f"An error occurred: {str(e)}"}), 500
         
-    #List all model files in the Models folder.
     @app.route("/api/models", methods=["GET"])
     def list_models():
         
         try:
             if not os.path.exists(MODEL_FOLDER):
-                return jsonify({"models": []})  # Return empty if folder doesn't exist
+                return jsonify({"models": []})
 
-            # Get all model files in the directory
             model_files = [
                 f for f in os.listdir(MODEL_FOLDER) 
                 if os.path.isfile(os.path.join(MODEL_FOLDER, f))
@@ -2220,12 +2398,10 @@ def create_app(db_client=None):
         except Exception as e:
             return jsonify({"error": f"Unable to list models: {str(e)}"}), 500
 
-    # Logging function for live logs
     def log_message(message):
         training_logs["logs"].append(message)
-        print(message)  # For backend debugging
+        print(message)
 
-    #Handles the retraining of the model with the uploaded dataset 
     def run_retraining(model_path):
        
         try:
@@ -2238,7 +2414,6 @@ def create_app(db_client=None):
                 training_logs["trainingComplete"] = True
                 return
 
-            # Data augmentation using ImageDataGenerator
             log_message("Setting up data augmentation...")
             train_datagen = ImageDataGenerator(
                 rotation_range=40,
@@ -2261,7 +2436,6 @@ def create_app(db_client=None):
 
             
             log_message("Starting retraining...")
-            # Calculate the starting epoch for retraining
             initial_epoch = model.optimizer.iterations.numpy() // len(train_generator)
 
             history = model.fit(
@@ -2279,7 +2453,6 @@ def create_app(db_client=None):
             )
 
 
-            # Save the updated model
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             new_model_name = f"retrained_model_{timestamp}.keras"
             save_path = os.path.join("./Models", new_model_name)
@@ -2298,17 +2471,14 @@ def create_app(db_client=None):
             model_name = request.json.get("model")
             model_path = os.path.join("./Models", model_name)
             
-            # Reset the training logs
             training_logs['logs']=[]
 
-            # Run retraining in a separate thread to avoid blocking
             threading.Thread(target=run_retraining, args=(model_path,)).start()
 
             return jsonify({"message": "Retraining started successfully"}), 200
         except Exception as e:
             return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
-    # Flask endpoint to fetch live training logs
     @app.route("/api/logs", methods=["GET"])
     def get_training_logs():
         return jsonify(training_logs), 200
@@ -2318,19 +2488,14 @@ def create_app(db_client=None):
     def get_metrics():
         try:
             
-            # Total roads processed from the main traffic collection
             total_roads = current_traffic_data.count_documents({})
 
-            # Count of successful API calls 
             successful_calls = traffic_logs.count_documents({"status": "success"})
 
-            # Count of failed API calls
             failed_calls = traffic_logs.count_documents({"status": "failure"})
 
-            # Count of duplicate records
             duplicates = traffic_logs.count_documents({"status": "duplicate"})
             
-            # Calculate ingestion latency
             recent_log = traffic_logs.find_one(sort=[("date", -1), ("time", -1)])
 
             if recent_log and "date" in recent_log and "time" in recent_log:
@@ -2341,15 +2506,14 @@ def create_app(db_client=None):
                 log_datetime = datetime.combine(log_date, log_time)
                 log_datetime = SGT.localize(log_datetime)  # Mark as Singapore Time
 
+                current_datetime = datetime.now(SGT)
                 # Get current time in Singapore Time
                 current_datetime = get_sgt_time()
 
-                # Calculate latency in seconds
                 latency = (current_datetime - log_datetime).total_seconds()
             else:
                 latency = None
 
-            # Prepare metrics
             metrics = {
                 "totalRoads": total_roads,
                 "successfulCalls": successful_calls,
@@ -2385,13 +2549,12 @@ def create_app(db_client=None):
             return jsonify({"error": f"Failed to fetch logs: {str(e)}"}), 500
 
      
-    #Log traffic activity to the traffic_logs collection
     def log_traffic_activity(status, road_name, current_time, additional_info=None):
         
         log_entry = {
             "timestamp": current_time,
             "roadName": road_name,
-            "status": status,  # success, failure, duplicate
+            "status": status,
             "message": f"{status.upper()} for {road_name}",
         }
         if additional_info:
@@ -2405,7 +2568,6 @@ def create_app(db_client=None):
     @app.route('/api/pie-chart-data', methods=['GET'])
     def get_pie_chart_data():
         try:
-            # Count the number of unique vs duplicate records
             total_logs = traffic_logs.count_documents({})
             duplicate_count = traffic_logs.count_documents({"status": "duplicate"})
             unique_count = total_logs - duplicate_count
@@ -2421,33 +2583,29 @@ def create_app(db_client=None):
     def get_line_chart_data():
         try:  
 
-            # Aggregate API calls by day using 'date' field
             pipeline = [
                 {
-                    # Add a `date` field if it's missing, extracted from `timestamp`
                     "$addFields": {
                         "date": {
                             "$cond": {
-                                "if": { "$not": ["$date"] },  # Check if `date` is missing or null
+                                "if": { "$not": ["$date"] },
                                 "then": {
                                     "$dateToString": {
-                                        "format": "%d-%m-%Y",  # Extract date from `timestamp`
+                                        "format": "%d-%m-%Y",
                                         "date": "$timestamp"
                                     }
                                 },
-                                "else": "$date"  # Use the existing `date` value if present
+                                "else": "$date"
                             }
                         }
                     }
                 },
                 {
-                    # Filter only documents with a valid `date` field
                     "$match": {
                         "date": { "$exists": True, "$ne": None },
                     }
                 },
                 {
-                    # Group by `date` and calculate aggregates
                     "$group": {
                         "_id": "$date",
                         "successful": {
@@ -2462,7 +2620,6 @@ def create_app(db_client=None):
                     }
                 },
                 {
-                    # Convert `_id` (date string) to a `date` object for sorting
                     "$addFields": {
                         "parsedDate": {
                             "$dateFromString": {
@@ -2473,11 +2630,9 @@ def create_app(db_client=None):
                     }
                 },
                 {
-                    # Sort by the parsed `date` field in ascending order
                     "$sort": { "parsedDate": 1 }
                 },
                 {
-                    # Remove the parsedDate field from output
                     "$unset": "parsedDate"
                 }
             ]
@@ -2509,34 +2664,28 @@ def create_app(db_client=None):
             origin = data.get('origin')
             destination = data.get('destination')
 
-            # Debug coordinate values
             print("Received coordinates:", {
                 "origin": origin,
                 "destination": destination
             })
 
-            # Validate input data
             if not origin or not destination:
                 return jsonify({'error': 'Origin and destination are required'}), 400
 
             try:
-                # Convert coordinates to float
                 origin = [float(x) for x in origin]
                 destination = [float(x) for x in destination]
             except (ValueError, TypeError):
                 return jsonify({'error': 'Invalid coordinate values'}), 400
 
-            # Validate coordinate ranges for Singapore
             if not (1.1 <= origin[0] <= 1.5 and 103.6 <= origin[1] <= 104.1 and
                     1.1 <= destination[0] <= 1.5 and 103.6 <= destination[1] <= 104.1):
                 return jsonify({'error': 'Coordinates outside Singapore bounds'}), 400
 
-            # Initialize routing if not already done
             if not hasattr(app, 'routing_graph'):
                 print("Initializing routing graph...")
                 app.routing_graph = initialize_routing_graph()
 
-            # Calculate route
             route_result = calculate_route_with_alternatives(
                 app.routing_graph,
                 origin,
@@ -2567,13 +2716,11 @@ def create_app(db_client=None):
             with open(cache_file, 'wb') as f:
                 pickle.dump(G_multi, f)
         
-        # Convert MultiDiGraph to DiGraph
         G = nx.DiGraph(G_multi)
         
-        # Combine parallel edges by taking the minimum weight
         for u, v, data in G.edges(data=True):
             if 'length' not in data:
-                data['length'] = 1000  # Default length if missing
+                data['length'] = 1000
         
         return G
 
@@ -2583,30 +2730,26 @@ def create_app(db_client=None):
             return 1.0
         ratio = current_speed / free_flow_speed
         if ratio >= 0.8:
-            return 1.0  # Low congestion
+            return 1.0
         elif ratio >= 0.5:
-            return 2.0  # Medium congestion
+            return 2.0
         else:
-            return 3.0  # High congestion
+            return 3.0
         
     def update_edge_weights(G):
         """Update graph edge weights based on current traffic conditions"""
         try:
-            # Get current traffic data
             traffic_data = list(current_traffic_data.find({}, {'_id': 0}))
             
-            # Create a mapping of coordinates to traffic data
             traffic_map = {}
             for data in traffic_data:
                 coords = (data['coordinates']['lat'], data['coordinates']['lng'])
                 traffic_map[coords] = data
 
-            # Update edge weights in the graph
             for u, v, data in G.edges(data=True):
                 edge_lat = (G.nodes[u]['y'] + G.nodes[v]['y']) / 2
                 edge_lng = (G.nodes[u]['x'] + G.nodes[v]['x']) / 2
 
-                # Find nearest traffic data point
                 nearest_traffic = None
                 min_distance = float('inf')
                 for coords, traffic in traffic_map.items():
@@ -2615,7 +2758,7 @@ def create_app(db_client=None):
                         min_distance = dist
                         nearest_traffic = traffic
 
-                if nearest_traffic and min_distance < 0.01:  # Within ~1km
+                if nearest_traffic and min_distance < 0.01:
                     congestion_factor = get_road_congestion(
                         nearest_traffic.get('currentSpeed', 0),
                         nearest_traffic.get('freeFlowSpeed', 0)
@@ -2623,22 +2766,20 @@ def create_app(db_client=None):
                 else:
                     congestion_factor = 1.0
 
-                # Update edge weight combining distance and congestion
                 base_length = data.get('length', 1000)
                 data['weight'] = base_length * congestion_factor
 
         except Exception as e:
-            print(f"Error updating edge weights: {e}")
+            print(f"Error updating edge weights: e")
+
 
     def calculate_route_with_alternatives(G, origin, destination, k=3):
         """Calculate route with alternatives using networkx, considering both distance and congestion"""
         try:
-            # Validate input coordinates
             if not all(isinstance(x, (int, float)) for x in origin + destination):
                 print("Invalid coordinates:", origin, destination)
                 return None
 
-            # Convert coordinates to float explicitly
             try:
                 origin_lat, origin_lng = float(origin[0]), float(origin[1])
                 dest_lat, dest_lng = float(destination[0]), float(destination[1])
@@ -2646,7 +2787,6 @@ def create_app(db_client=None):
                 print(f"Error converting coordinates: {e}")
                 return None
 
-            # Validate coordinate ranges for Singapore
             if not (1.1 <= origin_lat <= 1.5 and 103.6 <= origin_lng <= 104.1 and
                     1.1 <= dest_lat <= 1.5 and 103.6 <= dest_lng <= 104.1):
                 print("Coordinates outside Singapore bounds")
@@ -2654,14 +2794,11 @@ def create_app(db_client=None):
 
             print(f"Finding route from ({origin_lat}, {origin_lng}) to ({dest_lat}, {dest_lng})")
 
-            # Get nearest nodes
             origin_node = ox.nearest_nodes(G, origin_lng, origin_lat)
             dest_node = ox.nearest_nodes(G, dest_lng, dest_lat)
 
-            # Calculate straight-line distance between points
             distance = ((origin_lat - dest_lat)**2 + (origin_lng - dest_lng)**2)**0.5
             
-            # Handle very close points
             if distance < 0.0005:
                 return {
                     'coordinates': [[origin_lat, origin_lng], [dest_lat, dest_lng]],
@@ -2671,10 +2808,8 @@ def create_app(db_client=None):
                     'warning': 'Points are very close together'
                 }
 
-            # Update edge weights based on current traffic
             update_edge_weights(G)
 
-            # Find k shortest paths considering both distance and congestion
             routes = []
             try:
                 print("\n=== Route Calculations ===")
@@ -2685,8 +2820,8 @@ def create_app(db_client=None):
                         break
 
                     coordinates = []
-                    path_length = 0  # in meters
-                    total_time = 0   # in minutes
+                    path_length = 0
+                    total_time = 0
                     congestion_level = 0
                     total_weight = 0
                     
@@ -2696,40 +2831,6 @@ def create_app(db_client=None):
                     for u, v in zip(path[:-1], path[1:]):
                         lat = float(G.nodes[u]['y'])
                         lng = float(G.nodes[u]['x'])
-                        coordinates.append([lat, lng])
-                        
-                        edge_data = G.get_edge_data(u, v)
-                        base_length = float(edge_data.get('length', 1000))  # in meters
-                        weight = float(edge_data.get('weight', base_length))
-                        
-                        # Print segment details
-                        print(f"Segment {u}->{v}:")
-                        print(f"  Base Length: {base_length:.2f}m")
-                        print(f"  Weight: {weight:.2f}")
-                        print(f"  Congestion Factor: {(weight/base_length):.2f}")
-                        
-                        path_length += base_length
-                        total_weight += weight
-                        congestion_factor = weight / base_length
-                        congestion_level = max(congestion_level, congestion_factor)
-                        
-                        # Calculate segment time:
-                        # base_length is in meters
-                        # Convert to km and calculate time in minutes
-                        # Assume base speed of 35 km/h adjusted by congestion
-                        speed_kmh = 35 * (1 / congestion_factor)  # speed in km/h
-                        segment_time = (base_length / 1000) / speed_kmh * 60  # Convert to minutes
-                        
-                        total_time += segment_time
-                        print(f"  Estimated Time: {segment_time:.2f} minutes")
-
-                    # Add final node
-                    coordinates.append([float(G.nodes[path[-1]]['y']), float(G.nodes[path[-1]]['x'])])
-                    
-                    # Print route summary
-                    print("\nRoute Summary:")
-                    print(f"Total Distance: {path_length/1000:.2f}km")
-                    print(f"Total Weight: {total_weight:.2f}")
                     print(f"Average Congestion: {congestion_level:.2f}")
                     print(f"Estimated Time: {total_time:.2f} minutes")
                     print("-" * 50)
@@ -2771,23 +2872,17 @@ def create_app(db_client=None):
         try:
             print("\n=== Traffic Data Storage Debug ===")
             
-            # Get cluster stats
             cluster_stats = client.admin.command('listDatabases')
             print(f"Raw cluster stats: {cluster_stats}")
             
-            # Get max size from cluster info
-            # If maxSize is not set, fall back to 512MB (Free Tier default)
             TOTAL_SIZE = cluster_stats.get('maxSize', 512 * 1024 * 1024)
             
-            # Get stats for traffic-data database only
             db = client['traffic-data']
             db_stats = db.command('dbStats')
             print(f"Raw dbStats for traffic-data: {db_stats}")
             
-            # Calculate total size for database
             total_size = db_stats['dataSize'] + db_stats['indexSize']
             
-            # Get collections stats
             collections = []
             for collection_name in db.list_collection_names():
                 try:
@@ -2827,7 +2922,6 @@ def create_app(db_client=None):
 
         except Exception as e:
             print(f"Error fetching storage metrics: {str(e)}")
-            # Fall back to Free Tier limit if there's an error
             TOTAL_SIZE = 512 * 1024 * 1024
             return jsonify({
                 'totalSize': TOTAL_SIZE,
@@ -2853,16 +2947,13 @@ def create_app(db_client=None):
             db = client['traffic-data']
             collection = db[collection_name]
             
-            # Get total count
             total_documents = collection.count_documents({})
             total_pages = (total_documents + per_page - 1) // per_page
             
-            # Get paginated documents
             documents = list(collection.find()
                             .skip((page - 1) * per_page)
                             .limit(per_page))
             
-            # Convert MongoDB objects to JSON-serializable format
             serialized_documents = []
             for doc in documents:
                 serialized_doc = {}
@@ -2874,7 +2965,7 @@ def create_app(db_client=None):
                     elif isinstance(value, (int, float, str, bool, dict, list)) or value is None:
                         serialized_doc[key] = value
                     else:
-                        serialized_doc[key] = str(value)  # Convert any other types to string
+                        serialized_doc[key] = str(value)
                 serialized_documents.append(serialized_doc)
 
             return jsonify({
@@ -2905,5 +2996,192 @@ def create_app(db_client=None):
         except Exception as e:
             print(f"Error deleting document: {str(e)}")
             return jsonify({'message': f'Error deleting document: {str(e)}'}), 500
+
+    
+        
+    @app.route('/api/save-map-changes/<file_id>', methods=['POST'])
+    def save_map_changes(file_id):
+        try:
+            print("\n=== Saving Map Changes ===")
+            data = request.json
+            
+            # Find existing network data
+            network = road_networks.find_one({'file_id': file_id})
+            if not network:
+                return jsonify({'message': 'Road network not found'}), 404
+
+            # Extract feature data
+            signals = data.get('signals', [])
+            entrances = data.get('entrances', [])
+            exits = data.get('exits', [])
+
+            # Update network data with new features
+            update_result = road_networks.update_one(
+                {'file_id': file_id},
+                {'$set': {
+                    'traffic_signals': signals,
+                    'entrances': entrances,
+                    'exits': exits,
+                    'last_modified': datetime.now(SGT)
+                }}
+            )
+
+            if update_result.modified_count > 0:
+                print(f"Updated road network features successfully")
+                
+                # Get the current file from GridFS and read its content
+                grid_file = fs.get(ObjectId(file_id))
+                file_content = grid_file.read().decode('utf-8')
+                
+                # Update XML content
+                soup = BeautifulSoup(file_content, 'xml')
+                map_elem = soup.find('map')
+                routes = map_elem.find('routes')
+                
+                # Clear existing feature routes
+                for route in routes.find_all('route', {'type': ['signal', 'entrance', 'exit']}):
+                    route.decompose()
+                
+                # Add traffic signals
+                for signal in signals:
+                    signal_route = soup.new_tag('route')
+                    signal_route['type'] = 'signal'
+                    signal_route['id'] = signal['id']
+                    
+                    position = soup.new_tag('position')
+                    position['x'] = str(signal['x'])
+                    position['y'] = str(signal['y'])
+                    
+                    if 'cycleTime' in signal:
+                        signal_route['cycleTime'] = str(signal['cycleTime'])
+                    if 'offset' in signal:
+                        signal_route['offset'] = str(signal['offset'])
+                    
+                    signal_route.append(position)
+                    routes.append(signal_route)
+                
+                # Add entrances and exits
+                for entrance in entrances:
+                    entrance_route = soup.new_tag('route')
+                    entrance_route['type'] = 'entrance'
+                    entrance_route['id'] = entrance['id']
+                    
+                    position = soup.new_tag('position')
+                    position['x'] = str(entrance['x'])
+                    position['y'] = str(entrance['y'])
+                    entrance_route.append(position)
+                    routes.append(entrance_route)
+                
+                for exit_point in exits:
+                    exit_route = soup.new_tag('route')
+                    exit_route['type'] = 'exit'
+                    exit_route['id'] = exit_point['id']
+                    
+                    position = soup.new_tag('position')
+                    position['x'] = str(exit_point['x'])
+                    position['y'] = str(exit_point['y'])
+                    exit_route.append(position)
+
+                # Delete old file and save updated XML content back to GridFS with same ID
+                fs.delete(ObjectId(file_id))
+                fs.put(
+                    str(soup).encode('utf-8'),
+                    _id=ObjectId(file_id),
+                    filename=grid_file.filename,
+                    content_type='text/xml',
+                    username=session['username']
+                )
+
+                return jsonify({
+                    'message': 'Map changes saved successfully',
+                    'file_id': file_id
+                }), 200
+            else:
+                return jsonify({'message': 'No changes were made'}), 400
+
+        except Exception as e:
+            print(f"Error saving map changes: {str(e)}")
+            traceback.print_exc()
+            return jsonify({'message': f'Error saving changes: {str(e)}'}), 500
+
+    @app.route('/api/generate-model/<file_id>', methods=['POST'])
+    def generate_traffic_model(file_id):
+        try:
+            # Get road network data from MongoDB
+            network_data = road_networks.find_one({'file_id': file_id})
+            if not network_data:
+                return jsonify({'message': 'Road network not found'}), 404
+
+            # Convert data to model format
+            nodes = []
+            node_mapping = {}  # To map coordinates to node indices
+            
+            # Process intersections
+            for i, intersection in enumerate(network_data['intersections']):
+                if isinstance(intersection, list) and len(intersection) >= 2:
+                    nodes.append((intersection[0], intersection[1]))
+                    node_mapping[tuple(intersection)] = i
+
+            # Process road segments into edges
+            roads = []
+            for segment in network_data['road_segments']:
+                start_pos = tuple(segment['start'])
+                end_pos = tuple(segment['end'])
+                
+                # Get or create node indices
+                if start_pos not in node_mapping:
+                    node_mapping[start_pos] = len(nodes)
+                    nodes.append(start_pos)
+                if end_pos not in node_mapping:
+                    node_mapping[end_pos] = len(nodes)
+                    nodes.append(end_pos)
+                
+                roads.append((node_mapping[start_pos], node_mapping[end_pos]))
+
+            # Convert entrances and exits to coordinate tuples
+            entrances = [tuple(entrance) if isinstance(entrance, list) else 
+                        (entrance['x'], entrance['y']) for entrance in network_data['entrances']]
+            
+            exits = [tuple(exit_point) if isinstance(exit_point, list) else 
+                    (exit_point['x'], exit_point['y']) for exit_point in network_data['exits']]
+
+            # Format traffic signals
+            signals = []
+            for signal in network_data['traffic_signals']:
+                signal_data = {
+                    'x': signal['x'] if 'x' in signal else signal['position'][0],
+                    'y': signal['y'] if 'y' in signal else signal['position'][1],
+                    'cycleTime': signal.get('cycleTime', 10.0),
+                    'offset': signal.get('offset', 0.0)
+                }
+                signals.append(signal_data)
+
+            # Create model instance
+            from Models.model import TrafficModel
+            model = TrafficModel(nodes, roads, entrances, exits, signals)
+
+            # Generate and save PKL file
+            output_filename = f'model_{file_id}.pkl'
+            output_path = os.path.join('Models', output_filename)
+            pkl_path = model.generate_pkl(output_path)
+
+            if pkl_path:
+                return jsonify({
+                    'message': 'Model generated successfully',
+                    'model_file': output_filename,
+                    'stats': {
+                        'nodes': len(nodes),
+                        'roads': len(roads),
+                        'entrances': len(entrances),
+                        'exits': len(exits),
+                        'signals': len(signals)
+                    }
+                }), 200
+            else:
+                return jsonify({'message': 'Error generating model file'}), 500
+
+        except Exception as e:
+            print(f"Error generating traffic model: {str(e)}")
+            return jsonify({'message': f'Error: {str(e)}'}), 500
 
     return app

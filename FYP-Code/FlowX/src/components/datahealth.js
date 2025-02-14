@@ -34,17 +34,16 @@ const useDataHealthController = () => {
   const uploadZip = async () => {
     if (!file) {
         toast.error("Please select a file to upload", toastConfig);
+        console.log("No file selected - toast.error triggered");
         return;
     }
 
     const formData = new FormData();
     formData.append("file", file);
 
-    let toastId = null;
-    
     try {
-        // Store toastId
-        const toastId = toast.info("Uploading file...", { ...toastConfig });
+        console.log("Triggering toast.info for upload start");
+        const toastId = toast.loading("Uploading file...");
 
         const response = await axios.post(`${API_URL}/upload-zip`, formData, {
             headers: { "Content-Type": "multipart/form-data" },
@@ -57,17 +56,13 @@ const useDataHealthController = () => {
         console.log("Upload response received:", response);
 
         if (response.status === 200 && response.data?.message) {
-            toast.update(toastId, { 
-                render: response.data.message,
-                type: toast.TYPE.SUCCESS,
-                autoClose: 3000
-            });
+            console.log("Updating toast to SUCCESS");
+            toast.dismiss(toastId);  // Dismiss previous loading toast
+            toast.success(response.data.message, { autoClose: 3000 });
         } else {
-            toast.update(toastId, { 
-                render: "Upload completed, but response format is unexpected",
-                type: toast.TYPE.WARNING,
-                autoClose: 3000
-            });
+            console.log("Unexpected response format - showing WARNING toast");
+            toast.dismiss(toastId);
+            toast.warning("Upload completed, but response format is unexpected", { autoClose: 3000 });
         }
 
         setUploadProgress(0);
@@ -77,19 +72,17 @@ const useDataHealthController = () => {
 
         let errorMessage = "Failed to upload file";
         if (error.response?.data?.error) {
-            errorMessage = error.response.data.error; // Show actual backend error
+            errorMessage = error.response.data.error;
         }
 
-        // Ensure error toast updates properly
-        toast.update(toastId, { 
-            render: errorMessage,
-            type: toast.TYPE.ERROR,
-            autoClose: 3000
-        });
+        console.log("Error occurred - Showing error toast");
+        toast.dismiss();  // Ensure any previous toasts are removed
+        toast.error(errorMessage, { autoClose: 3000 });
 
         setUploadProgress(0);
     }
   };
+
 
   const fetchLogs = async () => {
     try {

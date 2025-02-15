@@ -50,6 +50,7 @@ def create_app(db_client=None):
     app.config['SESSION_COOKIE_SAMESITE'] = "None"
     app.config['SESSION_COOKIE_SECURE'] = True
 
+
     # Update CORS configuration to allow credentials
     CORS(app, 
         supports_credentials=True, 
@@ -121,6 +122,7 @@ def create_app(db_client=None):
             
             bulk_updates = []
             bulk_historical = []  # New list for historical data
+            bulk_incidents = []  # New list for traffic incidents
             current_time = get_sgt_time()
             expected_road_count = len(SINGAPORE_ROADS)
             print(f"Updating traffic data. Expecting {expected_road_count} records")
@@ -186,6 +188,27 @@ def create_app(db_client=None):
 
                         # If it's hourly, add to historical data
                         if is_hourly:
+                            # Detect congestion and create incident record
+                            if intensity == 'high':
+                                incident_record = {
+                                    'road_id': road_id,
+                                    'type': 'CONGESTION',
+                                    'severity': 'HIGH',
+                                    'start_time': current_time,
+                                    'status': 'HISTORICAL',
+                                    'location': {
+                                        'lat': road['lat'],
+                                        'lng': road['lng']
+                                    },
+                                    'street_name': road['name'],
+                                    'description': f"Severe congestion detected with speed ratio {speed_ratio:.2f}",
+                                    'traffic_data': {
+                                        'current_speed': current_speed,
+                                        'free_flow_speed': free_flow_speed
+                                    }
+                                }
+                                bulk_incidents.append(incident_record)
+
                             historical_record = {
                                 'road_id': road_id,
                                 'streetName': road['name'],
@@ -223,13 +246,19 @@ def create_app(db_client=None):
                 print(f"[API SUMMARY] Modified: {result.modified_count}")
                 print(f"[API SUMMARY] Upserted: {result.upserted_count}")
 
-            # Insert historical data if it's hourly
-            if is_hourly and bulk_historical:
-                try:
-                    result = historical_traffic_data.insert_many(bulk_historical)
-                    print(f"[HISTORICAL] Inserted {len(result.inserted_ids)} records at hourly checkpoint")
-                except Exception as e:
-                    print(f"[HISTORICAL ERROR] Failed to insert historical data: {e}")
+            # Insert historical data and incidents if it's hourly
+            if is_hourly:
+                if bulk_historical:
+                    try:
+                        result = historical_traffic_data.insert_many(bulk_historical)
+                        print(f"[HISTORICAL] Inserted {len(result.inserted_ids)} records at hourly checkpoint")
+                        
+                        if bulk_incidents:
+                            traffic_incidents.insert_many(bulk_incidents)
+                            print(f"[INCIDENTS] Recorded {len(bulk_incidents)} congestion incidents")
+                            
+                    except Exception as e:
+                        print(f"[HISTORICAL ERROR] Failed to insert historical data: {e}")
                 
             return True
             

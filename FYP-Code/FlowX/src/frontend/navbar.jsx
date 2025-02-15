@@ -97,11 +97,29 @@ const Navbar = ({ sticky }) => {
         </li>
         <li className={styles.navbarItem}>
           <Link
+            to="/#team"
+            className={styles.navLink}
+            onClick={(e) => smoothScroll(e, 'team')}
+          >
+            Our Team
+          </Link>
+        </li>
+        <li className={styles.navbarItem}>
+          <Link
             to="/#services"
             className={styles.navLink}
             onClick={(e) => smoothScroll(e, 'services')}
           >
             Services
+          </Link>
+        </li>
+        <li className={styles.navbarItem}>
+          <Link
+            to="/#pricing"
+            className={styles.navLink}
+            onClick={(e) => smoothScroll(e, 'pricing')}
+          >
+            Pricing
           </Link>
         </li>
         <li className={styles.navbarItem}>

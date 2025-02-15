@@ -40,16 +40,60 @@ body, html {
   color: white;
 }
 
+.logoText {
+  color: white;
+  text-align: left;
+  margin-top: 1rem;
+  margin-bottom: 2rem;
+  margin-left: -600px;
+  font-style: italic;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1;
+  opacity: 0.9;
+  letter-spacing: 1px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;  /* Increased gap between lines */
+}
+
+.logoText div {
+  font-size: 3.5rem;  /* Increased font size from 2rem */
+  line-height: 1;     /* Reduced line height to bring lines closer */
+  font-weight: 300;   /* Made the font slightly thinner */
+}
+
+.promotionalText {
+  color: white;
+  text-align: left;
+  margin-top: 2rem;
+  margin-left: -600px;
+  font-style: italic;
+  opacity: 0.8;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+  letter-spacing: 0.5px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.promotionalText div {
+  font-size: 1.2rem;
+  line-height: 1.2;
+  font-weight: 300;
+}
+
 .content {
   position: absolute;
   top: 100vh; 
   left: 0;
   width: 100%;
-  height: 65vh; 
+  height: auto;     /* Changed from fixed height to auto */
+  min-height: 65vh; /* Add minimum height */
   z-index: 1;
   padding: 20px;
   background-color: rgb(0, 91, 172); 
-  overflow: auto; 
+  overflow: visible; /* Changed from auto to visible */
 }
 
 .topSection {
@@ -117,8 +161,7 @@ body, html {
   color: white; 
   position: relative; 
   z-index: 1; 
-  margin-top: 1700px;
-  
+  margin-top: 400px;  /* Reduced from 1700px */
 }
 
 .servicesSection h2 {
@@ -157,17 +200,15 @@ body, html {
 }
 
 .contactUsSection {
-  top: 50vh;
-  background-color: white; 
-  padding: 40px; 
-  width: 50%; 
+  padding: 40px;
+  width: 50%;
   position: relative;
-  z-index: 1; 
-  left: 0; 
-  right: 0; 
-  margin: 0; 
+  z-index: 1;
+  margin: 2rem auto;
+  border-radius: 10px;
+  background-color: white;  /* Restore background color */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
-
 
 .contactUsSection h2 {
   font-size: 2.5rem; 
@@ -216,4 +257,253 @@ body, html {
 .fadeIn.visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+.pricingSection {
+  padding: 4rem 2rem;
+  background-color: #f8f9fa;  /* Restore background color */
+}
+
+.pricingContent {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+.pricingCard {
+  background: white;
+  padding: 2rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 300px;
+  text-align: center;
+  transition: transform 0.3s ease;
+}
+
+.pricingCard:hover {
+  transform: translateY(-10px);
+}
+
+.pricingCard h3 {
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.price {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #007bff;
+  margin-bottom: 1.5rem;
+}
+
+.pricingCard ul {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 2rem;
+}
+
+.pricingCard li {
+  margin: 0.8rem 0;
+  color: #666;
+}
+
+.pricingCard button {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 0.8rem 2rem;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.pricingCard button:hover {
+  background: #0056b3;
+}
+
+.planComparison {
+  margin-top: 4rem;
+  width: 100%;
+  max-width: 1000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.planComparison h3 {
+  text-align: center;
+  margin-bottom: 2rem;
+  font-size: 2rem;
+  color: #333;
+}
+
+.comparisonTable {
+  overflow-x: auto;
+}
+
+.comparisonTable table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
+
+.comparisonTable th,
+.comparisonTable td {
+  padding: 1rem;
+  text-align: center;
+  border: 1px solid #eee;
+}
+
+.comparisonTable th {
+  background-color: #007bff;
+  color: white;
+  font-weight: 600;
+}
+
+.comparisonTable th:first-child {
+  text-align: left;
+  background-color: #0056b3;
+}
+
+.comparisonTable td:first-child {
+  text-align: left;
+  font-weight: 500;
+  background-color: #f8f9fa;
+}
+
+.comparisonTable tr:hover {
+  background-color: #f8f9fa;
+}
+
+.divider {
+  width: 80%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.3);
+  margin: 2rem auto;
+}
+
+.contactInfo {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 30%; /* Increased overall padding */
+  margin-top: 0; /* Adjust margin since we now have copyright above */
+}
+
+.emailContact {
+  text-align: left;
+  position: relative;
+  z-index: 0;
+  padding-left: 10%; /* Reduced left padding */
+  margin: 0;
+}
+
+.addressContact {
+  text-align: right;
+  padding-right: 10%; /* Added right padding */
+}
+
+.addressContact p {
+  color: white;
+  font-size: 1.2rem;
+  margin: 0;
+}
+
+.emailContact p {
+  color: white;
+  font-size: 1.2rem;
+  margin: 0;
+}
+
+.emailContact a {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: 600;
+  margin-left: 0; /* Remove left margin */
+}
+
+.emailContact a:hover {
+  text-decoration: underline;
+  color: #0056b3;
+}
+
+.copyright {
+  text-align: center;
+  color: white;
+  font-size: 1rem;
+  margin: 2rem 0;  /* Increased top margin from 1rem to 2rem */
+  opacity: 0.8;
+  padding-bottom: 1rem;  /* Added padding at the bottom */
+}
+
+.teamSection {
+  padding: 60px 120px;  /* Increased horizontal padding */
+  max-width: 1600px;
+  margin: 0 auto;
+  color: white;
+  text-align: center;
+  background-color: rgba(0, 91, 172, 0.9);
+  border-radius: 15px;
+  margin-top: 1200px;  /* Reduced from 1200px */
+  position: relative;
+  z-index: 2;
+  min-height: 500px;
+  display: flex;           /* Added flex display */
+  flex-direction: column;
+  align-items: center;     /* Center content horizontally */
+  justify-content: center; /* Center content vertically */
+}
+
+.teamGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 40px;              /* Increased gap for better spacing */
+  padding: 40px;          /* Increased padding */
+  width: 90%;            /* Reduced width to create margins */
+  max-width: 1400px;     /* Slightly smaller than container */
+  margin: 0 auto;
+  justify-content: center; /* Center grid items */
+}
+
+.teamMember {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 15px;  /* Reduced padding */
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  transition: transform 0.3s ease;
+  width: 100%;  /* Ensure full width within grid cell */
+}
+
+.memberPhoto {
+  width: 100px;  /* Slightly smaller photos */
+  height: 100px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.2);
+  margin-bottom: 10px;
+  overflow: hidden;  /* Add this to ensure image stays within circular bounds */
+  display: flex;     /* Add this to center the image */
+  align-items: center;
+  justify-content: center;
+}
+
+.memberImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;  /* This will ensure the image covers the area without distortion */
+}
+
+.teamMember h3 {
+  font-size: 1.4rem;
+  margin: 10px 0 5px;
+}
+
+.teamMember p {
+  font-size: 1rem;
+  opacity: 0.9;
 }

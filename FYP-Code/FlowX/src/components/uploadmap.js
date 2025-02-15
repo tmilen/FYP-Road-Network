@@ -26,6 +26,8 @@ const useUploadMap = () => {
     const [simulationInterval, setSimulationInterval] = useState(null);
     const [graph, setGraph] = useState(new Map());
     const [nodes, setNodes] = useState([]);
+    const [showDensity, setShowDensity] = useState(true);
+    const [roadDensity, setRoadDensity] = useState({});
 
     const fetchMapsList = async () => {
         try {
@@ -1583,6 +1585,151 @@ const useUploadMap = () => {
         }
     };
 
+    const updateRoadDensity = () => {
+        if (!showDensity) return;
+    
+        const svg = document.querySelector('.map-svg');
+        if (!svg) return;
+    
+        const roads = svg.querySelectorAll('#roads path');
+        const vehicles = svg.querySelectorAll('.vehicle');
+        const newDensity = {};
+    
+        roads.forEach(road => {
+            const roadId = road.id;
+            const pathLength = road.getTotalLength();
+            let count = 0;
+    
+            // Get road start and end points
+            const roadStart = road.getPointAtLength(0);
+            const roadEnd = road.getPointAtLength(pathLength);
+    
+            // Get intersection nodes along the road
+            const intersectionNodes = Array.from(svg.querySelectorAll('#intersection-nodes circle'))
+                .map(node => ({
+                    id: node.id,
+                    x: parseFloat(node.getAttribute('cx')),
+                    y: parseFloat(node.getAttribute('cy'))
+                }))
+                .filter(node => isPointOnLineSegment(node.x, node.y, roadStart.x, roadStart.y, roadEnd.x, roadEnd.y));
+    
+            // Sort intersection nodes by their position along the road
+            intersectionNodes.sort((a, b) => {
+                const distA = getDistance(roadStart.x, roadStart.y, a.x, a.y);
+                const distB = getDistance(roadStart.x, roadStart.y, b.x, b.y);
+                return distA - distB;
+            });
+    
+            // Add road start and end points to the list of nodes
+            intersectionNodes.unshift({ x: roadStart.x, y: roadStart.y });
+            intersectionNodes.push({ x: roadEnd.x, y: roadEnd.y });
+    
+            // Check density for each segment between intersection nodes
+            for (let i = 0; i < intersectionNodes.length - 1; i++) {
+                const startNode = intersectionNodes[i];
+                const endNode = intersectionNodes[i + 1];
+                let segmentCount = 0;
+    
+                vehicles.forEach(vehicle => {
+                    const transform = vehicle.getAttribute('transform');
+                    const match = transform.match(/translate\(([^,]+),([^)]+)\)/);
+                    if (match) {
+                        const vehicleX = parseFloat(match[1]);
+                        const vehicleY = parseFloat(match[2]);
+    
+                        // Calculate distance from vehicle to road segment
+                        const distance = pointToLineDistance(
+                            vehicleX,
+                            vehicleY,
+                            startNode.x,
+                            startNode.y,
+                            endNode.x,
+                            endNode.y
+                        );
+    
+                        // If vehicle is within 30 units of the road segment, count it
+                        if (distance < 30) {
+                            segmentCount++;
+                        }
+                    }
+                });
+    
+                // Update road color based on density for this segment
+                if (segmentCount > 4) {
+                    const segmentId = `${roadId}_segment_${i}`;
+                    let segment = svg.querySelector(`#${segmentId}`);
+                    if (!segment) {
+                        segment = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                        segment.setAttribute('id', segmentId);
+                        segment.setAttribute('stroke', '#e74c3c');
+                        segment.setAttribute('stroke-width', '35');
+                        segment.setAttribute('stroke-opacity', '0.8');
+                        segment.setAttribute('fill', 'none');
+                        segment.setAttribute('stroke-linecap', 'round');
+                        segment.setAttribute('class', 'road-high-density');
+                        svg.querySelector('#roads').appendChild(segment);
+                    }
+                    const d = `M${startNode.x},${startNode.y} L${endNode.x},${endNode.y}`;
+                    segment.setAttribute('d', d);
+                    segment.style.transition = 'stroke 0.3s ease'; // Smooth transition
+                } else {
+                    const segmentId = `${roadId}_segment_${i}`;
+                    const segment = svg.querySelector(`#${segmentId}`);
+                    if (segment) {
+                        segment.remove();
+                    }
+                }
+            }
+        });
+    
+        setRoadDensity(newDensity);
+    };
+    
+    // Add this helper function for distance calculation
+    const pointToLineDistance = (px, py, x1, y1, x2, y2) => {
+        const A = px - x1;
+        const B = py - y1;
+        const C = x2 - x1;
+        const D = y2 - y1;
+    
+        const dot = A * C + B * D;
+        const len_sq = C * C + D * D;
+        const param = len_sq !== 0 ? dot / len_sq : -1;
+    
+        let xx, yy;
+    
+        if (param < 0) {
+            xx = x1;
+            yy = y1;
+        } else if (param > 1) {
+            xx = x2;
+            yy = y2;
+        } else {
+            xx = x1 + param * C;
+            yy = y1 + param * D;
+        }
+    
+        const dx = px - xx;
+        const dy = py - yy;
+    
+        return Math.sqrt(dx * dx + dy * dy);
+    };
+    
+    // Add this helper function to check if a point is on a line segment
+    const isPointOnLineSegment = (px, py, x1, y1, x2, y2) => {
+        const d1 = getDistance(px, py, x1, y1);
+        const d2 = getDistance(px, py, x2, y2);
+        const lineLen = getDistance(x1, y1, x2, y2);
+        const buffer = 0.1; // Allowable buffer for floating point comparisons
+        return Math.abs(d1 + d2 - lineLen) < buffer;
+    };
+    
+    // Add this helper function to calculate distance between two points
+    const getDistance = (x1, y1, x2, y2) => {
+        return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+    };
+    
+    // Modify startSimulation to include more frequent updates
     const startSimulation = () => {
         try {
             console.log("Starting simulation...");
@@ -1622,7 +1769,7 @@ const useUploadMap = () => {
             newNodes.forEach(node => {
                 newGraph.set(node.id, new Set());
             });
-
+    
             // Connect all nodes that are close to each other
             for (let i = 0; i < newNodes.length; i++) {
                 for (let j = i + 1; j < newNodes.length; j++) {
@@ -1636,7 +1783,7 @@ const useUploadMap = () => {
                     }
                 }
             }
-
+    
             // Also connect nodes based on road segments
             road_segments.forEach(segment => {
                 const start = { x: segment.start[0], y: segment.start[1] };
@@ -1673,14 +1820,12 @@ const useUploadMap = () => {
             
             const spawnVehicleWrapper = () => {
                 spawnVehicle(svg, newNodes, newGraph, vehiclesGroup);
+                // Randomize the next spawn time between 500ms and 2000ms
+                const nextSpawnTime = Math.random() * 1500 + 500;
+                setTimeout(spawnVehicleWrapper, nextSpawnTime);
             };
         
-            // Increase spawn rate (reduced interval from 2000 to 1000)
-            const spawnInterval = setInterval(spawnVehicleWrapper, 1000);
-            setSimulationInterval({ spawn: spawnInterval });
-            setIsSimulating(true);
-            
-            // Spawn first vehicle immediately
+            // Start the first vehicle spawn
             spawnVehicleWrapper();
             
             // Add traffic signal animation with fixed timing
@@ -1699,14 +1844,14 @@ const useUploadMap = () => {
                     signal.setAttribute('r', '8');
                 });
             };
-
+    
             // Set signal interval to 12 seconds
             const signalInterval = setInterval(animateTrafficSignals, 12000);
             setSimulationInterval(prev => ({
                 ...prev,
                 signals: signalInterval
             }));
-
+    
             // Initialize signals to green
             const signals = svg.querySelectorAll('#traffic-signals circle');
             signals.forEach(signal => {
@@ -1714,7 +1859,7 @@ const useUploadMap = () => {
                 signal.setAttribute('stroke', '#00cc00');
                 signal.setAttribute('r', '8');
             });
-
+    
             // Modified traffic signal animation with independent timing
             signals.forEach(signal => {
                 // Give each signal its own random offset between 0-12 seconds
@@ -1749,15 +1894,14 @@ const useUploadMap = () => {
             // Modify simulation interval storage to include array of signal intervals
             setSimulationInterval(prev => ({
                 ...prev,
-                spawn: spawnInterval,
                 signals: Array.from(signals).map(signal => signal._interval)
             }));
-
+    
             // Define timing constants at the start of the function
-            const GREEN_LIGHT_TIME = 10000; // 10 seconds for green light
-            const RED_LIGHT_TIME = 4000;    // 8 seconds for red light
+            const GREEN_LIGHT_TIME = 10000; // 8 seconds for green light
+            const RED_LIGHT_TIME = 800;  // 15 seconds for red light
             const SIGNAL_CYCLE_TIME = GREEN_LIGHT_TIME + RED_LIGHT_TIME; // Total cycle time
-
+    
             // Modified traffic signal animation with adjusted timing
             signals.forEach(signal => {
                 const initialDelay = Math.random() * SIGNAL_CYCLE_TIME;
@@ -1779,17 +1923,25 @@ const useUploadMap = () => {
                         signal.setAttribute('fill', '#ff0000');
                         signal.setAttribute('stroke', '#cc0000');
                     }, GREEN_LIGHT_TIME);
-
+    
                 }, SIGNAL_CYCLE_TIME);
-
+    
                 signal._interval = signalInterval;
             });
-
+    
+            // Add density update interval
+            const densityInterval = setInterval(updateRoadDensity, 100); // Changed from 500 to 100ms
+            setSimulationInterval(prev => ({
+                ...prev,
+                density: densityInterval
+            }));
+    
         } catch (error) {
             console.error("Error starting simulation:", error);
             setIsSimulating(false);
         }
     };
+    
 
     const stopSimulation = () => {
         try {

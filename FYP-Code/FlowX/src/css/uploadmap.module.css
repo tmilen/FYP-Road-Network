@@ -535,8 +535,6 @@ body {
     cursor: crosshair;
 }
 
-/* ...existing styles... */
-
 .modernBackButton {
     position: fixed;
     top: 20px;
@@ -585,8 +583,6 @@ body {
     align-items: center;
 }
 
-/* ...existing styles... */
-
 .confirmYes {
     padding: 10px 20px;
     background-color: #e74c3c;
@@ -626,8 +622,6 @@ body {
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
-
-/* ...existing code... */
 
 .confirmMessage {
     padding: 15px 0;
@@ -680,7 +674,6 @@ body {
     transform: translateY(-1px);
 }
 
-/* Apply styles to the toast container */
 :global(.Toastify__toast) {
     border-radius: 8px !important;
     padding: 16px !important;
@@ -691,7 +684,6 @@ body {
     background: white !important;
 }
 
-/* Node Options Toast Styles */
 .nodeOptionsToast {
     background: white;
     padding: 15px;
@@ -755,8 +747,6 @@ body {
     background-color: #7f8c8d;
 }
 
-
-
 .removeTypeButton {
     background-color: #f39c12;  /* Orange color */
     color: white;
@@ -765,10 +755,6 @@ body {
 .removeTypeButton:hover {
     background-color: #d68910;
 }
-
-/* ...rest of existing code... */
-
-/* ...existing styles... */
 
 .mapControlButton.addSignal {
     background-color: #f1c40f;
@@ -783,8 +769,6 @@ body {
     background-color: #d35400;
 }
 
-
-/* Add styles for traffic signals in SVG */
 :global(.traffic-signal circle) {
     transition: all 0.3s ease;
     r: 8;
@@ -798,7 +782,6 @@ body {
     filter: brightness(1.2);
 }
 
-/* Enhanced styles for traffic signals */
 :global(.traffic-signal) {
     cursor: pointer;
     transition: all 0.2s ease;
@@ -821,7 +804,6 @@ body {
     color: #34495e;
     margin-bottom: 1rem;
 }
-
 
 .uploadSection h3 {
     margin-top: 1.5rem;
@@ -846,7 +828,6 @@ body {
 .modelUploadCard h2 {
     color: #2c3e50;  /* Changed to match map controls color */
 }
-
 
 .modelSelectionContainer {
     margin-top: 1rem;
@@ -876,8 +857,6 @@ body {
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
 
-/* ...existing code... */
-
 .editButton {
     background-color: #6366f1; /* Modern indigo color */
     color: white;
@@ -896,8 +875,6 @@ body {
     transform: none;
 }
 
-/* ...existing code... */
-
 .editButton.active {
     background-color: #4f46e5; /* Darker indigo when active */
     color: white;
@@ -913,10 +890,6 @@ body {
     stroke-width: 3;
     cursor: pointer;
 }
-
-/* ...existing code... */
-
-/* ...existing code... */
 
 .modelMergerContainer,
 .modelMergerTitle,
@@ -939,10 +912,6 @@ body {
 .mergeButton {
     display: none;
 }
-
-/* ...existing code... */
-
-/* ...existing code... */
 
 .mapControls .modelSelect {
     height: 38px;
@@ -974,10 +943,6 @@ body {
     cursor: not-allowed;
     border-color: #ecf0f1;
 }
-
-/* ...existing code... */
-
-/* ...existing code... */
 
 .simulationButton {
     background-color: #4CAF50;
@@ -1140,3 +1105,12 @@ body {
     stroke-opacity: 0.7;
     stroke-width: 40;
 }
+
+:global(.road-high-density) {
+    stroke: #e74c3c !important;
+    stroke-opacity: 0.8 !important;
+    stroke-width: 35 !important; /* Slightly wider to make it more visible */
+    transition: all 0.3s ease !important;
+}
+
+/* ...rest of existing code... */

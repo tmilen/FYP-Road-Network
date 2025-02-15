@@ -61,9 +61,6 @@ const Login = () => {
               Sign In
             </button>
           </form>
-          <p style={{ textAlign: 'center', marginTop: '1rem' }}>
-            <a href="#">Forgot your password?</a>
-          </p>
         </div>
         <div className={styles.imageBox}>
           <img src={image} alt="Login" />

@@ -3,7 +3,7 @@ import Navbar from './navbar';
 import styles from '../css/mainmenu.module.css'; 
 import image from '../img/Intersection.jpg';
 import johnDoePhoto from '../img/speed.jpg';
-import obamaPhoto from '../img/obama.jpg';  // Changed from dominicPhoto
+import obamaPhoto from '../img/obama.png';  // Changed from dominicPhoto
 import benPhoto from '../img/885.jpg';      // Added benPhoto import
 import suPhoto from '../img/su.jpg';  // Add this import
 import theoPhoto from '../img/theo.jpg';  // Add this import

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Navbar from './navbar';
 import styles from '../css/mainmenu.module.css'; 
-import image from '../img/intersection.jpg';
+import image from '../img/Intersection.jpg';
 import johnDoePhoto from '../img/speed.jpg';
 import obamaPhoto from '../img/obama.jpg';  // Changed from dominicPhoto
 import benPhoto from '../img/885.jpg';      // Added benPhoto import

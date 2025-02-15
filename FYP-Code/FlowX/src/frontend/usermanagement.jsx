@@ -6,7 +6,7 @@ import 'react-calendar/dist/Calendar.css';
 import UserManagementController from '../components/usermanagement';  
 import { MdOutlineModeEdit, MdOutlineCancel, MdDeleteOutline } from "react-icons/md";
 import { FaRegSave } from "react-icons/fa";
-import { ToastContainer, Bounce } from 'react-toastify';
+import { ToastContainer, Bounce, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 const UserManagement = () => {
@@ -64,19 +64,36 @@ const UserManagement = () => {
     } = UserManagementController(); 
 
     const [showEmailError, setShowEmailError] = useState(false);
+    const [showPasswordError, setShowPasswordError] = useState(false);
 
-    const handleEmailChange = (e) => {
-        handleInputChange(e);
-        setShowEmailError(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.target.value));
+    const validatePassword = (password) => {
+        const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+        return password.length >= 8 && hasSpecialChar;
+    };
+
+    const validateEmail = (email) => {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     };
 
     const handleSubmitUserWithValidation = (event) => {
         event.preventDefault();
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUser.email)) {
-            setShowEmailError(true);
+        
+        const isPasswordValid = validatePassword(newUser.password);
+        const isEmailValid = validateEmail(newUser.email);
+        
+        setShowPasswordError(!isPasswordValid);
+        setShowEmailError(!isEmailValid);
+
+        if (!isPasswordValid) {
+            toast.error('Password must be at least 8 characters long and contain at least 1 special character');
             return;
         }
-        setShowEmailError(false);
+
+        if (!isEmailValid) {
+            toast.error('Please enter a valid email address');
+            return;
+        }
+
         handleSubmitUser(event);
     };
 
@@ -142,6 +159,7 @@ const UserManagement = () => {
                                                 onChange={handleInputChange}
                                                 required
                                             />
+                                            {showPasswordError}
                                         </div>
                                     </div>
                                     <div className={styles.inputGroup}>
@@ -151,9 +169,10 @@ const UserManagement = () => {
                                                 type="email"
                                                 name="email"
                                                 value={newUser.email}
-                                                onChange={handleEmailChange}
+                                                onChange={handleInputChange}
                                                 required
                                             />
+                                            {showEmailError}
                                         </div>
                                     </div>
                                     <div className={styles.inputGroup}>

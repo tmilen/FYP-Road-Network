@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { FaFilePdf, FaChartLine, FaList } from 'react-icons/fa';
 import axios from 'axios';
 import { toast, Bounce } from 'react-toastify';
@@ -19,8 +19,27 @@ const toastConfig = {
 export const useReportsController = () => {
     const [selectedReport, setSelectedReport] = useState(null);
     const [isMenuExpanded, setIsMenuExpanded] = useState(false);
+    const [userRole, setUserRole] = useState('');
 
-    const reportTypes = [
+    useEffect(() => {
+        // Fetch user session when component mounts
+        const fetchSession = async () => {
+            try {
+                const response = await axios.get(
+                    `${process.env.REACT_APP_API_URL}/session`,
+                    { withCredentials: true }
+                );
+                if (response.status === 200) {
+                    setUserRole(response.data.role);
+                }
+            } catch (error) {
+                console.error('Error fetching session:', error);
+            }
+        };
+        fetchSession();
+    }, []);
+
+    const getAllReportTypes = () => [
         { 
             id: 'standard',
             title: 'Standard Reports', 
@@ -28,7 +47,7 @@ export const useReportsController = () => {
             description: 'Export traffic data to PDF format'
         },
         { 
-            id: 'view-reports',  // New option
+            id: 'view-reports',
             title: 'View Reports',
             icon: <FaList />,
             description: 'View and manage generated reports'
@@ -41,12 +60,32 @@ export const useReportsController = () => {
         }
     ];
 
+    const reportTypes = useMemo(() => {
+        const allTypes = getAllReportTypes();
+        
+        // If user is system_admin or traffic_analyst, show all report types
+        if (userRole === 'system_admin' || userRole === 'traffic_analyst') {
+            return allTypes;
+        }
+        
+        // For other roles, only show standard reports
+        return allTypes.filter(report => report.id === 'standard');
+    }, [userRole]);
+
+    // If the selected report is not available in current reportTypes, reset it
+    useEffect(() => {
+        if (selectedReport && !reportTypes.find(r => r.id === selectedReport)) {
+            setSelectedReport(null);
+        }
+    }, [reportTypes, selectedReport]);
+
     return {
         selectedReport,
         setSelectedReport,
         isMenuExpanded,
         setIsMenuExpanded,
-        reportTypes
+        reportTypes,
+        userRole
     };
 };
 
@@ -433,94 +472,101 @@ export const useViewReportsController = () => {
     const handleDelete = async (reportId) => {
         const confirmToastId = "confirm-delete-toast";
 
-        toast.warn(
-            <div style={{ width: '100%' }}>
-                <div style={{ marginBottom: '15px', textAlign: 'center' }}>
-                    Are you sure you want to delete this report?
-                </div>
-                <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'center', 
-                    gap: '8px',
-                    width: '100%'
-                }}>
-                    <button 
-                        onClick={async () => {
-                            toast.dismiss(confirmToastId);
-                            try {
-                                const response = await axios.delete(
-                                    `${process.env.REACT_APP_API_URL}/reports/${reportId}`,
-                                    { withCredentials: true }
-                                );
-                                
-                                if (response.status === 200) {
-                                    // Update local state
-                                    setReports(prevReports => 
-                                        prevReports.filter(report => report._id !== reportId)
+        return new Promise((resolve) => {
+            toast.warn(
+                <div style={{ width: '100%' }}>
+                    <div style={{ marginBottom: '15px', textAlign: 'center' }}>
+                        Are you sure you want to delete this report?
+                    </div>
+                    <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'center', 
+                        gap: '8px',
+                        width: '100%'
+                    }}>
+                        <button 
+                            onClick={async () => {
+                                toast.dismiss(confirmToastId);
+                                try {
+                                    const response = await axios.delete(
+                                        `${process.env.REACT_APP_API_URL}/reports/${reportId}`,
+                                        { withCredentials: true }
                                     );
                                     
-                                    // Clear selected report if it was deleted
-                                    if (selectedReport?._id === reportId) {
-                                        setSelectedReport(null);
-                                        setReportContent(null);
-                                        setIsLoadingContent(false);
+                                    if (response.status === 200) {
+                                        // Update local state
+                                        setReports(prevReports => 
+                                            prevReports.filter(report => report._id !== reportId)
+                                        );
+                                        
+                                        // Clear selected report if it was deleted
+                                        if (selectedReport?._id === reportId) {
+                                            setSelectedReport(null);
+                                            setReportContent(null);
+                                            setIsLoadingContent(false);
+                                        }
+                                        
+                                        toast.success('Report deleted successfully', toastConfig);
+                                        resolve(true);  // Indicate successful deletion
                                     }
-                                    
-                                    toast.success('Report deleted successfully', toastConfig);
+                                } catch (error) {
+                                    if (error.response?.status === 401) {
+                                        window.location.href = '/login';
+                                        toast.error('Session expired. Please log in again.', toastConfig);
+                                    } else {
+                                        toast.error('Error deleting report', toastConfig);
+                                    }
+                                    resolve(false);  // Indicate failed deletion
                                 }
-                            } catch (error) {
-                                if (error.response?.status === 401) {
-                                    window.location.href = '/login';
-                                    toast.error('Session expired. Please log in again.', toastConfig);
-                                } else {
-                                    toast.error('Error deleting report', toastConfig);
-                                }
-                            }
-                        }}
-                        style={{
-                            padding: '6px 12px',
-                            backgroundColor: '#dc3545',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '14px',
-                            width: '80px'
-                        }}
-                    >
-                        Delete
-                    </button>
-                    <button 
-                        onClick={() => toast.dismiss(confirmToastId)}
-                        style={{
-                            padding: '6px 12px',
-                            backgroundColor: '#6c757d',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '14px',
-                            width: '80px'
-                        }}
-                    >
-                        Cancel
-                    </button>
-                </div>
-            </div>,
-            {
-                ...toastConfig,
-                position: "top-center", // Change position to top-center
-                toastId: confirmToastId,
-                autoClose: false,
-                closeOnClick: false,
-                closeButton: false,
-                style: {
-                    width: '300px',
-                    padding: '15px',
-                    margin: '0 auto' // Center horizontally
+                            }}
+                            style={{
+                                padding: '6px 12px',
+                                backgroundColor: '#dc3545',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                width: '80px'
+                            }}
+                        >
+                            Delete
+                        </button>
+                        <button 
+                            onClick={() => {
+                                toast.dismiss(confirmToastId);
+                                resolve(false);  // User cancelled deletion
+                            }}
+                            style={{
+                                padding: '6px 12px',
+                                backgroundColor: '#6c757d',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                width: '80px'
+                            }}
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>,
+                {
+                    ...toastConfig,
+                    position: "top-center",
+                    toastId: confirmToastId,
+                    autoClose: false,
+                    closeOnClick: false,
+                    closeButton: false,
+                    style: {
+                        width: '300px',
+                        padding: '15px',
+                        margin: '0 auto'
+                    }
                 }
-            }
-        );
+            );
+        });
     };
 
     const handleSelectReport = async (report) => {
@@ -600,7 +646,7 @@ export const useViewReportsController = () => {
         setReportType,
         isLoading,
         selectedReport,
-        setSelectedReport,
+        setSelectedReport, // Export this for use in the component
         handleDownload,
         handleDelete,
         reportContent,

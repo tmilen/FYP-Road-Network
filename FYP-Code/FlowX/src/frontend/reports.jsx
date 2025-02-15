@@ -15,10 +15,22 @@ const Reports = () => {
     const {
         selectedReport,
         setSelectedReport,
-        reportTypes
+        reportTypes,
+        userRole
     } = useReportsController();
 
     const renderReportContent = () => {
+        // Check if user has access to the selected report type
+        if (selectedReport && selectedReport !== 'standard' && 
+            userRole !== 'system_admin' && userRole !== 'traffic_analyst') {
+            return (
+                <div className={styles.welcomeMessage}>
+                    <h3>Access Denied</h3>
+                    <p>You don't have permission to view this report type.</p>
+                </div>
+            );
+        }
+
         switch(selectedReport) {
             case 'standard':
                 return <StandardReport />;
@@ -54,7 +66,8 @@ const Reports = () => {
             reportContent,
             isLoadingContent,
             formatColumnName,
-            renderReportContent
+            renderReportContent,
+            setSelectedReport  // Add this to the destructured values
         } = useViewReportsController();
 
         const handleDownloadWithMessage = async (report) => {
@@ -63,6 +76,14 @@ const Reports = () => {
                 toast.success('Report downloaded successfully');
             } catch (error) {
                 toast.error(error.message);
+            }
+        };
+
+        const handleDeleteAndRefresh = async (reportId) => {
+            const success = await handleDelete(reportId);
+            if (success) {
+                // Reset selected report to null to return to initial view
+                setSelectedReport(null);
             }
         };
 
@@ -211,7 +232,7 @@ const Reports = () => {
                                             </button>
                                             <button 
                                                 className={styles.actionButton}
-                                                onClick={() => handleDelete(report._id)} // Update this line
+                                                onClick={() => handleDeleteAndRefresh(report._id)} // Update this line
                                             >
                                                 <FaTrash /> Delete
                                             </button>

@@ -405,31 +405,85 @@ const useUploadMap = () => {
         }
     };
     
-    const handleRemoveRoadClick = () => {
-        if (!isEditMode) {
-            toast.warn('Please enable edit mode first');
+
+    const handleMapClick = async (e) => {
+        if (!isEditMode) return;
+
+        if (isRemovingMode) {
+            let roadToDelete = null;
+            const clickedElement = e.target;
+            const svgElement = clickedElement.closest('svg');
+            
+            if (!svgElement) return;
+
+            // Find the road whether clicked on visual or logical layer
+            if (clickedElement.tagName === 'path') {
+                const roadId = clickedElement.id;
+                // If clicked on logical layer, get the main road ID
+                if (roadId.startsWith('logical_')) {
+                    roadToDelete = roadId.replace('logical_', '');
+                } else {
+                    roadToDelete = roadId;
+                }
+            }
+
+            if (roadToDelete) {
+                // Remove both visual and logical layers
+                const visualRoad = svgElement.querySelector(`#${roadToDelete}`);
+                const logicalRoad = svgElement.querySelector(`#logical_${roadToDelete}`);
+
+                if (visualRoad) visualRoad.remove();
+                if (logicalRoad) logicalRoad.remove();
+
+                // Clean up orphaned intersection nodes
+                const intersectionsGroup = svgElement.querySelector('#intersection-nodes');
+                if (intersectionsGroup) {
+                    const nodes = Array.from(intersectionsGroup.getElementsByTagName('circle'));
+                    nodes.forEach(node => {
+                        const nodePos = {
+                            x: parseFloat(node.getAttribute('cx')),
+                            y: parseFloat(node.getAttribute('cy'))
+                        };
+
+                        // Check if node is still connected to any remaining roads
+                        const remainingRoads = svgElement.querySelectorAll('#roads path');
+                        let isConnected = false;
+
+                        remainingRoads.forEach(road => {
+                            const d = road.getAttribute('d');
+                            const points = d.split(/[ML]/).filter(Boolean).map(point => {
+                                const [x, y] = point.split(',').map(Number);
+                                return { x, y };
+                            });
+
+                            points.forEach(point => {
+                                const distance = Math.hypot(point.x - nodePos.x, point.y - nodePos.y);
+                                if (distance < 10) {
+                                    isConnected = true;
+                                }
+                            });
+                        });
+
+                        if (!isConnected) {
+                            node.remove();
+                        }
+                    });
+                }
+
+                // Update local state
+                setUploadedData(prev => ({
+                    ...prev,
+                    svgContent: svgElement.outerHTML,
+                    roadCount: Math.max((prev.roadCount || 0) - 1, 0)
+                }));
+
+                // Mark changes as unsaved
+                setUnsavedChanges(true);
+                toast.success('Road deleted successfully');
+            }
             return;
         }
-    
-        console.log('Current removing mode:', isRemovingMode);
-        setIsRemovingMode(prev => {
-            const newValue = !prev;
-            if (newValue) {
-                setIsDrawingMode(false);
-                toast.info('Remove mode enabled. Click on a road to remove it.');
-            } else {
-                toast.info('Remove mode disabled.');
-            }
-            console.log('Setting removing mode to:', newValue);
-            return newValue;
-        });
-        
-        if (isRemovingMode) {
-            setDrawingStart(null);
-        }
-    };
 
-    const handleMapClick = (e) => {
         // Check if in edit mode and clicked on a traffic signal
         if (isEditMode && e.target.classList.contains('traffic-signal')) {
             const signal = e.target;
@@ -687,20 +741,71 @@ const useUploadMap = () => {
             // Second click - create road
             console.log('Creating road');
             const roadGroup = svg.querySelector('#roads');
+            const nodesGroup = svg.querySelector('#intersection-nodes') || createIntersectionNodesGroup(svg);
+            
             if (roadGroup) {
-                const newRoad = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                newRoad.setAttribute("d", `M${drawingStart.x},${drawingStart.y} L${scaledX},${scaledY}`);
-                newRoad.setAttribute("stroke", "#2c3e50");
-                newRoad.setAttribute("stroke-width", "45");
-                newRoad.setAttribute("stroke-linecap", "round");
-                newRoad.setAttribute("fill", "none");
+                // Find intersections with existing roads
+                const intersectionPoints = [];
+                const existingRoads = Array.from(roadGroup.querySelectorAll('path'));
                 
-                const existingRoads = roadGroup.querySelectorAll('path');
-                const newId = `road_${existingRoads.length + 1}`;
-                newRoad.setAttribute("id", newId);
-                
-                roadGroup.appendChild(newRoad);
-    
+                existingRoads.forEach(road => {
+                    const d = road.getAttribute('d');
+                    const [start, end] = d.replace('M', '').split('L').map(point => {
+                        const [x, y] = point.split(',').map(Number);
+                        return { x, y };
+                    });
+
+                    const intersection = findIntersection(
+                        drawingStart.x, drawingStart.y,
+                        scaledX, scaledY,
+                        start.x, start.y,
+                        end.x, end.y
+                    );
+
+                    if (intersection) {
+                        intersectionPoints.push(intersection);
+                    }
+                });
+
+                // Sort intersection points by distance from start
+                intersectionPoints.sort((a, b) => {
+                    const distA = Math.hypot(a.x - drawingStart.x, a.y - drawingStart.y);
+                    const distB = Math.hypot(b.x - drawingStart.x, b.y - drawingStart.y);
+                    return distA - distB;
+                });
+
+                // Create the road segments including intersection points
+                const points = [drawingStart, ...intersectionPoints, { x: scaledX, y: scaledY }];
+                for (let i = 0; i < points.length - 1; i++) {
+                    const start = points[i];
+                    const end = points[i + 1];
+
+                    const pathSegment = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    pathSegment.setAttribute("d", `M${start.x},${start.y} L${end.x},${end.y}`);
+                    pathSegment.setAttribute("stroke", "#2c3e50");
+                    pathSegment.setAttribute("stroke-width", "30");
+                    pathSegment.setAttribute("stroke-linecap", "round");
+                    pathSegment.setAttribute("fill", "none");
+                    
+                    const roadId = `road_${roadGroup.querySelectorAll('path').length + 1}_${i + 1}`;
+                    pathSegment.setAttribute("id", roadId);
+                    
+                    roadGroup.appendChild(pathSegment);
+                }
+
+                // Add intersection nodes
+                intersectionPoints.forEach((point, index) => {
+                    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                    circle.setAttribute('id', `node_${nodesGroup.querySelectorAll('circle').length + 1}`);
+                    circle.setAttribute('cx', point.x);
+                    circle.setAttribute('cy', point.y);
+                    circle.setAttribute('r', '6');
+                    circle.setAttribute('fill', '#ffffff');
+                    circle.setAttribute('stroke', '#2c3e50');
+                    circle.setAttribute('stroke-width', '2');
+                    nodesGroup.appendChild(circle);
+                });
+
                 // Update road count and set unsavedChanges
                 if (uploadedData) {
                     setUploadedData(prev => ({
@@ -708,10 +813,10 @@ const useUploadMap = () => {
                         roadCount: (prev.roadCount || 0) + 1
                     }));
                 }
-                setUnsavedChanges(true); // Set unsaved changes flag
+                setUnsavedChanges(true);
                 toast.success('Road added successfully');
             }
-    
+
             // Reset drawing state
             setDrawingStart(null);
         }
@@ -777,50 +882,13 @@ const useUploadMap = () => {
                         <div className={styles.nodeOptionsButtons}>
                             <button 
                                 className={`${styles.nodeOptionButton} ${styles.entranceButton}`}
-                                onClick={() => {
-                                    try {
-                                        const svg = document.querySelector('.map-svg');
-                                        if (!svg) {
-                                            toast.error('No map loaded');
-                                            return;
-                                        }
-
-                                        // Get all road paths
-                                        const roads = svg.querySelectorAll('#roads path');
-                                        const roadSegments = Array.from(roads).map(path => {
-                                            const d = path.getAttribute('d');
-                                            const [start, end] = d.split('L').map(coord => {
-                                                const [x, y] = coord.replace('M', '').split(',').map(Number);
-                                                return [x, y];
-                                            });
-                                            return {
-                                                id: path.getAttribute('id'),
-                                                start: start,
-                                                end: end
-                                            };
-                                        });
-
-                                        // Save changes to backend
-                                        axios.post(
-                                            `${API_URL}/save-map-changes/${selectedMap}`,
-                                            {
-                                                svgContent: svg.outerHTML,
-                                                roadSegments: roadSegments
-                                            },
-                                            { withCredentials: true }
-                                        ).then(() => {
-                                            setIsEditMode(false);
-                                            setIsDrawingMode(false);
-                                            setIsRemovingMode(false);
-                                            setUnsavedChanges(false);
-                                            toast.success('Map changes saved successfully');
-                                            toast.dismiss(); // Dismiss the confirmation toast
-                                        }).catch(error => {
-                                            toast.error('Error saving map changes: ' + error.message);
-                                        });
-                                    } catch (error) {
-                                        toast.error('Error saving map changes: ' + error.message);
-                                    }
+                                onClick={async () => {
+                                    await handleSaveMapChanges();
+                                    setIsEditMode(false);
+                                    setIsDrawingMode(false);
+                                    setIsRemovingMode(false);
+                                    setIsSignalMode(false);
+                                    toast.dismiss();
                                 }}
                             >
                                 Save Changes
@@ -831,6 +899,7 @@ const useUploadMap = () => {
                                     setIsEditMode(false);
                                     setIsDrawingMode(false);
                                     setIsRemovingMode(false);
+                                    setIsSignalMode(false);
                                     setUnsavedChanges(false);
                                     toast.dismiss();
                                     toast.info('Changes discarded');
@@ -859,11 +928,13 @@ const useUploadMap = () => {
             setIsEditMode(false);
             setIsDrawingMode(false);
             setIsRemovingMode(false);
+            setIsSignalMode(false);
             toast.info('Edit mode disabled');
         } else {
             setIsEditMode(true);
             setIsDrawingMode(false);
             setIsRemovingMode(false);
+            setIsSignalMode(false);
             toast.info('Edit mode enabled. You can now add or remove roads.');
         }
     };
@@ -876,49 +947,58 @@ const useUploadMap = () => {
                 return;
             }
 
+            // Collect roads
+            const roads = Array.from(svg.querySelectorAll('#roads path')).map(path => ({
+                id: path.getAttribute('id'),
+                d: path.getAttribute('d'),
+                stroke: path.getAttribute('stroke'),
+                strokeWidth: path.getAttribute('stroke-width')
+            }));
+
             // Collect traffic signals with their current states
-            const signals = Array.from(svg.querySelectorAll('#traffic-signals circle')).map(circle => {
-                if (!circle) return null;
-                return {
-                    id: circle.getAttribute('id') || `signal_${Math.random()}`,
-                    x: parseFloat(circle.getAttribute('cx')),
-                    y: parseFloat(circle.getAttribute('cy')),
-                    cycleTime: 8.0,
-                    offset: 0.0,
-                    currentState: {
-                        fill: circle.getAttribute('fill'),
-                        stroke: circle.getAttribute('stroke')
-                    }
-                };
-            }).filter(Boolean);
+            const signals = Array.from(svg.querySelectorAll('#traffic-signals circle')).map(circle => ({
+                id: circle.getAttribute('id'),
+                x: parseFloat(circle.getAttribute('cx')),
+                y: parseFloat(circle.getAttribute('cy')),
+                cycleTime: 8.0,
+                offset: 0.0,
+                currentState: {
+                    fill: circle.getAttribute('fill'),
+                    stroke: circle.getAttribute('stroke')
+                }
+            }));
 
-            // Collect entrance/exit nodes
-            const entrances = Array.from(svg.querySelectorAll('.entrance')).map(node => {
-                if (!node) return null;
-                return {
-                    id: node.getAttribute('id') || `entrance_${Math.random()}`,
-                    x: parseFloat(node.getAttribute('cx')),
-                    y: parseFloat(node.getAttribute('cy'))
-                };
-            }).filter(Boolean);
+            // Collect entrance nodes
+            const entrances = Array.from(svg.querySelectorAll('#intersection-nodes .entrance')).map(node => ({
+                id: node.getAttribute('id'),
+                x: parseFloat(node.getAttribute('cx')),
+                y: parseFloat(node.getAttribute('cy'))
+            }));
 
-            const exits = Array.from(svg.querySelectorAll('.exit')).map(node => {
-                if (!node) return null;
-                return {
-                    id: node.getAttribute('id') || `exit_${Math.random()}`,
-                    x: parseFloat(node.getAttribute('cx')),
-                    y: parseFloat(node.getAttribute('cy'))
-                };
-            }).filter(Boolean);
+            // Collect exit nodes
+            const exits = Array.from(svg.querySelectorAll('#intersection-nodes .exit')).map(node => ({
+                id: node.getAttribute('id'),
+                x: parseFloat(node.getAttribute('cx')),
+                y: parseFloat(node.getAttribute('cy'))
+            }));
 
             // Get current SVG content
             const svgContent = svg.outerHTML;
+
+            // Debug log
+            console.log('Saving map changes:', {
+                roads: roads.length,
+                signals: signals.length,
+                entrances: entrances.length,
+                exits: exits.length
+            });
 
             // Send to backend
             const response = await axios.post(
                 `${API_URL}/save-map-changes/${selectedMap}`,
                 {
                     svgContent,
+                    roads,
                     signals,
                     entrances,
                     exits
@@ -984,7 +1064,7 @@ const useUploadMap = () => {
         };
 
         const distanceTo = (x1, y1, x2, y2) => {
-            return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+            return Math.sqrt((x2 - y1) ** 2 + (y2 - y1) ** 2);
         };
 
         const shouldStop = (currX, currY, nextX, nextY) => {
@@ -994,20 +1074,42 @@ const useUploadMap = () => {
                 const signalX = parseFloat(signal.getAttribute('cx'));
                 const signalY = parseFloat(signal.getAttribute('cy'));
                 
-                const distanceToSignal = distanceTo(currX, currY, signalX, signalY);
+                // Calculate distance to signal using proper coordinates
+                const distanceToSignal = Math.sqrt(
+                    Math.pow(currX - signalX, 2) + 
+                    Math.pow(currY - signalY, 2)
+                );
+
                 if (distanceToSignal < STOP_DISTANCE) {
-                    const direction = {
+                    // Calculate direction vectors
+                    const movementVector = {
                         x: nextX - currX,
                         y: nextY - currY
                     };
-                    const toSignal = {
+                    const toSignalVector = {
                         x: signalX - currX,
                         y: signalY - currY
                     };
                     
-                    // Check if signal is ahead in our path
-                    const dot = direction.x * toSignal.x + direction.y * toSignal.y;
-                    if (dot > 0 && signal.getAttribute('fill') === '#ff0000') {
+                    // Normalize vectors
+                    const movementLength = Math.sqrt(movementVector.x * movementVector.x + movementVector.y * movementVector.y);
+                    const toSignalLength = Math.sqrt(toSignalVector.x * toSignalVector.x + toSignalVector.y * toSignalVector.y);
+                    
+                    const normalizedMovement = {
+                        x: movementVector.x / movementLength,
+                        y: movementVector.y / movementLength
+                    };
+                    const normalizedToSignal = {
+                        x: toSignalVector.x / toSignalLength,
+                        y: toSignalVector.y / toSignalLength
+                    };
+                    
+                    // Calculate dot product
+                    const dotProduct = normalizedMovement.x * normalizedToSignal.x + 
+                                     normalizedMovement.y * normalizedToSignal.y;
+                    
+                    // Check if signal is ahead of vehicle (dot product > 0.7 means angle < 45 degrees)
+                    if (dotProduct > 0.7 && signal.getAttribute('fill') === '#ff0000') {
                         return true;
                     }
                 }
@@ -1015,6 +1117,17 @@ const useUploadMap = () => {
 
             // Check for vehicles ahead
             const vehicles = document.querySelectorAll('.vehicle');
+            const currentPosition = { x: currX, y: currY };
+            const movement = {
+                x: nextX - currX,
+                y: nextY - currY
+            };
+            const movementLength = Math.sqrt(movement.x * movement.x + movement.y * movement.y);
+            const normalizedMovement = {
+                x: movement.x / movementLength,
+                y: movement.y / movementLength
+            };
+
             for (const other of vehicles) {
                 if (other === vehicle) continue;
 
@@ -1025,20 +1138,25 @@ const useUploadMap = () => {
                 const otherX = parseFloat(match[1]);
                 const otherY = parseFloat(match[2]);
                 
-                const distanceToVehicle = distanceTo(currX, currY, otherX, otherY);
+                const vectorToOther = {
+                    x: otherX - currX,
+                    y: otherY - currY
+                };
+
+                // Calculate distance to other vehicle
+                const distanceToVehicle = Math.sqrt(
+                    vectorToOther.x * vectorToOther.x + 
+                    vectorToOther.y * vectorToOther.y
+                );
+
                 if (distanceToVehicle < VEHICLE_GAP) {
-                    const direction = {
-                        x: nextX - currX,
-                        y: nextY - currY
-                    };
-                    const toVehicle = {
-                        x: otherX - currX,
-                        y: otherY - currY
-                    };
+                    // Calculate dot product to check if vehicle is ahead
+                    const dotProduct = (vectorToOther.x * normalizedMovement.x + 
+                                      vectorToOther.y * normalizedMovement.y);
                     
-                    // Check if vehicle is ahead in our path
-                    const dot = direction.x * toVehicle.x + direction.y * toVehicle.y;
-                    if (dot > 0) {
+                    // Check if the other vehicle is roughly in our path (within 45 degrees)
+                    // and is ahead of us (positive dot product)
+                    if (dotProduct > 0 && dotProduct / distanceToVehicle > 0.7) {
                         return true;
                     }
                 }
@@ -1327,16 +1445,24 @@ const useUploadMap = () => {
             let updates = false;
             
             nodesList.forEach(node => {
-                const neighbors = new Set([
-                    ...(graph.get(node.id) || []).map(id => nodesList.find(n => n.id === id)),
-                    ...nodesList.filter(n => {
-                        if (n.id === node.id) return false;
-                        const dist = calculateDistance(node, n);
-                        return dist < 50; // Add nodes within threshold
-                    })
-                ]);
+                // Get connected neighbors from the graph
+                const connectedNeighbors = Array.from(graph.get(node.id) || []);
+                
+                // Get nearby nodes
+                const nearbyNodes = nodesList.filter(n => {
+                    if (n.id === node.id) return false;
+                    const dist = calculateDistance(node, n);
+                    return dist < 50;
+                });
     
-                neighbors.forEach(neighbor => {
+                // Combine both types of neighbors
+                const allNeighbors = [
+                    ...connectedNeighbors.map(id => nodesList.find(n => n.id === id)),
+                    ...nearbyNodes
+                ].filter(Boolean); // Remove any undefined values
+    
+                // Process all neighbors
+                allNeighbors.forEach(neighbor => {
                     if (!neighbor) return;
                     
                     const distance = calculateDistance(node, neighbor);
@@ -1629,7 +1755,7 @@ const useUploadMap = () => {
 
             // Define timing constants at the start of the function
             const GREEN_LIGHT_TIME = 10000; // 10 seconds for green light
-            const RED_LIGHT_TIME = 5000;    // 8 seconds for red light
+            const RED_LIGHT_TIME = 4000;    // 8 seconds for red light
             const SIGNAL_CYCLE_TIME = GREEN_LIGHT_TIME + RED_LIGHT_TIME; // Total cycle time
 
             // Modified traffic signal animation with adjusted timing
@@ -1669,63 +1795,106 @@ const useUploadMap = () => {
         try {
             if (simulationInterval) {
                 // Clear spawn interval
-                clearInterval(simulationInterval.spawn);
-
-                // Clear all signal intervals and reset signals
-                const signals = document.querySelectorAll('#traffic-signals circle');
-                signals.forEach(signal => {
-                    // Clear the main interval stored in simulationInterval
-                    if (signal._interval) {
-                        clearInterval(signal._interval);
-                        delete signal._interval;
-                    }
-
-                    // Clear any additional timeouts or intervals
-                    if (signal._timeouts) {
-                        signal._timeouts.forEach(timeout => clearTimeout(timeout));
-                        delete signal._timeouts;
-                    }
-
-                    // Reset to initial state
-                    signal.setAttribute('fill', '#f1c40f');    // Yellow color
-                    signal.setAttribute('stroke', '#f39c12');   // Yellow stroke
-                    signal.setAttribute('r', '6');             // Original size
-                    signal.style.transition = 'none';          // Remove transitions
-                    
-                    // Remove any simulation-related attributes
-                    signal.removeAttribute('data-state');
-                    signal.removeAttribute('data-next-change');
-                    signal.removeAttribute('data-cycle-time');
-                    signal.removeAttribute('data-offset');
-                });
-
-                // Remove all vehicles with proper cleanup
-                const vehiclesGroup = document.querySelector('#vehicles');
-                if (vehiclesGroup) {
-                    while (vehiclesGroup.firstChild) {
-                        const vehicle = vehiclesGroup.firstChild;
-                        if (vehicle._cleanup) {
-                            vehicle._cleanup();
-                        }
-                        vehicle.remove();
-                    }
+                if (simulationInterval.spawn) {
+                    clearInterval(simulationInterval.spawn);
                 }
 
-                // Clear all intervals stored in simulationInterval.signals array
-                if (Array.isArray(simulationInterval.signals)) {
-                    simulationInterval.signals.forEach(interval => {
-                        if (interval) clearInterval(interval);
+                // Clear and reset signals to original state
+                const signalsGroup = document.querySelector('#traffic-signals');
+                if (signalsGroup) {
+                    const signals = signalsGroup.querySelectorAll('circle');
+                    signals.forEach(signal => {
+                        // Clear all timeouts and intervals
+                        if (signal._interval) {
+                            clearInterval(signal._interval);
+                            delete signal._interval;
+                        }
+                        if (signal._timeouts) {
+                            signal._timeouts.forEach(timeout => clearTimeout(timeout));
+                            delete signal._timeouts;
+                        }
+
+                        // Reset to original appearance
+                        signal.setAttribute('fill', '#f1c40f');    // Yellow color
+                        signal.setAttribute('stroke', '#f39c12');   // Yellow stroke
+                        signal.setAttribute('r', '6');             // Original size
+                        signal.style.transition = 'none';
+                        
+                        // Remove all simulation attributes
+                        signal.removeAttribute('data-state');
+                        signal.removeAttribute('data-next-change');
+                        signal.removeAttribute('data-cycle-time');
+                        signal.removeAttribute('data-offset');
                     });
                 }
 
-                // Reset simulation state
+                // Clear all remaining signal intervals
+                if (simulationInterval.signals) {
+                    if (Array.isArray(simulationInterval.signals)) {
+                        simulationInterval.signals.forEach(interval => {
+                            if (interval) clearInterval(interval);
+                        });
+                    } else if (typeof simulationInterval.signals === 'number') {
+                        clearInterval(simulationInterval.signals);
+                    }
+                }
+
+                // Remove vehicles
+                const vehiclesGroup = document.querySelector('#vehicles');
+                if (vehiclesGroup) {
+                    // Clean up each vehicle's animations
+                    const vehicles = vehiclesGroup.querySelectorAll('.vehicle');
+                    vehicles.forEach(vehicle => {
+                        if (vehicle._cleanup) {
+                            vehicle._cleanup();
+                        }
+                        if (vehicle._animationFrame) {
+                            cancelAnimationFrame(vehicle._animationFrame);
+                        }
+                        vehicle.remove();
+                    });
+                    
+                    // Remove vehicles group entirely
+                    vehiclesGroup.remove();
+                }
+
+                // Reset all simulation state
                 setSimulationInterval(null);
                 setIsSimulating(false);
-                toast.info('Simulation stopped and reset');
+
+                // Handle any remaining timeouts or intervals
+                if (window._simulationTimeouts) {
+                    window._simulationTimeouts.forEach(timeout => clearTimeout(timeout));
+                    window._simulationTimeouts = [];
+                }
+
+                // Re-render the signals in their original state
+                if (uploadedData && uploadedData.trafficSignals) {
+                    const svg = document.querySelector('.map-svg');
+                    if (svg) {
+                        const signalsGroup = svg.querySelector('#traffic-signals');
+                        if (signalsGroup) {
+                            signalsGroup.innerHTML = '';
+                            uploadedData.trafficSignals.forEach((signal, index) => {
+                                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                                circle.setAttribute('id', signal.id || `signal_${index + 1}`);
+                                circle.setAttribute('cx', signal.x);
+                                circle.setAttribute('cy', signal.y);
+                                circle.setAttribute('r', '6');
+                                circle.setAttribute('fill', '#f1c40f');
+                                circle.setAttribute('stroke', '#f39c12');
+                                circle.setAttribute('stroke-width', '2');
+                                circle.setAttribute('class', 'traffic-signal');
+                                signalsGroup.appendChild(circle);
+                            });
+                        }
+                    }
+                }
+
+                toast.info('Simulation stopped');
             }
         } catch (error) {
             console.error("Error stopping simulation:", error);
-            // Force reset simulation state even if there's an error
             setSimulationInterval(null);
             setIsSimulating(false);
             toast.error("Error stopping simulation");
@@ -1749,6 +1918,46 @@ const useUploadMap = () => {
         return group;
     };
 
+    // Add this helper function to find intersection point between line segments
+    const findIntersection = (x1, y1, x2, y2, x3, y3, x4, y4) => {
+        const denominator = ((x2 - x1) * (y4 - y3)) - ((y2 - y1) * (x4 - x3));
+        if (denominator === 0) return null;
+
+        const ua = (((x4 - x3) * (y1 - y3)) - ((y4 - y3) * (x1 - x3))) / denominator;
+        const ub = (((x2 - x1) * (y1 - y3)) - ((y2 - y1) * (x1 - x3))) / denominator;
+
+        if (ua < 0 || ua > 1 || ub < 0 || ub > 1) return null;
+
+        const x = x1 + (ua * (x2 - x1));
+        const y = y1 + (ua * (y2 - y1));
+
+        return { x, y };
+    };
+
+    // Add this helper function to create intersection nodes group
+    const createIntersectionNodesGroup = (svg) => {
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.setAttribute('id', 'intersection-nodes');
+        svg.appendChild(group);
+        return group;
+    };
+
+    const handleRemoveRoadClick = () => {
+        if (!isEditMode) {
+            toast.warn('Please enable edit mode first');
+            return;
+        }
+        setIsRemovingMode(prev => !prev);
+        setIsDrawingMode(false);
+        setIsSignalMode(false);
+        
+        if (!isRemovingMode) {
+            toast.info('Road removal mode enabled. Click on a road to delete it.');
+        } else {
+            toast.info('Road removal mode disabled.');
+        }
+    };
+
     return {
         selectedFile,
         uploadMessage,
@@ -1765,7 +1974,6 @@ const useUploadMap = () => {
         handleAddRoadClick,
         handleMapClick,
         isRemovingMode,
-        handleRemoveRoadClick,
         isSignalMode,
         handleAddSignalClick,
         unsavedChanges,
@@ -1779,6 +1987,7 @@ const useUploadMap = () => {
         isSimulationRunning,
         isSimulating,
         toggleTrafficSimulation,
+        handleRemoveRoadClick,
     };
 };
 

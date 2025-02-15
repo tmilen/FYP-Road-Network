@@ -505,29 +505,7 @@ body {
     background-color: #2ecc71;
 }
 
-.mapControlButton.removeRoad {
-    background-color: #e74c3c;
-    color: white;
-}
-
-.mapControlButton.removeRoad:hover {
-    background-color: #c0392b;
-}
-
-.mapControlButton.removeRoad:disabled {
-    background-color: #95a5a6;
-    cursor: not-allowed;
-}
-
-.mapControlButton.removeRoad.active {
-    background-color: #c0392b;
-}
-
 /* Add cursor styles for remove mode */
-.svgWrapper.removingMode {
-    cursor: no-drop;
-}
-
 .svgContainer {
     position: relative;
     width: 100%;
@@ -555,12 +533,6 @@ body {
 
 .drawingMode {
     cursor: crosshair;
-}
-
-.svgWrapper.removingMode path:hover {
-    stroke: #e74c3c !important;
-    stroke-opacity: 0.8;
-    cursor: no-drop;
 }
 
 /* ...existing styles... */
@@ -1140,4 +1112,31 @@ body {
 
 :global(.vehicle:hover circle) {
     transform: scale(1.2);
+}
+
+.mapControlButton.removeRoad {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.mapControlButton.removeRoad:hover:not(:disabled) {
+    background-color: #c0392b;
+}
+
+.mapControlButton.removeRoad.active {
+    background-color: #c0392b;
+    color: white;
+}
+
+.svgWrapper.removingMode {
+    cursor: crosshair;
+}
+
+.svgWrapper.removingMode path {
+    cursor: pointer;
+}
+
+.svgWrapper.removingMode path:hover {
+    stroke-opacity: 0.7;
+    stroke-width: 40;
 }

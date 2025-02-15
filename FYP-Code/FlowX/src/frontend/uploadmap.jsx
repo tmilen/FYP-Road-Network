@@ -4,26 +4,23 @@ import styles from '../css/uploadmap.module.css';
 import useUploadMap from '../components/uploadmap';
 import { RiFileUploadLine } from "react-icons/ri";
 import { BsFiletypeXml } from "react-icons/bs";
-import { FaCarSide } from 'react-icons/fa';
 import { FaRoad, FaTrash } from 'react-icons/fa';  // Add this import
 import { useNavigate } from 'react-router-dom';
 import { FaArrowLeftLong } from "react-icons/fa6";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { FaTrafficLight } from 'react-icons/fa'; // Add this import
-import { FaFileUpload } from "react-icons/fa";
-import { BsFiletypePy } from "react-icons/bs"; // Add this import or modify existing BsFiletypeXml import
+import { FaTrafficLight } from 'react-icons/fa';
 import { MdOutlineCleaningServices } from "react-icons/md";
 import { MdOutlineSmartDisplay } from "react-icons/md";
 import { MdDeleteOutline } from "react-icons/md";
-import { VscEdit } from "react-icons/vsc";  // Add this import at the top with other imports
-import { FaPlay, FaStop } from 'react-icons/fa'; // Add to imports
+import { VscEdit } from "react-icons/vsc"; 
 
 function UploadMap() {
     const navigate = useNavigate();
     const {
         selectedFile,
         uploadMessage,
+        handleRemoveRoadClick,
         handleFileChange,
         handleFileUpload,
         uploadedData,
@@ -37,9 +34,7 @@ function UploadMap() {
         handleAddRoadClick,
         handleMapClick,
         handleMapMouseMove,
-        tempRoad,
         isRemovingMode,
-        handleRemoveRoadClick,
         isSignalMode,
         handleAddSignalClick,
         isEditMode,

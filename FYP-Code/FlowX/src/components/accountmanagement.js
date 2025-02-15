@@ -38,16 +38,13 @@ const useAccountManagementController = () => {
         setPasswords({ ...passwords, [name]: value });
     };
 
+    const validatePassword = (password) => {
+        const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+        return password.length >= 8 && hasSpecialChar;
+    };
+
     const handlePasswordSubmit = async (e) => {
         e.preventDefault();
-
-        if (passwords.newPassword === passwords.currentPassword) {
-            return { success: false, message: 'New password can\'t be the same as the old password' };
-        }
-
-        if (passwords.newPassword !== passwords.confirmNewPassword) {
-            return { success: false, message: 'New passwords do not match' };
-        }
 
         try {
             const response = await axios.post(`${API_URL}/change-password`, {
@@ -55,15 +52,15 @@ const useAccountManagementController = () => {
                 newPassword: passwords.newPassword
             }, { withCredentials: true });
 
-            if (response.status === 200) {
-                return { success: true, message: response.data.message };
-            } else {
-                return { success: false, message: response.data.message };
-            }
+            return {
+                success: response.status === 200,
+                message: response.data.message
+            };
         } catch (error) {
-            const message = error.response?.data?.message || 'Error changing password.';
-            console.error("Error changing password", error);
-            return { success: false, message };
+            return {
+                success: false,
+                message: error.response?.data?.message || 'Error changing password'
+            };
         }
     };
 
@@ -75,6 +72,7 @@ const useAccountManagementController = () => {
         handlePasswordChange,
         handlePasswordSubmit,
         setPasswords,
+        validatePassword,
     };
 };
 

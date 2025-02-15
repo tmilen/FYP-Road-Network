@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Navbar from './navbar';
 import { IoIosCloseCircleOutline } from "react-icons/io";
 import { FaUser, FaEnvelope, FaCalendar, FaUserTag } from 'react-icons/fa';
@@ -16,7 +16,17 @@ const AccountManagement = () => {
         handlePasswordChange,
         handlePasswordSubmit,
         setPasswords,
+        validatePassword,
     } = useAccountManagementController();
+
+    const [showPasswordError, setShowPasswordError] = useState(false);
+
+    const handlePasswordChangeWithValidation = (e) => {
+        handlePasswordChange(e);
+        if (e.target.name === 'newPassword') {
+            setShowPasswordError(!validatePassword(e.target.value));
+        }
+    };
 
     const handleClear = () => {
         setPasswords({
@@ -29,9 +39,25 @@ const AccountManagement = () => {
     // Modified password submit handler
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        if (!validatePassword(passwords.newPassword)) {
+            toast.error('Password must be at least 8 characters long and contain at least 1 special character');
+            return;
+        }
+
+        if (passwords.newPassword !== passwords.confirmNewPassword) {
+            toast.error('New passwords do not match');
+            return;
+        }
+
+        if (passwords.newPassword === passwords.currentPassword) {
+            toast.error('New password cannot be the same as current password');
+            return;
+        }
+
         const result = await handlePasswordSubmit(e);
         if (result.success) {
-            toast.success(result.message);
+            toast.success('Password changed successfully');
             setShowPasswordForm(false);
             handleClear();
         } else {
@@ -48,7 +74,18 @@ const AccountManagement = () => {
 
     return (
         <div className={styles.pageContainer}>
-            <ToastContainer /> {/* Add this */}
+            <ToastContainer 
+                position="top-right"
+                autoClose={5000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="light"
+            />
             <h1 className={styles.title}>FlowX</h1>
             <Navbar sticky={false} />
 
@@ -126,7 +163,7 @@ const AccountManagement = () => {
                                     type="password"
                                     name="newPassword"
                                     value={passwords.newPassword}
-                                    onChange={handlePasswordChange}
+                                    onChange={handlePasswordChangeWithValidation}
                                     required
                                 />
                             </div>

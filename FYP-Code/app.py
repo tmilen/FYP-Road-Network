@@ -2860,6 +2860,40 @@ def create_app(db_client=None):
                     for u, v in zip(path[:-1], path[1:]):
                         lat = float(G.nodes[u]['y'])
                         lng = float(G.nodes[u]['x'])
+                        coordinates.append([lat, lng])
+                        
+                        edge_data = G.get_edge_data(u, v)
+                        base_length = float(edge_data.get('length', 1000))  # in meters
+                        weight = float(edge_data.get('weight', base_length))
+                        
+                        # Print segment details
+                        print(f"Segment {u}->{v}:")
+                        print(f"  Base Length: {base_length:.2f}m")
+                        print(f"  Weight: {weight:.2f}")
+                        print(f"  Congestion Factor: {(weight/base_length):.2f}")
+                        
+                        path_length += base_length
+                        total_weight += weight
+                        congestion_factor = weight / base_length
+                        congestion_level = max(congestion_level, congestion_factor)
+                        
+                        # Calculate segment time:
+                        # base_length is in meters
+                        # Convert to km and calculate time in minutes
+                        # Assume base speed of 35 km/h adjusted by congestion
+                        speed_kmh = 35 * (1 / congestion_factor)  # speed in km/h
+                        segment_time = (base_length / 1000) / speed_kmh * 60  # Convert to minutes
+                        
+                        total_time += segment_time
+                        print(f"  Estimated Time: {segment_time:.2f} minutes")
+                    
+                    # Add final node
+                    coordinates.append([float(G.nodes[path[-1]]['y']), float(G.nodes[path[-1]]['x'])])
+                    
+                    # Print route summary
+                    print("\nRoute Summary:")
+                    print(f"Total Distance: {path_length/1000:.2f}km")
+                    print(f"Total Weight: {total_weight:.2f}")  
                     print(f"Average Congestion: {congestion_level:.2f}")
                     print(f"Estimated Time: {total_time:.2f} minutes")
                     print("-" * 50)

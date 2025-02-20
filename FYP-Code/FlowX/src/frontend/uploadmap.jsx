@@ -139,7 +139,6 @@ function UploadMap() {
                                 onClick={toggleTrafficSimulation}
                                 disabled={!selectedMap}
                             >
-                                <i className="fas fa-play"></i>
                                 {isSimulating ? 'Stop Simulation' : 'Start Simulation'}
                             </button>
                             {isSimulating && (

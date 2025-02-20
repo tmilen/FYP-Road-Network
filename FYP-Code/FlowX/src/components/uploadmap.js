@@ -1330,6 +1330,7 @@ const useUploadMap = () => {
             currentId = previous.get(currentId);
         }
 
+        console.log("Path found (Dijkstra):", path.map(n => n.id).join(' -> '));
         return path.length > 1 ? path : null;
     };
 
@@ -1493,6 +1494,7 @@ const useUploadMap = () => {
             currentId = previous.get(currentId);
         }
     
+        console.log("Path found (Bellman-Ford):", path.map(n => n.id).join(' -> '));
         return path.length > 1 ? path : null;
     };
 
@@ -1724,7 +1726,7 @@ const useUploadMap = () => {
         return Math.abs(d1 + d2 - lineLen) < buffer;
     };
     
-    // Add this helper function to calculate distance between two points
+    // Fix the getDistance function
     const getDistance = (x1, y1, x2, y2) => {
         return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
     };
@@ -1733,6 +1735,7 @@ const useUploadMap = () => {
     const startSimulation = () => {
         try {
             console.log("Starting simulation...");
+            setIsSimulating(true); // Add this line to set simulation state
             const svg = document.querySelector('.map-svg');
             if (!svg) {
                 console.error("No SVG element found");
@@ -1818,15 +1821,21 @@ const useUploadMap = () => {
             setNodes(newNodes);
             setGraph(newGraph);
             
+            // Store the wrapper timeout ID
+            let spawnTimeout;
             const spawnVehicleWrapper = () => {
                 spawnVehicle(svg, newNodes, newGraph, vehiclesGroup);
-                // Randomize the next spawn time between 500ms and 2000ms
-                const nextSpawnTime = Math.random() * 1500 + 500;
-                setTimeout(spawnVehicleWrapper, nextSpawnTime);
+                spawnTimeout = setTimeout(spawnVehicleWrapper, Math.random() * 1500 + 500);
             };
-        
-            // Start the first vehicle spawn
-            spawnVehicleWrapper();
+            
+            // Start spawning and store the timeout
+            spawnTimeout = setTimeout(spawnVehicleWrapper, 0);
+            
+            // Store the timeout in the simulation interval object
+            setSimulationInterval(prev => ({
+                ...prev,
+                spawn: spawnTimeout
+            }));
             
             // Add traffic signal animation with fixed timing
             const animateTrafficSignals = () => {
@@ -1945,109 +1954,87 @@ const useUploadMap = () => {
 
     const stopSimulation = () => {
         try {
+            setIsSimulating(false);
+            
+            // Stop all timeouts and intervals
             if (simulationInterval) {
-                // Clear spawn interval
+                // Clear spawn timeout
                 if (simulationInterval.spawn) {
-                    clearInterval(simulationInterval.spawn);
+                    clearTimeout(simulationInterval.spawn);
                 }
 
-                // Clear and reset signals to original state
-                const signalsGroup = document.querySelector('#traffic-signals');
-                if (signalsGroup) {
-                    const signals = signalsGroup.querySelectorAll('circle');
-                    signals.forEach(signal => {
-                        // Clear all timeouts and intervals
-                        if (signal._interval) {
-                            clearInterval(signal._interval);
-                            delete signal._interval;
-                        }
-                        if (signal._timeouts) {
-                            signal._timeouts.forEach(timeout => clearTimeout(timeout));
-                            delete signal._timeouts;
-                        }
-
-                        // Reset to original appearance
-                        signal.setAttribute('fill', '#f1c40f');    // Yellow color
-                        signal.setAttribute('stroke', '#f39c12');   // Yellow stroke
-                        signal.setAttribute('r', '6');             // Original size
-                        signal.style.transition = 'none';
-                        
-                        // Remove all simulation attributes
-                        signal.removeAttribute('data-state');
-                        signal.removeAttribute('data-next-change');
-                        signal.removeAttribute('data-cycle-time');
-                        signal.removeAttribute('data-offset');
-                    });
+                // Clear density update interval
+                if (simulationInterval.density) {
+                    clearInterval(simulationInterval.density);
                 }
 
-                // Clear all remaining signal intervals
+                // Clear all signal intervals
                 if (simulationInterval.signals) {
                     if (Array.isArray(simulationInterval.signals)) {
                         simulationInterval.signals.forEach(interval => {
                             if (interval) clearInterval(interval);
                         });
-                    } else if (typeof simulationInterval.signals === 'number') {
+                    } else {
                         clearInterval(simulationInterval.signals);
                     }
                 }
-
-                // Remove vehicles
-                const vehiclesGroup = document.querySelector('#vehicles');
-                if (vehiclesGroup) {
-                    // Clean up each vehicle's animations
-                    const vehicles = vehiclesGroup.querySelectorAll('.vehicle');
-                    vehicles.forEach(vehicle => {
-                        if (vehicle._cleanup) {
-                            vehicle._cleanup();
-                        }
-                        if (vehicle._animationFrame) {
-                            cancelAnimationFrame(vehicle._animationFrame);
-                        }
-                        vehicle.remove();
-                    });
-                    
-                    // Remove vehicles group entirely
-                    vehiclesGroup.remove();
-                }
-
-                // Reset all simulation state
-                setSimulationInterval(null);
-                setIsSimulating(false);
-
-                // Handle any remaining timeouts or intervals
-                if (window._simulationTimeouts) {
-                    window._simulationTimeouts.forEach(timeout => clearTimeout(timeout));
-                    window._simulationTimeouts = [];
-                }
-
-                // Re-render the signals in their original state
-                if (uploadedData && uploadedData.trafficSignals) {
-                    const svg = document.querySelector('.map-svg');
-                    if (svg) {
-                        const signalsGroup = svg.querySelector('#traffic-signals');
-                        if (signalsGroup) {
-                            signalsGroup.innerHTML = '';
-                            uploadedData.trafficSignals.forEach((signal, index) => {
-                                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                                circle.setAttribute('id', signal.id || `signal_${index + 1}`);
-                                circle.setAttribute('cx', signal.x);
-                                circle.setAttribute('cy', signal.y);
-                                circle.setAttribute('r', '6');
-                                circle.setAttribute('fill', '#f1c40f');
-                                circle.setAttribute('stroke', '#f39c12');
-                                circle.setAttribute('stroke-width', '2');
-                                circle.setAttribute('class', 'traffic-signal');
-                                signalsGroup.appendChild(circle);
-                            });
-                        }
-                    }
-                }
-
-                toast.info('Simulation stopped');
             }
+
+            // Clear any remaining timeouts in window
+            const highestTimeoutId = setTimeout(() => {}, 0);
+            for (let i = 0; i <= highestTimeoutId; i++) {
+                clearTimeout(i);
+            }
+
+            // Stop and clean up all vehicle animations
+            const vehicles = document.querySelectorAll('.vehicle');
+            vehicles.forEach(vehicle => {
+                if (vehicle._animationFrame) {
+                    cancelAnimationFrame(vehicle._animationFrame);
+                }
+                if (vehicle._cleanup) {
+                    vehicle._cleanup();
+                }
+                vehicle.remove();
+            });
+
+            // Remove vehicles group
+            const vehiclesGroup = document.querySelector('#vehicles');
+            if (vehiclesGroup) {
+                vehiclesGroup.remove();
+            }
+
+            // Reset traffic signals
+            const signals = document.querySelectorAll('#traffic-signals circle');
+            signals.forEach(signal => {
+                // Clear any stored intervals on signals
+                if (signal._interval) {
+                    clearInterval(signal._interval);
+                    delete signal._interval;
+                }
+                // Clear any stored timeouts on signals
+                if (signal._timeouts) {
+                    signal._timeouts.forEach(timeout => clearTimeout(timeout));
+                    delete signal._timeouts;
+                }
+                // Reset signal appearance
+                signal.setAttribute('fill', '#f1c40f');
+                signal.setAttribute('stroke', '#f39c12');
+                signal.setAttribute('r', '6');
+            });
+
+            // Clear high-density road highlights
+            const highDensityRoads = document.querySelectorAll('.road-high-density');
+            highDensityRoads.forEach(road => road.remove());
+
+            // Reset all simulation state
+            setSimulationInterval(null);
+            setGraph(new Map());
+            setNodes([]);
+
+            toast.success('Simulation stopped');
         } catch (error) {
             console.error("Error stopping simulation:", error);
-            setSimulationInterval(null);
             setIsSimulating(false);
             toast.error("Error stopping simulation");
         }
